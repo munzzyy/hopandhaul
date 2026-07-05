@@ -14,7 +14,7 @@ honest (flight + ground summed in one currency) we convert to USD with a labelle
 FX table; the native amount + currency are preserved and any conversion is flagged.
 
 Examples:
-  hopandhaul-duffel --from JFK --to ASE --date 2026-08-15 --auto-gateways --vot 30
+  hopandhaul duffel --from JFK --to ASE --date 2026-08-15 --auto-gateways --vot 30
   python -m hopandhaul.duffel --from JFK --to ASE --date 2026-08-15 --gateway "DEN train 75 6.0"
   python -m hopandhaul.duffel --probe --from JFK --to LAX --date 2026-08-15   # one live call
   python -m hopandhaul.duffel --selftest                                     # offline, no network

@@ -9,10 +9,21 @@ the UI and a small JSON API. There is no write path; every endpoint below is a `
 Every JSON endpoint returns an object with an `"ok"` boolean.
 
 - `{"ok": true, ...}`: the rest of the shape is documented per-endpoint below.
-- `{"ok": false, "error": "<human-readable message>"}`: something went wrong. The message is
-  always a short, generic description; the real exception (type and text) is logged
-  server-side to stderr, never sent to the client. No endpoint returns a stack trace or raw
-  exception string.
+- `{"ok": false, "error": "<human-readable message>", "code": "<machine-readable code>"}`:
+  something went wrong. `error` is always a short, generic description meant for a human;
+  `code` is a stable string meant for a caller to branch on. The real exception (type and
+  text) is logged server-side to stderr, never sent to the client. No endpoint returns a
+  stack trace or raw exception string.
+
+Codes you'll actually see: `invalid_param` (a query param failed validation — see the
+message for which one and why), `forbidden_host` (the `Host` header wasn't localhost),
+`not_found` (unknown path or missing static asset), `unknown_origin` (the `origin` IATA
+code isn't in the airport database), `no_airport_near_point` (nothing within the
+nearest-airport search radius), `origin_is_destination` (the clicked point resolves to the
+same airport as `origin` — nothing to plan), `geocoding_not_configured` / `geocode_lookup_failed`
+(no Geoapify key / the provider call failed), `no_airport_found` (`/api/nearest` found
+nothing), `internal_error` (an unexpected server-side failure, logged with the real
+exception; never sent to the client).
 
 HTTP status codes follow normal REST conventions (`400` for a malformed request, `403` for a
 rejected Host header, `404` for an unknown path or missing asset, `500` for a genuine server
@@ -23,7 +34,8 @@ normal, expected outcome for a planning request, not an HTTP-level error.
 ## Security notes relevant to callers
 
 - The server only accepts requests whose `Host` header is `127.0.0.1`, `localhost`, or `::1`
-  (a DNS-rebinding guard). Anything else gets `403 {"ok": false, "error": "forbidden host"}`.
+  (a DNS-rebinding guard). Anything else gets
+  `403 {"ok": false, "error": "forbidden host", "code": "forbidden_host"}`.
 - No endpoint ever returns an API key, token, or secret. `/api/config` reports only booleans
   and provider *names*.
 - Static assets are served from a fixed whitelist dict, not a path built from the request, so
@@ -64,18 +76,24 @@ Tells the frontend what's configured, with no secrets attached.
 
 Type-ahead place search (Geoapify). Requires `q`; `limit` defaults to 6, clamped to 1-10.
 
-- If `q` is missing or empty: `400 {"ok": false, "error": "q (query text) required"}`.
-- If no Geoapify key is configured: `200 {"ok": false, "error": "geocoding not configured"}`.
-- On a provider error: `200 {"ok": false, "error": "geocoding lookup failed"}` (the real
-  exception is logged server-side, not returned).
+- If `q` is missing or empty: `400 {"ok": false, "error": "q is required", "code": "invalid_param"}`.
+- If no Geoapify key is configured:
+  `200 {"ok": false, "error": "geocoding not configured", "code": "geocoding_not_configured"}`.
+- On a provider error:
+  `200 {"ok": false, "error": "geocoding lookup failed", "code": "geocode_lookup_failed"}`
+  (the real exception is logged server-side, not returned).
 - On success: `200 {"ok": true, "results": [...]}`, provider-shaped place results.
 
 ## `GET /api/nearest?lat=<f>&lng=<f>`
 
 Nearest airport to a point, biased toward larger hubs.
 
-- Missing/invalid `lat`/`lng`: `400 {"ok": false, "error": "lat/lng required"}`.
-- No airport resolves (extremely rare): `200 {"ok": false, "error": "no airport found"}`.
+- Missing/invalid `lat`/`lng`:
+  `400 {"ok": false, "error": "lat is required", "code": "invalid_param"}` (or the equivalent
+  message for `lng`, or `"lat must be a number"` / `"lat must be between -90 and 90"` for a
+  malformed or out-of-range value).
+- No airport resolves (extremely rare):
+  `200 {"ok": false, "error": "no airport found", "code": "no_airport_found"}`.
 - Success:
   ```json
   {"ok": true, "airport": {"iata": "DEN", "name": "...", "city": "Denver",
@@ -103,11 +121,20 @@ applies the $200 rule to recommend one.
 | `travelers` | int | `1` | Clamped to 1-9; scales per-person costs, not vehicle costs |
 | `buffer` | float | `1.0` | Transfer/connection time buffer, hours |
 
-- Missing/invalid `lat`/`lng`: `400 {"ok": false, "error": "lat and lng required"}`.
-- Unknown `origin`: `200 {"ok": false, "error": "unknown origin airport '<code>'"}`.
-- Any other internal failure: `200 {"ok": false, "error": "internal error planning that
-  route"}` (logged server-side with the real exception type/message; never sent to the
-  client).
+- Missing/invalid `lat`/`lng` (or any other query param that fails validation — bad date,
+  origin too long, threshold out of range, etc.):
+  `400 {"ok": false, "error": "lat is required", "code": "invalid_param"}` (message varies by
+  which param and how it failed; see `server.py`'s validators for the exact wording).
+- Unknown `origin`:
+  `200 {"ok": false, "error": "unknown origin airport '<code>'", "code": "unknown_origin"}`.
+- The clicked point resolves to the same airport as `origin` — nothing to plan:
+  `200 {"ok": false, "error": "that point resolves to your origin airport — no flight needed",
+  "code": "origin_is_destination"}`.
+- No airport within range of the clicked point:
+  `200 {"ok": false, "error": "no airport found near that point", "code": "no_airport_near_point"}`.
+- Any other internal failure:
+  `200 {"ok": false, "error": "internal error planning that route", "code": "internal_error"}`
+  (logged server-side with the real exception type/message; never sent to the client).
 - Success shape (trimmed):
   ```json
   {
@@ -166,4 +193,4 @@ Returns `204 No Content`.
 
 ## Anything else
 
-`404 {"ok": false, "error": "not found"}`.
+`404 {"ok": false, "error": "not found", "code": "not_found"}`.

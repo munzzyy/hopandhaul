@@ -106,9 +106,15 @@ python -m hopandhaul.providers --selftest
 
 ## Configuration (all optional)
 
-Copy `secrets.local.example.json` to `src/hopandhaul/secrets.local.json` and fill in real
-keys, or set the equivalent environment variables (env always wins). See that file for the
-full list. Nothing here is required to run the app in estimate mode.
+Set environment variables for whichever keys you have — `DUFFEL_API_KEY` (or the Amadeus
+pair), `GEOAPIFY_API_KEY`, `OPENWEATHER_API_KEY`. Env vars always win and work for both a
+repo checkout and a real `pip install`. Nothing here is required to run the app in estimate
+mode.
+
+If you're working from a repo checkout (not a wheel install), there's also a
+`secrets.local.example.json` you can copy to `src/hopandhaul/secrets.local.json` and fill in
+instead — see that file for the full key list. It's a convenience for local dev only: it
+isn't packaged into the wheel, so it isn't available after a normal `pip install`.
 
 ## What this isn't
 
