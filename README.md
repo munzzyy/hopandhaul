@@ -119,6 +119,16 @@ pair), `GEOAPIFY_API_KEY`, `OPENWEATHER_API_KEY`. Env vars always win and work f
 repo checkout and a real `pip install`. Nothing here is required to run the app in estimate
 mode.
 
+Free tiers, if you want to add a key:
+
+- **Duffel** — [app.duffel.com/join](https://app.duffel.com/join), instant sandbox access, no
+  card required. A test-mode key (`duffel_test_...`) is enough to see live-shaped pricing
+  logic; it just prices Duffel's own test airline instead of real fares.
+- **Geoapify** — [geoapify.com](https://www.geoapify.com/), free without a card, 3,000
+  geocoding requests/day. Powers the place-search box and reverse geocoding.
+- **OpenWeather** — [openweathermap.org/api](https://openweathermap.org/api), free without a
+  card. Powers the destination weather chip; takes up to ~2 hours to activate after signup.
+
 If you're working from a repo checkout (not a wheel install), there's also a
 `secrets.local.example.json` you can copy to `src/hopandhaul/secrets.local.json` and fill in
 instead — see that file for the full key list. It's a convenience for local dev only: it
