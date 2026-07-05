@@ -361,9 +361,19 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     origin = geo.by_iata(origin_iata)
     if not origin:
         return {"ok": False, "error": f"unknown origin airport '{origin_iata}'", "code": "unknown_origin"}
-    dest = geo.nearest_airport(dest_lat, dest_lng)
+    # prefer_hub=True so a click near a city snaps to the field with real airline service
+    # instead of the literal closest point on the map (a seaplane base, a business-aviation
+    # field) — matches what /api/nearest already does.
+    dest = geo.nearest_airport(dest_lat, dest_lng, prefer_hub=True)
     if not dest:
         return {"ok": False, "error": "no airport found near that point", "code": "no_airport_near_point"}
+    # clicking on (or right next to) your own origin airport has no flight to plan — without
+    # this guard the engine happily prices a same-airport "direct flight" off the NA short-hop
+    # floor and recommends it with full confidence.
+    if dest["iata"] == origin["iata"]:
+        return {"ok": False,
+                "error": "that point resolves to your origin airport — no flight needed",
+                "code": "origin_is_destination"}
 
     travelers = max(1, min(9, int(travelers)))
     if ret:
@@ -393,21 +403,30 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         return _price_flight(origin, target, date, ret, travelers, session, local, deadline), local
 
     if session and date and len(flight_targets) > 1:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=min(6, len(flight_targets))) as ex:
-            futures = [ex.submit(_price, t) for t in flight_targets]
-            priced = []
-            remaining = max(0.0, deadline - time.monotonic())
-            done, not_done = concurrent.futures.wait(futures, timeout=remaining)
-            fmap = dict(zip(futures, flight_targets))
-            for f in futures:
-                if f in done:
-                    priced.append(f.result())
-                else:
-                    f.cancel()
-                    target = fmap[f]
-                    local = {"live_error": True}
-                    priced.append((_price_flight(origin, target, None, None, travelers,
-                                                 None, local, deadline), local))
+        # Not a `with` block on purpose: ThreadPoolExecutor.__exit__ calls shutdown(wait=True),
+        # which blocks until every submitted worker returns — including ones we've already
+        # given up on below. That defeated PLAN_TIME_BUDGET_S entirely: a single hung provider
+        # call (e.g. Duffel's own 30s timeout x net.py's retries) held the whole /api/plan
+        # response for however long that worker took, not the budget. Instead we shut down
+        # with wait=False, cancel_futures=True: any thread still in flight keeps running in
+        # the background (its result is discarded, though the offer cache still benefits if
+        # it finishes) while this request returns as soon as the deadline is up.
+        ex = concurrent.futures.ThreadPoolExecutor(max_workers=min(6, len(flight_targets)))
+        futures = [ex.submit(_price, t) for t in flight_targets]
+        priced = []
+        remaining = max(0.0, deadline - time.monotonic())
+        done, not_done = concurrent.futures.wait(futures, timeout=remaining)
+        fmap = dict(zip(futures, flight_targets))
+        for f in futures:
+            if f in done:
+                priced.append(f.result())
+            else:
+                f.cancel()
+                target = fmap[f]
+                local = {"live_error": True}
+                priced.append((_price_flight(origin, target, None, None, travelers,
+                                             None, local, deadline), local))
+        ex.shutdown(wait=False, cancel_futures=True)
     else:
         priced = [_price(t) for t in flight_targets]
     for _pr, local in priced:              # merge per-worker flags back into the shared ctx
@@ -781,11 +800,29 @@ def selftest():
     out2 = plan(39.74, -104.99, origin_iata="JFK", fetch_weather=False, allow_live=False)
     check("Denver click recommends flying direct", out2["result"]["recommended"].startswith("Fly direct"))
 
+    # a click in Manhattan must resolve to a real airline-served NYC airport, not the closest
+    # point on the map (New York Skyports Inc Seaplane Base sits right off the FDR Drive).
+    nyc = plan(40.71, -74.0, origin_iata="BOS", fetch_weather=False, allow_live=False)
+    check(f"Manhattan click resolves to a real NYC airport (got {nyc['dest']['iata']})",
+          nyc["dest"]["iata"] in {"JFK", "LGA", "EWR"})
+
+    # a click in central Paris must resolve to CDG/ORY, not LBG (Le Bourget — business
+    # aviation, no scheduled airline service).
+    paris = plan(48.86, 2.35, origin_iata="JFK", fetch_weather=False, allow_live=False)
+    check(f"Central Paris click resolves to CDG/ORY, not Le Bourget (got {paris['dest']['iata']})",
+          paris["dest"]["iata"] in {"CDG", "ORY"})
+
     # a mid-ocean click has no airport within the max-km cap, so it's refused cleanly
     # instead of routing to an airport a thousand+ km away.
     out3 = plan(30.0, -40.0, origin_iata="JFK", fetch_weather=False, allow_live=False)
     check("ocean click with no airport in range is refused cleanly",
           (not out3["ok"]) and out3.get("code") == "no_airport_near_point")
+
+    # clicking on your own origin airport must be refused, not priced as a real "direct
+    # flight" to itself off the NA short-hop floor.
+    same_origin = plan(40.64, -73.78, origin_iata="JFK", fetch_weather=False, allow_live=False)
+    check("clicking your own origin airport is refused, not priced as a same-airport flight",
+          (not same_origin["ok"]) and same_origin.get("code") == "origin_is_destination")
 
     # travelers: 4 people scale flights & buses ×4, but a rental/drive leg stays per-vehicle,
     # so the group total is strictly less than 4× the solo total whenever a drive leg exists.
@@ -839,6 +876,38 @@ def selftest():
           out_fallback.get("pricing_source") == "estimate")
     check("a live_error note is surfaced when the live lookup failed",
           any("fell back to estimates" in n for n in out_fallback["notes"]))
+
+    # ---- wall-clock regression: PLAN_TIME_BUDGET_S must actually bound plan()'s runtime, not
+    # just its own bookkeeping. Before this fix the `with ThreadPoolExecutor(...)` block's
+    # __exit__ called shutdown(wait=True) and blocked until every hung worker returned —
+    # even the ones already given up on and re-priced as estimates — so a slow provider held
+    # the whole response for its own timeout, not the budget. Mock search_cheapest to sleep
+    # well past a short budget and confirm plan() returns quickly anyway.
+    import time as _time
+
+    def _slow_search_cheapest(*a, **kw):
+        _time.sleep(3.0)
+        raise net.FetchError("should never be awaited by plan()", status=599)
+
+    # patch this module's OWN globals (not "hopandhaul.server" by dotted path) — run via
+    # `python -m hopandhaul.server --selftest` this module is loaded as __main__, so a
+    # string-path patch would patch a second, separately-imported copy of the module and
+    # never touch the PLAN_TIME_BUDGET_S that the running plan() actually reads.
+    _this_module = sys.modules[__name__]
+    budget_start = _time.monotonic()
+    with _mock.patch.object(flights, "have_keys", return_value=True), \
+         _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
+         _mock.patch.object(flights, "search_cheapest", side_effect=_slow_search_cheapest), \
+         _mock.patch.object(_this_module, "PLAN_TIME_BUDGET_S", 1.0):
+        out_budget = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15",
+                          fetch_weather=False, allow_live=True)
+    budget_elapsed = _time.monotonic() - budget_start
+    check(f"plan() returns near the 1s budget, not the 3s provider hang (took {budget_elapsed:.2f}s)",
+          budget_elapsed < 2.0)
+    check("a plan that hit the time budget still returns ok:True",
+          out_budget.get("ok") is True)
+    check("pricing degrades to estimate when the deadline is hit before any live result",
+          out_budget.get("pricing_source") == "estimate")
 
     # ---- error-contract + input-validation checks (no HTTP needed — call the validators
     # and handlers' underlying helpers directly, matching what Handler does with parse_qs output)

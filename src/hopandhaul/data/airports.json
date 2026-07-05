@@ -2402,7 +2402,7 @@
       "country": "US",
       "lat": 42.47,
       "lng": -71.289,
-      "hub": 2
+      "hub": 3
     },
     {
       "iata": "BEF",
@@ -9620,7 +9620,7 @@
       "country": "US",
       "lat": 32.82,
       "lng": -97.361,
-      "hub": 2
+      "hub": 3
     },
     {
       "iata": "FUE",
@@ -17252,7 +17252,7 @@
       "country": "FR",
       "lat": 48.962,
       "lng": 2.437,
-      "hub": 1
+      "hub": 3
     },
     {
       "iata": "LBH",
@@ -23300,7 +23300,7 @@
       "country": "US",
       "lat": 25.907,
       "lng": -80.278,
-      "hub": 2
+      "hub": 3
     },
     {
       "iata": "OPO",
@@ -23957,7 +23957,7 @@
       "country": "US",
       "lat": 33.876,
       "lng": -84.302,
-      "hub": 2
+      "hub": 3
     },
     {
       "iata": "PDL",
@@ -30203,7 +30203,7 @@
       "country": "US",
       "lat": 40.85,
       "lng": -74.061,
-      "hub": 2
+      "hub": 3
     },
     {
       "iata": "TEE",

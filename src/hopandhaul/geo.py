@@ -238,7 +238,7 @@ def region_of(lat: float, lng: float) -> str:
         return "EU"          # mainland Europe + Canaries/Madeira/Azores
     if 62 <= lat <= 67.5 and -25 <= lng <= -13:
         return "EU"          # Iceland
-    if -44 <= lat <= -59 and -73 <= lng <= -56:
+    if -59 <= lat <= -44 and -73 <= lng <= -56:
         return "LATAM"       # Tierra del Fuego / far-south Chile-Argentina (below the LATAM box)
     if 58 <= lat <= 84 and -75 <= lng <= -10:
         return "EU"          # Greenland (Danish territory; nearest real ground/fare market)
@@ -562,6 +562,20 @@ def selftest():
     check(f"nearest to London is a London field (got {lon['iata']})",
           lon["iata"] in {"LHR", "LCY", "LGW", "STN", "LTN"})
 
+    # nearest to central Paris must land on CDG/ORY (scheduled airline service), not Le
+    # Bourget (LBG — business aviation only; used to carry hub tier 1, outranking the real
+    # commercial fields under prefer_hub's scoring).
+    par = nearest_airport(48.86, 2.35, prefer_hub=True)
+    check(f"nearest to Paris is CDG/ORY, not LBG (got {par['iata']})",
+          par["iata"] in {"CDG", "ORY"})
+
+    # general-aviation/business-aviation fields with no scheduled airline service must never
+    # outrank a real commercial airport under prefer_hub — confirm each was actually demoted.
+    for code in ("LBG", "TEB", "PDK", "FTW", "OPF", "BED"):
+        a = by_iata(code)
+        check(f"{code} is tiered as no-scheduled-service (hub 3), not a real hub",
+              a is not None and a["hub"] == 3)
+
     # flight estimate JFK->ASE should carry a small-airport premium and beat JFK->DEN's raw base
     jfk, ase, den = by_iata("JFK"), by_iata("ASE"), by_iata("DEN")
     fa, fd = estimate_flight(jfk, ase), estimate_flight(jfk, den)
@@ -631,6 +645,14 @@ def selftest():
     check("Johannesburg is ZA; Nairobi is AF; Tenerife is EU",
           region_of(-26.13, 28.23) == "ZA" and region_of(-1.32, 36.93) == "AF"
           and region_of(28.04, -16.57) == "EU")
+
+    # regression: the Tierra del Fuego box used to read "-44 <= lat <= -59", which can never
+    # be true (lat can't be both >= -44 and <= -59) — an always-false condition that silently
+    # fell through to the later, wider LATAM box. Harmless in that one case (same answer either
+    # way), but worth a direct check since it's exactly the kind of dead conditional that's
+    # easy to reintroduce.
+    check("Cape Horn / Tierra del Fuego resolves to LATAM (regression: unsatisfiable bounds)",
+          region_of(-57.0, -65.0) == "LATAM")
 
     # route-market calibration: same curve, different competition
     bcn, fco2 = by_iata("BCN"), by_iata("FCO")

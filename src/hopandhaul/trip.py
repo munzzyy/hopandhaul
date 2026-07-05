@@ -168,9 +168,17 @@ def sugar_split(text: str) -> str:
 
 # --------------------------------------------------------------------------- reasoning
 def _dominates(a: dict, b: dict) -> bool:
-    """a dominates b if a is no worse on both cost and time, and strictly better on one."""
-    return a["cost"] <= b["cost"] and a["hours"] <= b["hours"] and (
-        a["cost"] < b["cost"] or a["hours"] < b["hours"]
+    """a dominates b if a is no worse on both cost and time, and strictly better on one.
+
+    Time here means hours_eff (raw hours + the per-transfer buffer) — evaluate() has already
+    annotated that onto every option before this is called. Comparing raw "hours" let a split
+    that's actually slower once you account for the transfer buffer get called "cheaper AND
+    faster" (dominant) instead of just cheaper — a self-contradicting result. Falls back to
+    "hours" only if a caller passes in options that were never buffered.
+    """
+    a_h, b_h = a.get("hours_eff", a["hours"]), b.get("hours_eff", b["hours"])
+    return a["cost"] <= b["cost"] and a_h <= b_h and (
+        a["cost"] < b["cost"] or a_h < b_h
     )
 
 
@@ -611,7 +619,23 @@ def selftest():
     o11b = parse_option("Fine | fly 200 3.0 ; train 40 2.0")
     check("known modes are not flagged", not any(leg["mode_unknown"] for leg in o11b["legs"]))
 
-    n_cases = 11
+    # Case 12: dominance must use the buffered (effective) hours, not raw hours. This split
+    # is $70 cheaper (below the $200 rule) but its transfer buffer makes it 54 minutes SLOWER
+    # than direct — it must never be tagged "dominant"/"cheaper AND faster", and direct must
+    # stay recommended. Before this fix, _dominates() compared raw "hours" (2.5+2.4=4.9 <
+    # 5.0), calling it dominant even though hours_eff (5.9, after +1h buffer) was slower.
+    opts12 = [parse_option("Direct | fly 620 5.0"),
+              parse_option("Hub | fly 500 2.5 ; train 50 2.4")]
+    r12 = evaluate(opts12, threshold=200, transfer_buffer=1.0)
+    hub12 = next(o for o in r12["options"] if o["name"] == "Hub")
+    check("below-threshold split that's slower after the buffer is NOT dominant",
+          hub12["dominant"] is False)
+    check("that split is tagged cheaper_below_threshold, not a false 'dominant' win",
+          hub12["status"] == "cheaper_below_threshold")
+    check("direct stays recommended (the $70 saving doesn't clear the $200 rule)",
+          r12["recommended"] == "Direct")
+
+    n_cases = 12
     print(f"\n{'ALL PASS' if not failures else str(len(failures)) + ' FAILED'} "
           f"({n_cases} cases)")
     return 1 if failures else 0
