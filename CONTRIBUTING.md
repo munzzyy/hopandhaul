@@ -66,6 +66,28 @@ idea" facts. If you know a real one that's missing, open an issue with the
 `gateway_suggestion` template — it asks for exactly the fields needed to turn it into a
 one-line PR.
 
+## Airport data corrections
+
+`airports.json` holds one row per airport: IATA code, name, city, country, coordinates, and a
+`hub` tier (1 = major/cheap/frequent, 2 = medium, 3 = small/regional/resort — few flights,
+pricey). The tier drives real behavior: it's what makes the planner prefer DEN over a tiny
+strip when both are "near" a click, and what the $200 rule is comparing against. A wrong tier
+or a stale/duplicate row is a real bug.
+
+If you spot one — an airport tiered wrong for its actual size, a missing IATA code, a
+coordinate that's off enough to affect nearest-airport resolution — open an issue with the
+`bug` label and say which `iata` row and what it should be instead, with a source (an
+airline's own route map, an airport's published stats, anything better than a hunch). Small,
+single-row corrections are also welcome as a direct PR; `geo.py --selftest` has a block of
+regression tests for exactly this class of bug (see the LBG/TEB/PDK/FTW/OPF/BED entries) —
+add a case there if your fix could silently regress later.
+
+There's currently no automated importer script in this repo (`airports.json`'s own
+`_README` field references refreshing a floor import from
+[OurAirports](https://github.com/davidmegginson/ourairports-data) — that step happens
+outside this repo when a full refresh is due, not as a script contributors run). Day to day,
+treat `airports.json` as a hand-curated file you edit directly.
+
 ## Pull requests
 
 Keep them focused: one fix or one feature per PR. Describe what changed and why, not just

@@ -264,6 +264,14 @@
     {"dest": "Queenstown, New Zealand", "dest_airport": "ZQN",
       "gateways": [
         {"hub": "Christchurch", "hub_airport": "CHC", "ground_mode": "drive", "ground_time_h": 6.2, "ground_cost_usd": 130, "notes": "long scenic drive; only wins when ZQN peak fares spike"}
+      ]},
+    {"dest": "Koh Chang, Thailand", "dest_airport": "TDX",
+      "gateways": [
+        {"hub": "Bangkok Suvarnabhumi", "hub_airport": "BKK", "ground_mode": "bus", "ground_time_h": 5.5, "ground_cost_usd": 14, "notes": "government bus (Ekkamai) + ferry combo; TDX is a Bangkok Airways monopoly route and costs far more than the bus+ferry"}
+      ]},
+    {"dest": "Boracay, Philippines", "dest_airport": "MPH",
+      "gateways": [
+        {"hub": "Kalibo", "hub_airport": "KLO", "ground_mode": "bus", "ground_time_h": 2.5, "ground_cost_usd": 8, "notes": "van/bus to Caticlan jetty then a short boat crossing; KLO has far more flights and cheaper fares than the small Caticlan strip"}
       ]}
   ]
 }

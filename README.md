@@ -13,6 +13,14 @@ rule applied to your click. A separate callout flags whichever option is greenes
 from whichever is cheapest. A copy-link button turns the plan into a URL you can send
 someone. Run it yourself below; it takes about 30 seconds.
 
+![A map click on Aspen, CO producing a recommendation card: flying direct beats every
+gateway split here, with DEN + bus flagged separately as the lowest-carbon
+option.](docs/img/screenshot.png)
+
+This is a live screenshot, not a mockup — [try the same trip yourself](https://github.com/munzzyy/hopandhaul#quick-start)
+with no API keys, or open it locally once it's running:
+`http://127.0.0.1:8770/?lat=39.1911&lng=-106.8175&place=Aspen,+CO&origin=JFK`.
+
 ## The idea
 
 Sometimes the cheapest way to get somewhere isn't flying there directly. It's flying into a
