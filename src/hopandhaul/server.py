@@ -8,7 +8,7 @@ clicked lat/lng; the server finds the nearest airport, discovers cheaper-hub + g
 distance ESTIMATES), and runs the deterministic engine (trip.py) with Cole's $200 rule.
 
 Security: binds 127.0.0.1 only; rejects requests whose Host isn't localhost (DNS-rebinding
-guard); serves exactly one static file (no path traversal); no writes; no third-party code;
+guard); serves packaged ui/ assets, realpath-checked (no path traversal); no writes; no third-party code;
 no outbound network call ever builds its target host from client input (see SECURITY.md).
 
 Run:  python -m hopandhaul.server [--port 8770]
@@ -49,13 +49,37 @@ _UI_ROOT = str(importlib.resources.files("hopandhaul") / "ui")
 INDEX = os.path.join(_UI_ROOT, "index.html")
 DEFAULT_PORT = int(os.environ.get("TRAVEL_PORT", "8770"))
 ALLOWED_HOSTS = {"127.0.0.1", "localhost", "::1"}
-# whitelisted static assets (self-hosted Leaflet) — exact paths only, no traversal.
-STATIC = {
-    "/vendor/leaflet.js": (os.path.join(_UI_ROOT, "vendor", "leaflet.js"),
-                           "application/javascript; charset=utf-8"),
-    "/vendor/leaflet.css": (os.path.join(_UI_ROOT, "vendor", "leaflet.css"),
-                            "text/css; charset=utf-8"),
+# Static UI assets are served from the packaged ui/ dir only, keyed by extension, with a
+# realpath check that refuses anything resolving outside ui/ (no path traversal).
+_UI_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".webmanifest": "application/manifest+json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/x-icon",
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
 }
+_UI_REAL = os.path.realpath(_UI_ROOT)
+
+
+def _resolve_ui_asset(url_path):
+    """Map a request path to a file inside ui/, or None. Only known asset extensions,
+    and the resolved realpath must stay within ui/ — this is the traversal guard."""
+    rel = url_path.lstrip("/")
+    ctype = _UI_TYPES.get(os.path.splitext(rel)[1].lower())
+    if not rel or not ctype:
+        return None
+    real = os.path.realpath(os.path.join(_UI_ROOT, rel))
+    if real != _UI_REAL and not real.startswith(_UI_REAL + os.sep):
+        return None
+    if not os.path.isfile(real):
+        return None
+    return real, ctype
 
 # ------------------------------------------------------------------- error contract
 # Every endpoint returns {"ok": true, ...} or {"ok": false, "error": <human-safe>, "code": <str>}.
@@ -538,9 +562,9 @@ class Handler(BaseHTTPRequestHandler):
         if u.path in ("/", "/index.html"):
             return self._serve_file(INDEX, "text/html; charset=utf-8", missing_code=500,
                                     missing_msg="index.html missing")
-        if u.path in STATIC:
-            fp, ctype = STATIC[u.path]
-            return self._serve_file(fp, ctype, missing_code=404, missing_msg="asset missing")
+        asset = _resolve_ui_asset(u.path)
+        if asset:
+            return self._serve_file(asset[0], asset[1], missing_code=404, missing_msg="asset missing")
         if u.path == "/healthz":
             return self._send_ok({"version": __version__})
         if u.path == "/api/config":
@@ -666,6 +690,14 @@ def selftest():
             fails.append(name)
 
     check("index.html exists", os.path.exists(INDEX))
+    # the UI is split into ES modules + a stylesheet — the asset resolver must serve them
+    # (a regression here silently ships an unstyled, mapless page), and refuse traversal.
+    check("serves ui/styles.css", _resolve_ui_asset("/styles.css") is not None)
+    check("serves ui/app.js", _resolve_ui_asset("/app.js") is not None)
+    check("serves vendored leaflet", _resolve_ui_asset("/vendor/leaflet.js") is not None)
+    check("refuses path traversal", _resolve_ui_asset("/../server.py") is None
+          and _resolve_ui_asset("/../../etc/passwd") is None)
+    check("refuses unknown extension", _resolve_ui_asset("/secrets.env") is None)
 
     # end-to-end plan for a click on Aspen, origin JFK — estimate mode, no network.
     # (allow_live=False -> no provider session; fetch_weather=False -> no OpenWeather call)
