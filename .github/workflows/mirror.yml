@@ -1,0 +1,26 @@
+name: Mirror to GitLab
+on:
+  push:
+    branches: [main]
+    tags: ['**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency: mirror
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Push to GitLab
+        env:
+          KEY: ${{ secrets.GITLAB_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/mirror_key
+          chmod 600 ~/.ssh/mirror_key
+          ssh-keyscan gitlab.com >> ~/.ssh/known_hosts 2>/dev/null
+          git remote add gitlab git@gitlab.com:flight-unreached/hopandhaul.git
+          GIT_SSH_COMMAND='ssh -i ~/.ssh/mirror_key' git push gitlab HEAD:refs/heads/main --tags --force
