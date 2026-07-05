@@ -22,10 +22,12 @@ Every module carries its own offline self-test, no keys or network required:
 python -m hopandhaul.trip --selftest
 python -m hopandhaul.geo --selftest
 python -m hopandhaul.server --selftest
+python -m hopandhaul.emissions --selftest
 python -m hopandhaul.duffel --selftest
 python -m hopandhaul.geoapify --selftest
 python -m hopandhaul.weather --selftest
 python -m hopandhaul.providers --selftest
+python -m hopandhaul.integrations.net
 ```
 
 All of these run in CI on every PR (see `.github/workflows/ci.yml`). If you touch a module,

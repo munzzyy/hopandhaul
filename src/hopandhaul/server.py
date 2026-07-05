@@ -5,7 +5,9 @@ server.py — tiny localhost server for the travel-scout click-the-map UI.
 Serves ui/index.html and a JSON API. On a map click the browser calls /api/plan with the
 clicked lat/lng; the server finds the nearest airport, discovers cheaper-hub + ground gateways
 (geo.py), prices every leg (live Duffel via flights.py if keys are set, else transparent
-distance ESTIMATES), and runs the deterministic engine (trip.py) with Cole's $200 rule.
+distance ESTIMATES), and runs the deterministic engine (trip.py) with Cole's $200 rule. Each
+option also gets a rough co2e_kg estimate (emissions.py) and the response points out whichever
+option is lowest-carbon ("greenest") — informational only, never used to pick "recommended".
 
 Security: binds 127.0.0.1 only; rejects requests whose Host isn't localhost (DNS-rebinding
 guard); serves packaged ui/ assets, realpath-checked (no path traversal); no writes; no third-party code;
@@ -29,7 +31,7 @@ import urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
-from . import __version__, geo, trip
+from . import __version__, emissions, geo, trip
 try:
     from . import flights     # provider-agnostic live pricing (Duffel preferred, Amadeus fallback)
 except Exception:  # pragma: no cover
@@ -404,7 +406,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             if v:
                 ctx[k] = v
 
-    options, geo_by_name, notes = [], {}, []
+    options, geo_by_name, emissions_legs_by_name, notes = [], {}, {}, []
 
     def _flight_cost(f):
         """Flight leg cost: already all-travelers; ×2 only when a RT wasn't really priced."""
@@ -417,6 +419,10 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     direct_name = f"Fly direct to {dest['iata']}"
     options.append(trip.parse_option(f"{direct_name} | fly {_flight_cost(df)} {df['hours']}"))
     geo_by_name[direct_name] = [{"type": "flight", "from": _pt(origin), "to": _pt(dest)}]
+    # emissions distance is always the great-circle flight distance, regardless of whether the
+    # fare itself came from a live quote or an estimate — CO2e only cares about km flown, not $.
+    direct_km = geo.haversine_km(origin["lat"], origin["lng"], dest["lat"], dest["lng"]) * rt_mult
+    emissions_legs_by_name[direct_name] = [{"mode": "fly", "distance_km": direct_km}]
 
     # splits (fly to a cheaper hub, then ground it) — ground legs are one-way per-person
     # estimates: scale per-person modes ×travelers (vehicles stay flat) and ×2 on a round-trip.
@@ -431,14 +437,30 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             {"type": "flight", "from": _pt(origin), "to": _pt(g)},
             {"type": "ground", "mode": g["ground_mode"], "from": _pt(g), "to": _pt(dest)},
         ]
+        fly_km = geo.haversine_km(origin["lat"], origin["lng"], g["lat"], g["lng"]) * rt_mult
+        # ground distance: same road-winding factor geo.py's own estimator uses, so a curated
+        # gateway (which only ships a ground_time_h/ground_cost_usd, no distance) gets an
+        # emissions figure consistent with an auto-discovered one built from estimate_ground.
+        ground_km = geo.haversine_km(g["lat"], g["lng"], dest["lat"], dest["lng"]) * geo.ROAD_WINDING * rt_mult
+        emissions_legs_by_name[name] = [
+            {"mode": "fly", "distance_km": fly_km},
+            {"mode": g["ground_mode"], "road_km": ground_km},
+        ]
 
     res = trip.evaluate(options, threshold=threshold, vot=vot,
                         transfer_buffer=transfer_buffer, travelers=travelers)
 
-    # attach map geometry to each option and strip private keys
+    # attach map geometry + a rough CO2e estimate to each option, then strip private keys.
+    # co2e_kg is ESTIMATED from leg distances (see emissions.py) — never treated as a booking
+    # fact, and never used to pick "recommended"; it's shown alongside cost/time so the person
+    # looking at the numbers can weigh it themselves.
     clean = {k: v for k, v in res.items() if not k.startswith("_")}
     for o in clean["options"]:
         o["geo"] = geo_by_name.get(o["name"], [])
+        o["co2e_kg"] = emissions.co2e_for_option(
+            emissions_legs_by_name.get(o["name"], []), travelers=travelers)
+    greenest = min(clean["options"], key=lambda o: o["co2e_kg"])["name"] if clean["options"] else None
+    clean["greenest"] = greenest
 
     provider = ctx.get("provider", "live")
     if ctx["live_used"] and ctx["est_used"]:
@@ -474,6 +496,9 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     if dest.get("dist_km", 0) > 120:
         notes.append(f"Nearest airport {dest['iata']} is ~{int(dest['dist_km'])} km from the "
                      f"clicked point — the last mile to your exact spot isn't included.")
+    notes.append("co2e_kg per option is a rough ESTIMATE from flight/ground distance, not a "
+                 "certified footprint — see docs/api.md for the factor basis. The lowest-carbon "
+                 "option is flagged as 'greenest' but never auto-recommended over the cheapest.")
 
     # destination weather — best-effort, never blocks a plan (weather is at the clicked point)
     wx = None
@@ -716,6 +741,26 @@ def selftest():
     check(f"with a $50 rule the DEN split wins (got {reclo})", reclo.startswith("DEN"))
     recopt = next(o for o in out_lo["result"]["options"] if o["name"] == reclo)
     check("recommended split carries flight+ground map geo", len(recopt.get("geo", [])) == 2)
+
+    # every option carries a co2e_kg estimate, and the response points at whichever is lowest
+    check("every option has a non-negative co2e_kg estimate",
+          all(o.get("co2e_kg") is not None and o["co2e_kg"] >= 0 for o in out["result"]["options"]))
+    greenest_name = out["result"].get("greenest")
+    check("top-level 'greenest' points at a real option name",
+          greenest_name is not None
+          and any(o["name"] == greenest_name for o in out["result"]["options"]))
+    greenest_opt = next(o for o in out["result"]["options"] if o["name"] == greenest_name)
+    check("'greenest' really is the lowest-co2e_kg option in the set (never picked by cost)",
+          all(greenest_opt["co2e_kg"] <= o["co2e_kg"] for o in out["result"]["options"]))
+    # the DEN split flies a shorter hop then trains/buses the rest — that should usually beat
+    # the all-the-way-direct flight on CO2e even though the direct flight can still be cheaper.
+    direct_opt = next(o for o in out["result"]["options"] if o["name"] == "Fly direct to ASE")
+    den_opt = next((o for o in out["result"]["options"] if o["name"].startswith("DEN")), None)
+    if den_opt:
+        check(f"DEN split ({den_opt['co2e_kg']} kg) emits less than flying direct "
+              f"({direct_opt['co2e_kg']} kg)", den_opt["co2e_kg"] < direct_opt["co2e_kg"])
+    check("emissions note present, labels co2e_kg an estimate",
+          any("co2e_kg" in n and "ESTIMATE" in n for n in out["notes"]))
 
     # click on a major hub (Denver) — should be fine flying direct, no split needed.
     out2 = plan(39.74, -104.99, origin_iata="JFK", fetch_weather=False, allow_live=False)

@@ -1,5 +1,5 @@
 // Renders the recommendation card + option list into the (already aria-live) results panel.
-import { esc, fmtMoney, fmtH, modeEmoji, modeLabel, statusLabel } from "./format.js";
+import { esc, fmtMoney, fmtH, fmtCo2, modeEmoji, modeLabel, statusLabel } from "./format.js";
 
 const panel = () => document.getElementById("results");
 
@@ -73,12 +73,20 @@ function recommendationCard(R, rec, isDirect) {
     </div>`;
 }
 
-function optionRow(o, recName) {
+function optionRow(o, recName, greenestName) {
   const { text: statusText, tone } = statusLabel(o.status);
   const legs = o.legs.map(legLabel).join(" + ");
   const savingsText = o.savings_vs_baseline > 0
     ? `saves ${fmtMoney(o.savings_vs_baseline)}`
     : (o.savings_vs_baseline < 0 ? `${fmtMoney(-o.savings_vs_baseline)} more` : "baseline");
+  const isGreenest = greenestName != null && o.name === greenestName;
+  // "greenest" is a plain-text tag, not a color swap — same accessible pattern the cost/status
+  // tags already use, so it reads fine with no color perception at all.
+  const co2Line = o.co2e_kg != null
+    ? `<span class="opt-co2${isGreenest ? " opt-co2--greenest" : ""}">`
+      + `<span aria-hidden="true">${isGreenest ? "🌱 " : ""}</span>${fmtCo2(o.co2e_kg)} est.`
+      + `${isGreenest ? ` <span class="tag tag--ok">greenest</span>` : ""}</span>`
+    : "";
   return `
     <li class="opt ${o.name === recName ? "opt--win" : ""}">
       <div class="opt-top">
@@ -93,6 +101,7 @@ function optionRow(o, recName) {
         <span>${savingsText}</span>
         <span class="tag tag--${tone}">${o.name === recName ? "★ " : ""}${esc(statusText)}</span>
       </div>
+      ${co2Line ? `<div class="opt-meta opt-meta--co2">${co2Line}</div>` : ""}
     </li>`;
 }
 
@@ -108,7 +117,9 @@ export function renderPlan(data, placeLabel) {
     ? `<span class="badge badge--est">estimate</span>`
     : `<span class="badge badge--live">${esc(data.pricing_source)}</span>`;
 
-  const optionsHtml = R.options.map((o) => optionRow(o, rec.name)).join("");
+  const greenestName = R.greenest;
+  const greenestOpt = greenestName ? R.options.find((o) => o.name === greenestName) : null;
+  const optionsHtml = R.options.map((o) => optionRow(o, rec.name, greenestName)).join("");
 
   const cautionLines = [
     `Split legs booked separately aren't protected — a delayed flight can forfeit a `
@@ -118,6 +129,14 @@ export function renderPlan(data, placeLabel) {
     ...(data.notes || []),
   ];
 
+  // cheapest vs greenest, shown as a plain sentence rather than picking one for the user —
+  // only worth a callout when they're actually different options.
+  const cheapestVsGreenest = (greenestOpt && greenestOpt.name !== rec.name)
+    ? `<p class="rec-greenest-note">🌱 <strong>${esc(greenestOpt.name)}</strong> is the lowest-carbon `
+      + `option here (${fmtCo2(greenestOpt.co2e_kg)} est., vs ${fmtCo2(rec.co2e_kg)} for the pick above) `
+      + `— your call whether that's worth the trade-off.</p>`
+    : "";
+
   panel().innerHTML = `
     <div class="results-head">
       <h2 class="results-title">Recommendation ${srcTag}</h2>
@@ -126,6 +145,7 @@ export function renderPlan(data, placeLabel) {
       </button>
     </div>
     ${recommendationCard(R, rec, isDirect)}
+    ${cheapestVsGreenest}
     ${weatherChip(data.weather)}
     <h2 class="results-subtitle">All options &mdash; ${destDescription(data, placeLabel)}</h2>
     <ul class="opt-list">${optionsHtml}</ul>

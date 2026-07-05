@@ -16,6 +16,14 @@ export function fmtMoney(x) {
     : "$" + n.toFixed(2);
 }
 
+/** ~150 kg, ~2.3 t — CO2e is always an ESTIMATE, so this stays rounded/approximate on purpose;
+ * switches to tonnes once the number gets big enough that kilograms stop being readable. */
+export function fmtCo2(kg) {
+  if (kg == null || Number.isNaN(kg)) return "—";
+  const n = Number(kg);
+  return n >= 1000 ? `≈ ${(n / 1000).toFixed(1)} t CO₂e` : `≈ ${Math.round(n)} kg CO₂e`;
+}
+
 /** 3h05, 3h, 0h45 — never "60m" at the boundary. */
 export function fmtH(hours) {
   if (hours == null || Number.isNaN(hours)) return "—";

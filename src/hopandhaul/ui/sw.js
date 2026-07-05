@@ -1,7 +1,7 @@
 // Hand-rolled offline-shell service worker — no Workbox, no build step.
 // Caches the static app shell (HTML/JS/CSS/vendor/icons) so the UI loads offline; plans
 // still need live data, so /api/* is always network-first with no cache fallback.
-const CACHE_VERSION = "hopandhaul-shell-v1";
+const CACHE_VERSION = "hopandhaul-shell-v2";
 const SHELL_FILES = [
   "./",
   "./index.html",

@@ -68,6 +68,9 @@ estimates (see below). Add keys later for live fares; nothing else changes.
 - Gateway discovery — curated hub suggestions plus geometric fallback search, worldwide
 - Click-anywhere map UI (Leaflet, self-hosted, no CDN)
 - Destination weather for the date you're planning
+- Cheapest vs greenest: a rough CO2 estimate per option, with the lowest-carbon one flagged
+  separately from the recommendation — estimates, not a certified footprint, and never used to
+  pick a winner for you
 - Zero runtime dependencies — pure Python standard library, no `npm install`, no build step
 
 ## Architecture, briefly
@@ -92,6 +95,7 @@ Every module ships an offline self-test — no keys, no network, under a second 
 python -m hopandhaul.trip --selftest
 python -m hopandhaul.geo --selftest
 python -m hopandhaul.server --selftest
+python -m hopandhaul.emissions --selftest
 python -m hopandhaul.duffel --selftest
 python -m hopandhaul.geoapify --selftest
 python -m hopandhaul.weather --selftest

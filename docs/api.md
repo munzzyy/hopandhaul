@@ -121,10 +121,12 @@ applies the $200 rule to recommend one.
     "direct": {"price": 620, "hours": 5.5, "source": "estimate", "rt": false},
     "result": {
       "recommended": "Fly direct to ASE",
-      "options": [{"name": "...", "cost": 620.0, "legs": [...], "geo": [...], "...": "..."}]
+      "greenest": "DEN + bus",
+      "options": [{"name": "...", "cost": 620.0, "co2e_kg": 415.78, "legs": [...], "geo": [...], "...": "..."}]
     },
     "weather": null,
-    "notes": ["Fares are distance-based ESTIMATES ... add a date for live fares."]
+    "notes": ["Fares are distance-based ESTIMATES ... add a date for live fares.",
+              "co2e_kg per option is a rough ESTIMATE from flight/ground distance, not a certified footprint ..."]
   }
   ```
 - `pricing_source` is `"estimate"` whenever no live provider key/date combination was used,
@@ -133,6 +135,30 @@ applies the $200 rule to recommend one.
 - `notes` is a plain-English list explaining anything a user should know about how the numbers
   were produced (estimate mode, FX conversion, group totals, round-trip approximation, a
   distant nearest-airport match, etc). Read it before trusting the number.
+
+### Emissions: `co2e_kg` and `greenest` (cheapest vs greenest)
+
+Every option in `result.options` carries a `co2e_kg` field: an ESTIMATED kilograms-CO2e figure
+for that whole option (all legs, all travelers), computed from each leg's flight/ground
+distance against a small hardcoded factor table in `emissions.py` — not a live API, not a
+certified footprint calculator. `result.greenest` is the `name` of whichever option in the set
+has the lowest `co2e_kg`.
+
+This is informational only. The server never uses `co2e_kg` to choose `result.recommended` —
+the $200 rule and the rest of `trip.py`'s ranking are completely unaware emissions data exists.
+`greenest` is just a second, independent pointer alongside `recommended`, so the response lets
+you compare "cheapest/recommended" against "lowest-carbon" side by side and decide for yourself;
+it does not mean the greenest option is a better choice.
+
+Factor basis (grams CO2e per passenger-km, well-to-wake): short-haul flight (<1500km) ~246
+g/pkm, long-haul ~148 g/pkm (both roughly DEFRA/EEA-range; a `with_rf=True` call in
+`emissions.py` applies a ~1.9x radiative-forcing uplift for aviation's non-CO2 warming effects,
+not used in the API response by default but available to any caller of the module directly),
+rail ~37 g/pkm (EU-average blend — a clean-grid electric line can be much lower, a diesel
+regional line higher), coach/bus ~28 g/pkm, car ~170 g per VEHICLE-km (divided across
+travelers only when a mode is priced per-person; a drive/rental leg is per-vehicle, same
+distinction `trip.py` already makes for cost). Full citations and reasoning in
+`src/hopandhaul/emissions.py`'s module docstring.
 
 ## `GET /favicon.ico`
 

@@ -228,6 +228,19 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 .tag--bad { color: var(--bad); border-color: #4a1f1c; }
 .tag--base { color: var(--accent); border-color: #26364a; }
 
+/* per-option CO2e estimate — always paired with the "greenest" text tag, never color-only */
+.opt-meta--co2 { margin-top: 4px; }
+.opt-co2 { color: var(--dim); }
+.opt-co2--greenest { color: var(--good); font-weight: 600; }
+
+/* cheapest-vs-greenest callout under the recommendation card, when they differ */
+.rec-greenest-note {
+  font-size: var(--fs-sm); color: var(--ink); line-height: 1.45;
+  margin: 0 0 var(--space-4); padding: 8px 11px;
+  border: 1px solid #1f3a24; border-radius: var(--radius-sm); background: var(--panel-2);
+}
+[data-theme="light"] .rec-greenest-note { border-color: #bfe3c6; }
+
 .notes {
   font-size: var(--fs-xs); color: var(--dim); line-height: 1.5;
   margin-top: var(--space-3); border-top: 1px solid var(--line); padding-top: var(--space-3);

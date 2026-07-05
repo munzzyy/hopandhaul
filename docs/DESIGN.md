@@ -232,11 +232,14 @@ tooling and is a should-ship, not a stretch — see §3.
 
 ### SHOULD (clear, high-value, do soon after MUST)
 
+**Done:** Emissions ("cheapest vs greenest") — `emissions.py` + `co2e_kg` per option +
+`result.greenest`. Wired through `/api/plan` and the results panel; see `docs/api.md`. Still
+purely informational, per the original plan below — never auto-recommended over the cheapest.
+
 | Feature | Why | Effort |
 |---|---|---|
 | Flexible-date sweep (`/api/plan/flexible`, ±2-3 days) | Fare timing routinely swings past the $200 threshold on its own. A single fixed-date check can hide a qualifying split that's one day-shift away — this is a correctness gap in the core rule, not just a nice-to-have. 100% reuse of the existing `plan()`/cache/concurrency path. | S-M |
 | "Cheapest way to get anywhere" explore mode | Nearly free — `geo.py`'s gateway-discovery + estimate engine already computes everything needed; this is a frontend reframing ranked by post-Cole's-rule total cost instead of raw flight price, a framing nobody else can copy without building the split-decision engine underneath it. | M |
-| Emissions ("cheapest vs greenest") — `emissions.py` + `co2_kg` per leg/option + a `greenest` line | The product's own thesis (shorter flight + short ground leg) is usually also the lower-carbon choice — a free, on-brand, differentiating claim. Distance-band (DEFRA-style) factors from great-circle distance already available via `airports.json` lat/lng. Never auto-recommend by emissions — informational only, same opt-in pattern as `--vot`. | M |
 | Quantified self-transfer / connection-risk signal per split | Every split this tool recommends is, by construction, a self-managed connection — exactly the risk category Kiwi.com built an insurance product around. Currently just a static cautions paragraph; turning it into a real `refundable`/tight-vs-comfortable buffer signal is what makes "we recommend a split" trustworthy with real money. | M |
 | Gateway compare view (2-3 hubs side by side) | Backend already computes multiple candidate gateways; today they're just flat map pins. Pure frontend reframing, pairs naturally with the explore mode above. | S |
 | `net.py` retry work paired with: shared time budget across the concurrent gateway fan-out + a token-bucket rate limiter in front of outbound Duffel calls | Six threads each doing sequential create+poll calls can hold up to a minute combined if Duffel is slow; nothing throttles a burst of different-destination clicks against Duffel's real 120 req/60s limit. | S-M |
