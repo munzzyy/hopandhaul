@@ -1,0 +1,269 @@
+{
+  "_README": "Curated 'expensive/small destination -> cheaper nearby gateway airport + ground link' pairs. These are STARTING HYPOTHESES for the fly-cheaper-then-train play, not live quotes. ground_time_h and ground_cost_usd are rough typical estimates — the agent MUST verify current flight AND ground prices before recommending. Distances/times are one-way, door-ish. Add entries as new patterns are found.",
+  "_schema": {
+    "dest": "final destination (city/label)",
+    "dest_airport": "the destination's own (usually pricey/small) airport code",
+    "gateways": [
+      {
+        "hub": "cheaper large hub city",
+        "hub_airport": "IATA code with much better fares",
+        "ground_mode": "train | bus | drive | ferry | shuttle",
+        "ground_time_h": "typical one-way ground time, hours",
+        "ground_cost_usd": "typical one-way ground cost, USD (rough)",
+        "notes": "operator / caveats"
+      }
+    ]
+  },
+  "usa": [
+    {"dest": "Aspen, CO", "dest_airport": "ASE",
+      "gateways": [
+        {"hub": "Denver", "hub_airport": "DEN", "ground_mode": "bus", "ground_time_h": 4.5, "ground_cost_usd": 75, "notes": "Bustang Outrider / Epic Mountain Express; ASE fares are notoriously high & weather-cancelled"},
+        {"hub": "Eagle/Vail", "hub_airport": "EGE", "ground_mode": "drive", "ground_time_h": 1.3, "ground_cost_usd": 60, "notes": "rental or shuttle; EGE often far cheaper than ASE"},
+        {"hub": "Grand Junction", "hub_airport": "GJT", "ground_mode": "drive", "ground_time_h": 2.5, "ground_cost_usd": 70, "notes": "longer drive, sometimes cheapest air"}
+      ]},
+    {"dest": "Vail / Beaver Creek, CO", "dest_airport": "EGE",
+      "gateways": [
+        {"hub": "Denver", "hub_airport": "DEN", "ground_mode": "shuttle", "ground_time_h": 2.0, "ground_cost_usd": 79, "notes": "Epic Mountain Express / Bustang; DEN fares much cheaper than EGE"}
+      ]},
+    {"dest": "Jackson Hole, WY", "dest_airport": "JAC",
+      "gateways": [
+        {"hub": "Salt Lake City", "hub_airport": "SLC", "ground_mode": "drive", "ground_time_h": 4.7, "ground_cost_usd": 90, "notes": "scenic drive via Idaho; JAC is a small pricey airport"},
+        {"hub": "Idaho Falls", "hub_airport": "IDA", "ground_mode": "drive", "ground_time_h": 1.8, "ground_cost_usd": 60, "notes": "closer, sometimes cheaper air"}
+      ]},
+    {"dest": "Santa Barbara, CA", "dest_airport": "SBA",
+      "gateways": [
+        {"hub": "Los Angeles", "hub_airport": "LAX", "ground_mode": "train", "ground_time_h": 2.75, "ground_cost_usd": 32, "notes": "Amtrak Pacific Surfliner, very scenic; LAX far cheaper & more frequent"}
+      ]},
+    {"dest": "Palm Springs, CA", "dest_airport": "PSP",
+      "gateways": [
+        {"hub": "Ontario", "hub_airport": "ONT", "ground_mode": "drive", "ground_time_h": 1.2, "ground_cost_usd": 55, "notes": "rental; ONT/LAX usually cheaper than PSP"},
+        {"hub": "Los Angeles", "hub_airport": "LAX", "ground_mode": "drive", "ground_time_h": 2.0, "ground_cost_usd": 70, "notes": "more flight options"}
+      ]},
+    {"dest": "Portland, ME", "dest_airport": "PWM",
+      "gateways": [
+        {"hub": "Boston", "hub_airport": "BOS", "ground_mode": "train", "ground_time_h": 2.5, "ground_cost_usd": 30, "notes": "Amtrak Downeaster from Boston North Station"}
+      ]},
+    {"dest": "Martha's Vineyard / Nantucket, MA", "dest_airport": "MVY",
+      "gateways": [
+        {"hub": "Boston", "hub_airport": "BOS", "ground_mode": "bus", "ground_time_h": 1.75, "ground_cost_usd": 45, "notes": "then Steamship Authority ferry; combine bus+ferry as two legs"}
+      ]},
+    {"dest": "Bozeman / Big Sky, MT", "dest_airport": "BZN",
+      "gateways": [
+        {"hub": "Salt Lake City", "hub_airport": "SLC", "ground_mode": "drive", "ground_time_h": 6.0, "ground_cost_usd": 120, "notes": "only worth it on a large fare gap; BZN itself is the usual gateway"}
+      ]},
+    {"dest": "Sun Valley / Ketchum, ID", "dest_airport": "SUN",
+      "gateways": [
+        {"hub": "Boise", "hub_airport": "BOI", "ground_mode": "drive", "ground_time_h": 2.6, "ground_cost_usd": 80, "notes": "SUN air is limited & pricey"},
+        {"hub": "Twin Falls", "hub_airport": "TWF", "ground_mode": "drive", "ground_time_h": 1.5, "ground_cost_usd": 60, "notes": "closer alternative"}
+      ]},
+    {"dest": "Telluride, CO", "dest_airport": "TEX",
+      "gateways": [
+        {"hub": "Montrose", "hub_airport": "MTJ", "ground_mode": "drive", "ground_time_h": 1.4, "ground_cost_usd": 70, "notes": "the standard play — TEX is tiny/weather-prone; MTJ has mainline jets"},
+        {"hub": "Grand Junction", "hub_airport": "GJT", "ground_mode": "drive", "ground_time_h": 2.4, "ground_cost_usd": 85, "notes": "sometimes cheapest air"}
+      ]},
+    {"dest": "Steamboat Springs, CO", "dest_airport": "HDN",
+      "gateways": [
+        {"hub": "Denver", "hub_airport": "DEN", "ground_mode": "shuttle", "ground_time_h": 3.3, "ground_cost_usd": 90, "notes": "Storm Mountain Express / rental; HDN is seasonal & pricey"}
+      ]},
+    {"dest": "Crested Butte, CO", "dest_airport": "GUC",
+      "gateways": [
+        {"hub": "Denver", "hub_airport": "DEN", "ground_mode": "drive", "ground_time_h": 4.3, "ground_cost_usd": 100, "notes": "GUC has very few flights; DEN + rental is the usual"},
+        {"hub": "Montrose", "hub_airport": "MTJ", "ground_mode": "drive", "ground_time_h": 1.6, "ground_cost_usd": 65, "notes": "closest real alternative"}
+      ]},
+    {"dest": "Mammoth Lakes, CA", "dest_airport": "MMH",
+      "gateways": [
+        {"hub": "Reno", "hub_airport": "RNO", "ground_mode": "drive", "ground_time_h": 2.8, "ground_cost_usd": 85, "notes": "US-395 south, all-weather; MMH service is thin/seasonal"},
+        {"hub": "Los Angeles", "hub_airport": "LAX", "ground_mode": "drive", "ground_time_h": 5.0, "ground_cost_usd": 110, "notes": "long but LAX fares are rock-bottom"}
+      ]},
+    {"dest": "Lake Tahoe (South), CA/NV", "dest_airport": "TVL",
+      "gateways": [
+        {"hub": "Reno", "hub_airport": "RNO", "ground_mode": "drive", "ground_time_h": 1.2, "ground_cost_usd": 50, "notes": "closest jet airport; South Tahoe Express shuttle exists"},
+        {"hub": "Sacramento", "hub_airport": "SMF", "ground_mode": "drive", "ground_time_h": 2.0, "ground_cost_usd": 70, "notes": "often cheapest into NorCal; watch I-80/US-50 snow chains"}
+      ]},
+    {"dest": "Key West, FL", "dest_airport": "EYW",
+      "gateways": [
+        {"hub": "Fort Lauderdale", "hub_airport": "FLL", "ground_mode": "drive", "ground_time_h": 3.9, "ground_cost_usd": 90, "notes": "Overseas Highway; EYW carries a steep island premium"},
+        {"hub": "Miami", "hub_airport": "MIA", "ground_mode": "bus", "ground_time_h": 4.5, "ground_cost_usd": 35, "notes": "Flixbus/Greyhound to Key West runs daily"}
+      ]},
+    {"dest": "Nantucket, MA", "dest_airport": "ACK",
+      "gateways": [
+        {"hub": "Boston", "hub_airport": "BOS", "ground_mode": "bus", "ground_time_h": 3.2, "ground_cost_usd": 65, "notes": "bus to Hyannis + Steamship/Hy-Line ferry; ACK peak fares are extreme"}
+      ]},
+    {"dest": "Bar Harbor / Acadia, ME", "dest_airport": "BHB",
+      "gateways": [
+        {"hub": "Bangor", "hub_airport": "BGR", "ground_mode": "drive", "ground_time_h": 1.1, "ground_cost_usd": 50, "notes": "BHB is seasonal Cape Air; BGR has mainline service"},
+        {"hub": "Portland ME", "hub_airport": "PWM", "ground_mode": "drive", "ground_time_h": 2.9, "ground_cost_usd": 80, "notes": "more flights than BGR"}
+      ]},
+    {"dest": "Moab, UT", "dest_airport": "CNY",
+      "gateways": [
+        {"hub": "Grand Junction", "hub_airport": "GJT", "ground_mode": "drive", "ground_time_h": 1.9, "ground_cost_usd": 65, "notes": "closest real airport"},
+        {"hub": "Salt Lake City", "hub_airport": "SLC", "ground_mode": "drive", "ground_time_h": 3.8, "ground_cost_usd": 95, "notes": "big-hub fares, scenic drive"}
+      ]},
+    {"dest": "Santa Fe, NM", "dest_airport": "SAF",
+      "gateways": [
+        {"hub": "Albuquerque", "hub_airport": "ABQ", "ground_mode": "shuttle", "ground_time_h": 1.4, "ground_cost_usd": 40, "notes": "Groome shuttle hourly; ABQ far cheaper than tiny SAF"}
+      ]},
+    {"dest": "Bend, OR", "dest_airport": "RDM",
+      "gateways": [
+        {"hub": "Portland OR", "hub_airport": "PDX", "ground_mode": "drive", "ground_time_h": 3.3, "ground_cost_usd": 80, "notes": "over Mt. Hood pass; RDM is small but improving"}
+      ]}
+  ],
+  "europe": [
+    {"dest": "Florence, Italy", "dest_airport": "FLR",
+      "gateways": [
+        {"hub": "Bologna", "hub_airport": "BLQ", "ground_mode": "train", "ground_time_h": 0.6, "ground_cost_usd": 15, "notes": "Frecciarossa/Italo ~35 min; BLQ has far more low-cost flights than tiny FLR"},
+        {"hub": "Pisa", "hub_airport": "PSA", "ground_mode": "train", "ground_time_h": 1.0, "ground_cost_usd": 12, "notes": "Ryanair hub; PisaMover + regional train"}
+      ]},
+    {"dest": "Venice, Italy", "dest_airport": "VCE",
+      "gateways": [
+        {"hub": "Treviso", "hub_airport": "TSF", "ground_mode": "bus", "ground_time_h": 0.7, "ground_cost_usd": 15, "notes": "Ryanair hub; ATVO bus to Venice"},
+        {"hub": "Verona", "hub_airport": "VRN", "ground_mode": "train", "ground_time_h": 1.2, "ground_cost_usd": 18, "notes": "more low-cost options"}
+      ]},
+    {"dest": "Amalfi Coast / Positano, Italy", "dest_airport": "QSR",
+      "gateways": [
+        {"hub": "Naples", "hub_airport": "NAP", "ground_mode": "train", "ground_time_h": 1.5, "ground_cost_usd": 20, "notes": "train/bus to Sorrento then ferry; NAP is the real gateway"}
+      ]},
+    {"dest": "Cinque Terre, Italy", "dest_airport": "-",
+      "gateways": [
+        {"hub": "Pisa", "hub_airport": "PSA", "ground_mode": "train", "ground_time_h": 1.5, "ground_cost_usd": 15, "notes": "regional train via La Spezia"},
+        {"hub": "Genoa", "hub_airport": "GOA", "ground_mode": "train", "ground_time_h": 1.3, "ground_cost_usd": 14, "notes": "alternative"}
+      ]},
+    {"dest": "Salzburg, Austria", "dest_airport": "SZG",
+      "gateways": [
+        {"hub": "Munich", "hub_airport": "MUC", "ground_mode": "train", "ground_time_h": 1.6, "ground_cost_usd": 40, "notes": "frequent trains; MUC is a major cheap hub vs small SZG"}
+      ]},
+    {"dest": "Innsbruck, Austria", "dest_airport": "INN",
+      "gateways": [
+        {"hub": "Munich", "hub_airport": "MUC", "ground_mode": "train", "ground_time_h": 1.9, "ground_cost_usd": 45, "notes": "RailJet / bus; MUC far cheaper"}
+      ]},
+    {"dest": "Interlaken / Zermatt (Swiss Alps)", "dest_airport": "-",
+      "gateways": [
+        {"hub": "Zurich", "hub_airport": "ZRH", "ground_mode": "train", "ground_time_h": 2.0, "ground_cost_usd": 60, "notes": "SBB Swiss rail is excellent; ZRH/GVA are the entry hubs"},
+        {"hub": "Geneva", "hub_airport": "GVA", "ground_mode": "train", "ground_time_h": 2.7, "ground_cost_usd": 70, "notes": "alternative western entry"}
+      ]},
+    {"dest": "Bruges, Belgium", "dest_airport": "-",
+      "gateways": [
+        {"hub": "Brussels", "hub_airport": "BRU", "ground_mode": "train", "ground_time_h": 1.3, "ground_cost_usd": 20, "notes": "direct trains; Brussels Charleroi (CRL) is the Ryanair hub, +1h by bus/train"}
+      ]},
+    {"dest": "Cologne / Bonn, Germany", "dest_airport": "CGN",
+      "gateways": [
+        {"hub": "Frankfurt", "hub_airport": "FRA", "ground_mode": "train", "ground_time_h": 1.1, "ground_cost_usd": 35, "notes": "ICE high-speed direct from FRA airport station"}
+      ]},
+    {"dest": "San Sebastián, Spain", "dest_airport": "EAS",
+      "gateways": [
+        {"hub": "Bilbao", "hub_airport": "BIO", "ground_mode": "bus", "ground_time_h": 1.25, "ground_cost_usd": 15, "notes": "PESA bus hourly; BIO far more flights than tiny EAS"},
+        {"hub": "Biarritz (France)", "hub_airport": "BIQ", "ground_mode": "bus", "ground_time_h": 0.75, "ground_cost_usd": 10, "notes": "cross-border option"}
+      ]},
+    {"dest": "London (city centre), UK", "dest_airport": "LHR",
+      "gateways": [
+        {"hub": "London Stansted", "hub_airport": "STN", "ground_mode": "train", "ground_time_h": 0.8, "ground_cost_usd": 25, "notes": "Stansted Express; STN/LTN are the low-cost hubs vs pricier LHR fares"},
+        {"hub": "London Luton", "hub_airport": "LTN", "ground_mode": "train", "ground_time_h": 0.75, "ground_cost_usd": 22, "notes": "Thameslink"}
+      ]},
+    {"dest": "Paris (city centre), France", "dest_airport": "CDG",
+      "gateways": [
+        {"hub": "Paris Beauvais", "hub_airport": "BVA", "ground_mode": "bus", "ground_time_h": 1.25, "ground_cost_usd": 20, "notes": "Ryanair/Wizz hub; shuttle bus to Porte Maillot — factor the 75+ min transfer"}
+      ]},
+    {"dest": "Rome (city centre), Italy", "dest_airport": "FCO",
+      "gateways": [
+        {"hub": "Rome Ciampino", "hub_airport": "CIA", "ground_mode": "bus", "ground_time_h": 0.8, "ground_cost_usd": 8, "notes": "Ryanair/Wizz hub; Terravision/SIT bus to Termini"}
+      ]},
+    {"dest": "Milan (city centre), Italy", "dest_airport": "MXP",
+      "gateways": [
+        {"hub": "Bergamo", "hub_airport": "BGY", "ground_mode": "bus", "ground_time_h": 1.1, "ground_cost_usd": 12, "notes": "'Milan Bergamo' — Ryanair's Italian mega-hub; bus to Centrale"},
+        {"hub": "Milan Linate", "hub_airport": "LIN", "ground_mode": "train", "ground_time_h": 0.5, "ground_cost_usd": 5, "notes": "city airport, M4 metro; sometimes cheaper than MXP"}
+      ]},
+    {"dest": "Barcelona, Spain", "dest_airport": "BCN",
+      "gateways": [
+        {"hub": "Girona", "hub_airport": "GRO", "ground_mode": "bus", "ground_time_h": 1.3, "ground_cost_usd": 18, "notes": "Ryanair 'Barcelona-Girona'; Sagales bus to Estació del Nord"},
+        {"hub": "Reus", "hub_airport": "REU", "ground_mode": "bus", "ground_time_h": 1.5, "ground_cost_usd": 18, "notes": "'Barcelona-Reus', south option"}
+      ]},
+    {"dest": "Amsterdam, Netherlands", "dest_airport": "AMS",
+      "gateways": [
+        {"hub": "Eindhoven", "hub_airport": "EIN", "ground_mode": "train", "ground_time_h": 1.6, "ground_cost_usd": 25, "notes": "Ryanair/Transavia hub; bus 400/401 + IC train"}
+      ]},
+    {"dest": "Frankfurt, Germany", "dest_airport": "FRA",
+      "gateways": [
+        {"hub": "Frankfurt-Hahn", "hub_airport": "HHN", "ground_mode": "bus", "ground_time_h": 1.75, "ground_cost_usd": 18, "notes": "'Frankfurt' in name only — 120km out; Ryanair fares can still win"}
+      ]},
+    {"dest": "Munich, Germany", "dest_airport": "MUC",
+      "gateways": [
+        {"hub": "Memmingen", "hub_airport": "FMM", "ground_mode": "bus", "ground_time_h": 1.4, "ground_cost_usd": 16, "notes": "'Munich West' — Ryanair/Wizz; Flixbus to München ZOB"}
+      ]},
+    {"dest": "Vienna, Austria", "dest_airport": "VIE",
+      "gateways": [
+        {"hub": "Bratislava", "hub_airport": "BTS", "ground_mode": "bus", "ground_time_h": 1.0, "ground_cost_usd": 12, "notes": "Ryanair hub one border over; Flixbus/RegioJet direct to Vienna"}
+      ]},
+    {"dest": "Stockholm, Sweden", "dest_airport": "ARN",
+      "gateways": [
+        {"hub": "Skavsta", "hub_airport": "NYO", "ground_mode": "bus", "ground_time_h": 1.3, "ground_cost_usd": 17, "notes": "Ryanair 'Stockholm Skavsta', 100km south; Flygbussarna coach"}
+      ]},
+    {"dest": "Oslo, Norway", "dest_airport": "OSL",
+      "gateways": [
+        {"hub": "Torp Sandefjord", "hub_airport": "TRF", "ground_mode": "bus", "ground_time_h": 1.8, "ground_cost_usd": 25, "notes": "Ryanair/Wizz 'Oslo Torp'; Torp-Ekspressen timed to flights"}
+      ]},
+    {"dest": "Brussels, Belgium", "dest_airport": "BRU",
+      "gateways": [
+        {"hub": "Charleroi", "hub_airport": "CRL", "ground_mode": "bus", "ground_time_h": 1.0, "ground_cost_usd": 18, "notes": "'Brussels South' Ryanair hub; Flibco shuttle to Midi"}
+      ]},
+    {"dest": "Santorini, Greece", "dest_airport": "JTR",
+      "gateways": [
+        {"hub": "Athens", "hub_airport": "ATH", "ground_mode": "ferry", "ground_time_h": 7.0, "ground_cost_usd": 50, "notes": "metro to Piraeus + Blue Star/SeaJets; peak-season JTR flights gouge — ferry can save $150+"}
+      ]},
+    {"dest": "Mykonos, Greece", "dest_airport": "JMK",
+      "gateways": [
+        {"hub": "Athens", "hub_airport": "ATH", "ground_mode": "ferry", "ground_time_h": 5.5, "ground_cost_usd": 45, "notes": "Piraeus/Rafina fast ferry; same peak-season play as Santorini"}
+      ]},
+    {"dest": "Cortina d'Ampezzo, Italy", "dest_airport": "-",
+      "gateways": [
+        {"hub": "Venice", "hub_airport": "VCE", "ground_mode": "bus", "ground_time_h": 2.2, "ground_cost_usd": 28, "notes": "Cortina Express / ATVO direct from VCE; no airport in the Dolomites"},
+        {"hub": "Treviso", "hub_airport": "TSF", "ground_mode": "bus", "ground_time_h": 2.3, "ground_cost_usd": 25, "notes": "Ryanair + Cortina Express"}
+      ]},
+    {"dest": "St. Moritz / Engadin, Switzerland", "dest_airport": "-",
+      "gateways": [
+        {"hub": "Zurich", "hub_airport": "ZRH", "ground_mode": "train", "ground_time_h": 3.4, "ground_cost_usd": 85, "notes": "SBB via Chur + RhB Albula line (scenic UNESCO route)"},
+        {"hub": "Milan Malpensa", "hub_airport": "MXP", "ground_mode": "train", "ground_time_h": 4.0, "ground_cost_usd": 60, "notes": "via Tirano + Bernina Express; often cheaper flights into MXP"}
+      ]},
+    {"dest": "Lake Como, Italy", "dest_airport": "-",
+      "gateways": [
+        {"hub": "Milan Malpensa", "hub_airport": "MXP", "ground_mode": "train", "ground_time_h": 1.4, "ground_cost_usd": 15, "notes": "to Como/Varenna via Saronno or Milano Centrale"},
+        {"hub": "Bergamo", "hub_airport": "BGY", "ground_mode": "train", "ground_time_h": 1.6, "ground_cost_usd": 14, "notes": "Ryanair in, bus+train via Milano or direct to Lecco"}
+      ]},
+    {"dest": "Chamonix, France", "dest_airport": "-",
+      "gateways": [
+        {"hub": "Geneva", "hub_airport": "GVA", "ground_mode": "bus", "ground_time_h": 1.3, "ground_cost_usd": 30, "notes": "FlixBus/AlpyBus/BlaBla direct; the standard Chamonix entry"}
+      ]}
+  ],
+  "americas_other": [
+    {"dest": "Whistler, BC, Canada", "dest_airport": "-",
+      "gateways": [
+        {"hub": "Vancouver", "hub_airport": "YVR", "ground_mode": "bus", "ground_time_h": 2.7, "ground_cost_usd": 35, "notes": "Epic Rides / YVR Skylynx direct; Sea-to-Sky highway"}
+      ]},
+    {"dest": "Banff, AB, Canada", "dest_airport": "-",
+      "gateways": [
+        {"hub": "Calgary", "hub_airport": "YYC", "ground_mode": "bus", "ground_time_h": 2.0, "ground_cost_usd": 45, "notes": "Banff Airporter / Brewster hourly"}
+      ]},
+    {"dest": "Tulum, Mexico", "dest_airport": "TQO",
+      "gateways": [
+        {"hub": "Cancun", "hub_airport": "CUN", "ground_mode": "bus", "ground_time_h": 2.2, "ground_cost_usd": 22, "notes": "ADO direct; CUN has vastly more competition than new TQO"}
+      ]},
+    {"dest": "St. Barts", "dest_airport": "SBH",
+      "gateways": [
+        {"hub": "St. Maarten", "hub_airport": "SXM", "ground_mode": "ferry", "ground_time_h": 1.2, "ground_cost_usd": 95, "notes": "Voyager/Great Bay ferry; SBH puddle-jumpers are $$$ and daylight-only"}
+      ]}
+  ],
+  "asia_pacific": [
+    {"dest": "Koh Samui, Thailand", "dest_airport": "USM",
+      "gateways": [
+        {"hub": "Surat Thani", "hub_airport": "URT", "ground_mode": "bus", "ground_time_h": 4.0, "ground_cost_usd": 22, "notes": "bus+Lomprayah/Seatran ferry combo; USM is Bangkok Airways' famously pricey monopoly"},
+        {"hub": "Bangkok Don Mueang", "hub_airport": "DMK", "ground_mode": "bus", "ground_time_h": 11.0, "ground_cost_usd": 35, "notes": "overnight bus+ferry — the backpacker play, only for max savings"}
+      ]},
+    {"dest": "Niseko, Japan", "dest_airport": "-",
+      "gateways": [
+        {"hub": "Sapporo New Chitose", "hub_airport": "CTS", "ground_mode": "bus", "ground_time_h": 2.8, "ground_cost_usd": 35, "notes": "resort liner buses all winter; CTS has cheap domestic feeds"}
+      ]},
+    {"dest": "Queenstown, New Zealand", "dest_airport": "ZQN",
+      "gateways": [
+        {"hub": "Christchurch", "hub_airport": "CHC", "ground_mode": "drive", "ground_time_h": 6.2, "ground_cost_usd": 130, "notes": "long scenic drive; only wins when ZQN peak fares spike"}
+      ]}
+  ]
+}

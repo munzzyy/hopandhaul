@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-selftest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install the package (no runtime dependencies)
+        run: pip install -e .
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Self-test every module (offline, no keys required)
+        run: |
+          python -m hopandhaul.trip --selftest
+          python -m hopandhaul.geo --selftest
+          python -m hopandhaul.server --selftest
+          python -m hopandhaul.duffel --selftest
+          python -m hopandhaul.geoapify --selftest
+          python -m hopandhaul.weather --selftest
+          python -m hopandhaul.providers --selftest

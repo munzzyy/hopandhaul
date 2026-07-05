@@ -1,0 +1,25 @@
+# Local secrets — never commit real API keys
+secrets.local.json
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Design scratch (working notes, not shipped)
+docs/_design/

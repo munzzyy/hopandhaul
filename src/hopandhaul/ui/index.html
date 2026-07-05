@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<meta name="theme-color" content="#0d1117" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://a.basemaps.cartocdn.com https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com https://d.basemaps.cartocdn.com; connect-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" />
+<title>Hop and Haul — fly cheap, haul the rest</title>
+<meta name="description" content="Flies you into the airport that's actually cheap, then tells you honestly whether the train ride from there is worth it." />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" href="./icons/icon-192.png" />
+<link rel="apple-touch-icon" href="./icons/icon-192.png" />
+<link rel="stylesheet" href="./vendor/leaflet.css" />
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<a class="skip-link" href="#results">Skip to results</a>
+
+<div id="map" role="application" aria-label="Trip map — click a destination to plan a route"></div>
+
+<div id="spinner" class="card" role="status" hidden>
+  <span class="spinner-dot" aria-hidden="true"></span>
+  Calculating&hellip;
+</div>
+
+<!-- Screen-reader-only live region for status/result announcements — visual state lives in #results. -->
+<p id="sr-status" class="sr-only" role="status" aria-live="polite"></p>
+
+<section id="controls" class="card" aria-label="Trip search and settings">
+  <div class="controls-head">
+    <h1><span aria-hidden="true">✈️</span> Hop and Haul</h1>
+    <div class="top-actions">
+      <button type="button" id="theme-toggle" class="btn btn--icon" aria-pressed="false" aria-label="Switch to light theme">☀️</button>
+    </div>
+  </div>
+  <p class="sub">Search a place or click the map to set your destination. I compare flying
+    direct against hopping into a cheaper hub and hauling the rest by train, bus, or car —
+    and only recommend the split when it actually saves you money.</p>
+
+  <div class="search">
+    <label for="place" class="sr-only">Search a city, address, or landmark</label>
+    <input id="place" type="text" placeholder="Search a city, address or landmark…"
+      autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false"
+      aria-controls="aclist" aria-autocomplete="list" />
+    <span class="mag" aria-hidden="true">🔎</span>
+    <ul id="aclist" class="aclist" role="listbox" aria-label="Place suggestions" hidden></ul>
+  </div>
+
+  <div class="row">
+    <label for="origin">From (airport code)
+      <input id="origin" class="field-input" value="JFK" maxlength="4" autocomplete="off" />
+    </label>
+    <label for="travelers">Travelers
+      <input id="travelers" class="field-input" type="number" min="1" max="9" step="1" value="1" />
+    </label>
+  </div>
+  <div class="row">
+    <label for="date">Depart (optional)
+      <input id="date" class="field-input" type="date" />
+    </label>
+    <label for="ret">Return (optional)
+      <input id="ret" class="field-input" type="date" />
+    </label>
+  </div>
+  <div class="row">
+    <label for="vot">Value of time $/hr
+      <input id="vot" class="field-input" type="number" min="0" step="5" placeholder="e.g. 30" />
+    </label>
+    <label for="threshold">Split saves &ge; $
+      <input id="threshold" class="field-input" type="number" min="0" step="25" value="200" />
+    </label>
+  </div>
+  <div class="row">
+    <label for="maxg">Max ground hrs
+      <input id="maxg" class="field-input" type="number" min="1" step="1" value="6" />
+    </label>
+    <div>
+      <span class="sr-only" id="mode-toggle-label">Clicking the map sets</span>
+      <div class="seg" id="mode-toggle" role="group" aria-labelledby="mode-toggle-label">
+        <button type="button" data-m="dest" class="on" aria-pressed="true">Destination</button>
+        <button type="button" data-m="origin" aria-pressed="false">Origin</button>
+      </div>
+    </div>
+  </div>
+  <label class="check" for="round">
+    <input type="checkbox" id="round" /> Round trip (real fares with a return date, else &asymp; 2&times;)
+  </label>
+  <p class="hint">
+    Pricing: <span id="srcbadge" class="badge badge--est">estimate</span>
+    <span id="srcnote"></span>
+  </p>
+</section>
+
+<section id="results" class="card" aria-live="polite" aria-atomic="false" hidden></section>
+
+<div id="legend" class="legend card" aria-hidden="true">
+  <span class="legend-item">🟢 origin</span>
+  <span class="legend-item">🔴 destination</span>
+  <span class="legend-item">🟣 gateway hub</span>
+  <span class="legend-item">— flight</span>
+  <span class="legend-item">&middot;&middot; ground</span>
+</div>
+<p class="sr-only">
+  Map legend: green marker is your origin airport, red marker is the destination airport,
+  purple markers are candidate gateway hubs. A solid line is a flight leg; a dashed line is
+  a ground leg (train, bus, or drive).
+</p>
+
+<script src="./vendor/leaflet.js"></script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
