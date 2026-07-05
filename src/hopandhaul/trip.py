@@ -97,10 +97,10 @@ def parse_option(text: str, min_legs: int = 1) -> dict:
         raise ValueError(
             f"expected at least {min_legs} legs, got {len(leg_strs)}: {text!r}")
     legs = [parse_leg(s) for s in leg_strs]
-    cost = sum(l["cost"] for l in legs)
-    hours = sum(l["hours"] for l in legs)
+    cost = sum(leg["cost"] for leg in legs)
+    hours = sum(leg["hours"] for leg in legs)
     if not name:
-        name = " → ".join(l["mode"] for l in legs)
+        name = " → ".join(leg["mode"] for leg in legs)
     return {
         "name": name,
         "legs": legs,
@@ -145,9 +145,9 @@ def scale_option(opt: dict, travelers: int) -> dict:
     """Re-price a parsed option (whose leg costs are per person / per vehicle) for N travelers."""
     if travelers <= 1:
         return opt
-    legs = [{**l, "cost": round(scale_leg_cost(l["mode"], l["cost"], travelers), 2)}
-            for l in opt["legs"]]
-    return {**opt, "legs": legs, "cost": round(sum(l["cost"] for l in legs), 2)}
+    legs = [{**leg, "cost": round(scale_leg_cost(leg["mode"], leg["cost"], travelers), 2)}
+            for leg in opt["legs"]]
+    return {**opt, "legs": legs, "cost": round(sum(leg["cost"] for leg in legs), 2)}
 
 
 def sugar_split(text: str) -> str:
@@ -337,7 +337,7 @@ def format_report(res: dict, origin: str | None, dest: str | None) -> str:
         tag = _STATUS_TAG.get(o["status"], o["status"])
         if o.get("over_time_budget"):
             tag += "  ⏱ over time budget"
-        legs = " + ".join(f"{l['mode']} {_fmt_money(l['cost'])}" for l in o["legs"])
+        legs = " + ".join(f"{leg['mode']} {_fmt_money(leg['cost'])}" for leg in o["legs"])
         line = (f" {mark} {o['name'][:name_w].ljust(name_w)}  "
                 f"{_fmt_money(o['cost']).rjust(7)}  {_fmt_hours(o['hours_eff']).rjust(6)}  "
                 f"{('multimodal' if o['is_split'] else 'direct').ljust(10)}  {tag}")
@@ -357,7 +357,6 @@ def format_report(res: dict, origin: str | None, dest: str | None) -> str:
 
     # decision
     rec = res["_recommended_row"]
-    base = res["_baseline_row"]
     L.append("DECISION:")
     L.append(f"  Cheapest cash:  {res['cheapest_cash']}")
     L.append(f"  Fastest:        {res['fastest']}")
@@ -419,7 +418,8 @@ def build_options(args) -> list[dict]:
             if isinstance(item, str):
                 raw.append((item, 1))
             else:  # {"name":..,"legs":[{"mode","cost","hours"}]}
-                legs = "; ".join(f"{l['mode']} {l['cost']} {l.get('hours', 0)}" for l in item["legs"])
+                legs = "; ".join(f"{leg['mode']} {leg['cost']} {leg.get('hours', 0)}"
+                                for leg in item["legs"])
                 raw.append((f"{item.get('name', '')} | {legs}", 1))
     return [parse_option(r, min_legs=n) for r, n in raw]
 
@@ -469,7 +469,7 @@ def _run(args) -> int:
         raise ValueError("--max-hours must be > 0")
 
     options = [scale_option(o, args.travelers) for o in build_options(args)]
-    unknown_modes = sorted({l["mode"] for o in options for l in o["legs"] if l["mode_unknown"]})
+    unknown_modes = sorted({leg["mode"] for o in options for leg in o["legs"] if leg["mode_unknown"]})
     res = evaluate(options, threshold=args.threshold, vot=args.vot,
                    transfer_buffer=args.transfer_buffer,
                    max_hours=args.max_hours, travelers=args.travelers)
@@ -609,7 +609,7 @@ def selftest():
     o11 = parse_option("Weird | flght 200 3.0")
     check("typo'd mode 'flght' is flagged mode_unknown", o11["legs"][0]["mode_unknown"] is True)
     o11b = parse_option("Fine | fly 200 3.0 ; train 40 2.0")
-    check("known modes are not flagged", not any(l["mode_unknown"] for l in o11b["legs"]))
+    check("known modes are not flagged", not any(leg["mode_unknown"] for leg in o11b["legs"]))
 
     n_cases = 11
     print(f"\n{'ALL PASS' if not failures else str(len(failures)) + ' FAILED'} "

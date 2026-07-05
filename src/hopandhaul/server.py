@@ -32,6 +32,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 from . import __version__, emissions, geo, trip
+from .integrations import net
 try:
     from . import flights     # provider-agnostic live pricing (Duffel preferred, Amadeus fallback)
 except Exception:  # pragma: no cover
@@ -154,7 +155,10 @@ def _v_lng(raw: str) -> float:
 
 def _v_iata(raw: str) -> str:
     v = raw.strip().upper()
-    if not v or len(v) > MAX_IATA_LEN or not v.isalpha():
+    # ASCII A-Z only — str.isalpha() also accepts Unicode letters (e.g. accented or
+    # non-Latin scripts), which are never valid IATA codes and would pass through
+    # unchecked to geo.by_iata()/provider calls.
+    if not v or len(v) > MAX_IATA_LEN or not all("A" <= c <= "Z" for c in v):
         raise ValidationError("origin must be a short airport code (letters only)")
     return v
 
@@ -220,6 +224,8 @@ def parse_plan_params(q: dict) -> dict:
 
     ret = _optional(q, "ret")
     out["ret"] = _v_date(ret, "ret") if ret else None
+    if out["ret"] and out["date"] and out["ret"] < out["date"]:
+        raise ValidationError("return date must be on or after the depart date")
 
     vot = _optional(q, "vot")
     out["vot"] = _v_float_range(vot, "vot", 0.0, MAX_VOT) if vot else None
@@ -332,7 +338,10 @@ def _price_flight(origin, dest, date, ret, travelers, session, ctx, deadline):
                         "source": live["source"], "rt": live.get("rt", False)}
         # network/HTTP-shaped failures only — a real bug in the normalization code should
         # surface as a crash, not silently and permanently masquerade as "provider is down".
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError,
+        # net.FetchError is what fetch_json() raises for every wrapped provider failure
+        # (401/429/5xx/timeout/bad-json) — without it here, a live-but-failing key broke the
+        # WHOLE /api/plan instead of degrading this leg to the distance estimate.
+        except (net.FetchError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError,
                 ConnectionError, ValueError, KeyError):
             ctx["live_error"] = True
     est = geo.estimate_flight(origin, dest, date=date)
@@ -547,6 +556,11 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "hopandhaul/1.0"
     timeout = 15
 
+    def version_string(self):
+        # Drop the default "Python/3.x.y" fingerprint from the Server response header —
+        # no reason to hand a probing client the host's Python version.
+        return "hopandhaul"
+
     def _host_ok(self):
         host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]")
         return host in ALLOWED_HOSTS
@@ -639,7 +653,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_err(200, "geocoding_not_configured", "geocoding not configured")
         try:
             results = geoapify.geocode(params["text"], limit=params["limit"])
-        except (urllib.error.HTTPError, urllib.error.URLError, ValueError, KeyError) as e:
+        except (net.FetchError, urllib.error.HTTPError, urllib.error.URLError,
+                ValueError, KeyError) as e:
             _log_exc("/api/geocode", e)
             return self._send_err(200, "geocode_lookup_failed", "geocoding lookup failed")
         except Exception as e:  # never leak internals to the browser; log server-side
@@ -781,7 +796,7 @@ def selftest():
     g_dir = next(o for o in grp["result"]["options"] if o["name"].startswith("Fly direct"))
     check("group of 4: direct flight cost ×4", abs(g_dir["cost"] - 4 * s_dir["cost"]) < 1)
     s_drv = next((o for o in solo["result"]["options"]
-                  if any(l["mode"] in ("drive", "rental", "car") for l in o["legs"])), None)
+                  if any(leg["mode"] in ("drive", "rental", "car") for leg in o["legs"])), None)
     if s_drv:
         g_drv = next(o for o in grp["result"]["options"] if o["name"] == s_drv["name"])
         check("group of 4: drive-split scales less than ×4 (vehicle shared)",
@@ -800,6 +815,30 @@ def selftest():
     check("RT note mentions the return", any("return" in n.lower() for n in rt["notes"]))
     check("dated estimate note mentions date adjustment",
           any("date-adjusted" in n for n in ow["notes"]))
+
+    # ---- reliability regression: a live-but-failing key (401/429/5xx surfaced by net.py as
+    # FetchError) must degrade that flight leg to the distance ESTIMATE, not break the whole
+    # plan. Before this fix _price_flight()'s except tuple didn't include net.FetchError, so
+    # this raised straight out of plan() and the endpoint returned {"ok": false}.
+    import unittest.mock as _mock
+
+    class _FakeSession:
+        provider = "duffel"
+
+    def _raise_fetch_error(*a, **kw):
+        raise net.FetchError("HTTP 401 from api.duffel.com after 1 attempt(s)", status=401)
+
+    with _mock.patch.object(flights, "have_keys", return_value=True), \
+         _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
+         _mock.patch.object(flights, "search_cheapest", side_effect=_raise_fetch_error):
+        out_fallback = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15",
+                            fetch_weather=False, allow_live=True)
+    check("a FetchError from the live provider still returns ok:True",
+          out_fallback.get("ok") is True)
+    check("pricing degrades to estimate on a live-provider FetchError",
+          out_fallback.get("pricing_source") == "estimate")
+    check("a live_error note is surfaced when the live lookup failed",
+          any("fell back to estimates" in n for n in out_fallback["notes"]))
 
     # ---- error-contract + input-validation checks (no HTTP needed — call the validators
     # and handlers' underlying helpers directly, matching what Handler does with parse_qs output)
@@ -835,6 +874,28 @@ def selftest():
         check("plan: travelers over cap rejected", False)
     except ValidationError:
         check("plan: travelers over cap rejected", True)
+
+    try:
+        parse_plan_params(qs(lat="39.19", lng="-106.82", date="2026-08-15", ret="2026-08-01"))
+        check("plan: return date before depart date rejected", False)
+    except ValidationError:
+        check("plan: return date before depart date rejected", True)
+
+    same_day = parse_plan_params(qs(lat="39.19", lng="-106.82", date="2026-08-15", ret="2026-08-15"))
+    check("plan: return date equal to depart date is allowed",
+          same_day["date"] == same_day["ret"] == "2026-08-15")
+
+    try:
+        parse_plan_params(qs(lat="39.19", lng="-106.82", origin="J3K"))
+        check("plan: origin with a digit is rejected (ASCII-letters-only)", False)
+    except ValidationError:
+        check("plan: origin with a digit is rejected (ASCII-letters-only)", True)
+
+    try:
+        parse_plan_params(qs(lat="39.19", lng="-106.82", origin="JİK"))  # Unicode dotted I
+        check("plan: non-ASCII 'letter' origin is rejected", False)
+    except ValidationError:
+        check("plan: non-ASCII 'letter' origin is rejected", True)
 
     try:
         parse_plan_params(qs(lat="39.19", lng="-106.82", date="2026-13-40"))

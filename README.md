@@ -7,9 +7,11 @@ train ride from there is worth it.**
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 
-![screenshot placeholder](docs/screenshot.png)
-*(click a spot on the map, get a fly-direct-vs-fly-then-train verdict — GIF coming once the
-UI's savings-number redesign ships)*
+**What it looks like:** a dark map fills the screen. Click anywhere and a recommendation
+card slides in — cost, time, and a CO2 estimate for every option side by side, the $200
+rule applied to your click. A separate callout flags whichever option is greenest, apart
+from whichever is cheapest. A copy-link button turns the plan into a URL you can send
+someone. Run it yourself below; it takes about 30 seconds.
 
 ## The idea
 

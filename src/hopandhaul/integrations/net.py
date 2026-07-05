@@ -206,7 +206,6 @@ def selftest():
           _host("https://api.duffel.com/air/offers?x=1") == "api.duffel.com")
 
     # ---- fetch_json retry behavior, fully offline via urlopen monkeypatch ----
-    calls = {"n": 0}
     slept = []
 
     def fake_sleep(s):
