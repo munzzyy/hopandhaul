@@ -7,19 +7,21 @@ train ride from there is worth it.**
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 
-**What it looks like:** a dark map fills the screen. Click anywhere and a recommendation
-card slides in — cost, time, and a CO2 estimate for every option side by side, the $200
-rule applied to your click. A separate callout flags whichever option is greenest, apart
-from whichever is cheapest. A copy-link button turns the plan into a URL you can send
-someone. Run it yourself below; it takes about 30 seconds.
+![Click a destination and the recommendation card answers with the math: cost, time, CO2 per option, the $200 rule applied](docs/media/app-dark.png)
 
-![A map click on Aspen, CO producing a recommendation card: flying direct beats every
-gateway split here, with DEN + bus flagged separately as the lowest-carbon
-option.](docs/img/screenshot.png)
+Click anywhere on the map and a recommendation card slides in — cost, time, and a CO2
+estimate for every option side by side. A copy-link button turns the plan into a URL you
+can send someone. That's a live screenshot, not a mockup; run it yourself below with no
+API keys (about 30 seconds), then open
+`http://127.0.0.1:8770/?lat=39.1911&lng=-106.8175&place=Aspen,+CO&origin=JFK`
+to reproduce a trip like it.
 
-This is a live screenshot, not a mockup — [try the same trip yourself](https://github.com/munzzyy/hopandhaul#quick-start)
-with no API keys, or open it locally once it's running:
-`http://127.0.0.1:8770/?lat=39.1911&lng=-106.8175&place=Aspen,+CO&origin=JFK`.
+<details>
+<summary><b>20-second demo — plan a trip, switch the UI to French, then flip the whole layout to Arabic</b></summary>
+
+![Animated demo: planning a trip, then switching the UI language to French and Arabic with full RTL mirroring](docs/media/demo.gif)
+
+</details>
 
 ## The idea
 
@@ -76,12 +78,29 @@ estimates (see below). Add keys later for live fares; nothing else changes.
 - Round-trip aware (real return pricing when the provider supports it, a stated estimate
   otherwise)
 - Gateway discovery — curated hub suggestions plus geometric fallback search, worldwide
-- Click-anywhere map UI (Leaflet, self-hosted, no CDN)
+- Click-anywhere map UI (Leaflet self-hosted; map tiles stream from CARTO's servers)
+- UI in 46 languages, four of them fully right-to-left, behind a hand-rolled i18n runtime
+  instead of a framework — pick yours from the globe button
 - Destination weather for the date you're planning
 - Cheapest vs greenest: a rough CO2 estimate per option, with the lowest-carbon one flagged
   separately from the recommendation — estimates, not a certified footprint, and never used to
   pick a winner for you
 - Zero runtime dependencies — pure Python standard library, no `npm install`, no build step
+
+## Speaks your language
+
+The whole UI ships in 46 languages — the big ones, plus Catalan, Icelandic, Swahili,
+Filipino, and both Chinese scripts. Arabic, Hebrew, Persian, and Urdu mirror the entire
+layout right-to-left, map panels included. Detection follows your browser, your pick
+sticks in localStorage, and a language whose catalog fails to load falls back to English
+instead of breaking.
+
+| | |
+|---|---|
+| ![The language picker: filterable list of 46 languages with native names](docs/media/language-modal.png) | ![The app in Arabic: fully mirrored right-to-left layout](docs/media/app-arabic-rtl.png) |
+
+Native speaker and you spot something off? A translation fix in
+`src/hopandhaul/ui/i18n/<code>.json` is about the friendliest PR there is.
 
 ## Architecture, briefly
 

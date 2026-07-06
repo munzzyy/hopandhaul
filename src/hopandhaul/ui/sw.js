@@ -1,7 +1,13 @@
 // Hand-rolled offline-shell service worker — no Workbox, no build step.
 // Caches the static app shell (HTML/JS/CSS/vendor/icons) so the UI loads offline; plans
 // still need live data, so /api/* is always network-first with no cache fallback.
-const CACHE_VERSION = "hopandhaul-shell-v2";
+// Only en.json is precached out of the 46 i18n catalogs (all 46 do exist) — that's the
+// guaranteed fallback every t() call can lean on, so it's worth the install-time cost.
+// The other 45 aren't worth bloating the install shell for: they're picked up by the
+// generic fetch handler below on first successful load, so whichever language a visitor
+// actually chooses works offline from then on, and they're dropped on every version bump
+// along with the rest of the runtime cache.
+const CACHE_VERSION = "hopandhaul-shell-v5";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -14,11 +20,20 @@ const SHELL_FILES = [
   "./search.js",
   "./format.js",
   "./theme.js",
+  "./theme-boot.js",
+  "./i18n.js",
+  "./lang.js",
+  "./i18n/en.json",
   "./manifest.webmanifest",
   "./vendor/leaflet.js",
   "./vendor/leaflet.css",
+  "./vendor/b612mono-regular.ttf",
+  "./vendor/b612mono-bold.ttf",
+  "./icons/favicon.svg",
+  "./icons/icon.svg",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./icons/icon-maskable-512.png",
 ];
 
 self.addEventListener("install", (event) => {

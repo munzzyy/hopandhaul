@@ -66,6 +66,8 @@ _UI_TYPES = {
     ".ico": "image/x-icon",
     ".woff2": "font/woff2",
     ".woff": "font/woff",
+    ".ttf": "font/ttf",
+    ".txt": "text/plain; charset=utf-8",
 }
 _UI_REAL = os.path.realpath(_UI_ROOT)
 
@@ -598,6 +600,7 @@ class Handler(BaseHTTPRequestHandler):
             "img-src 'self' data: https://a.basemaps.cartocdn.com "
             "https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com "
             "https://d.basemaps.cartocdn.com; "
+            "font-src 'self'; manifest-src 'self'; "
             "connect-src 'self'; frame-ancestors 'none'")
         self.end_headers()
         self.wfile.write(data)

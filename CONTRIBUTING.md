@@ -88,6 +88,15 @@ There's currently no automated importer script in this repo (`airports.json`'s o
 outside this repo when a full refresh is due, not as a script contributors run). Day to day,
 treat `airports.json` as a hand-curated file you edit directly.
 
+## Translations
+
+The UI catalogs live in `src/hopandhaul/ui/i18n/`, one flat JSON file per language;
+`en.json` is the source of truth. To fix a string: edit the value (never the key), keep
+`{placeholders}` exactly as they are, and check the file still parses. To add a language:
+copy `en.json`, translate the values, add an entry to the `LANGS` table in `ui/i18n.js`,
+and say in the PR whether you're a native speaker. Screen-reader strings (`legend.sr`,
+the `announce.*` keys) deserve extra care — someone will hear them read aloud.
+
 ## Pull requests
 
 Keep them focused: one fix or one feature per PR. Describe what changed and why, not just

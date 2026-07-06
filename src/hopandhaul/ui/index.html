@@ -4,108 +4,191 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="color-scheme" content="dark light" />
-<meta name="theme-color" content="#0d1117" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://a.basemaps.cartocdn.com https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com https://d.basemaps.cartocdn.com; connect-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" />
-<title>Hop and Haul — fly cheap, haul the rest</title>
-<meta name="description" content="Flies you into the airport that's actually cheap, then tells you honestly whether the train ride from there is worth it." />
+<meta name="theme-color" content="#0c1519" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://a.basemaps.cartocdn.com https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com https://d.basemaps.cartocdn.com; font-src 'self'; connect-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" />
+<title data-i18n="app.title">Hop and Haul — fly cheap, haul the rest</title>
+<meta name="description" content="Flies you into the airport that's actually cheap, then tells you honestly whether the train ride from there is worth it." data-i18n-attr="content:meta.description" />
 <link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" type="image/svg+xml" href="./icons/favicon.svg" />
 <link rel="icon" href="./icons/icon-192.png" />
 <link rel="apple-touch-icon" href="./icons/icon-192.png" />
 <link rel="stylesheet" href="./vendor/leaflet.css" />
 <link rel="stylesheet" href="./styles.css" />
+<script src="./theme-boot.js"></script>
 </head>
 <body>
-<a class="skip-link" href="#results">Skip to results</a>
+<!-- UI icon sprite: 16px grid, currentColor strokes, feather-style single-path glyphs.
+     Hidden and inert — only reachable via <use href="#i-x">. ~1KB, no CSP change needed. -->
+<svg hidden aria-hidden="true">
+  <symbol id="i-plane" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 1v9M8 1 3 6M8 1l5 5M2 9l6 2 6-2M5 11l3 4 3-4"/>
+  </symbol>
+  <symbol id="i-train" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="2" width="10" height="9" rx="2"/><path d="M3 8h10M6 11l-1.5 3M10 11l1.5 3M5.5 5h1M9.5 5h1"/>
+  </symbol>
+  <symbol id="i-bus" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="3" width="12" height="8" rx="1.5"/><path d="M2 8h12M4.5 13v1M11.5 13v1M4.5 5.5h2M9.5 5.5h2"/>
+  </symbol>
+  <symbol id="i-car" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2.5 10V8l1.5-3.5h8L13.5 8v2"/><path d="M2.5 10h11M4 10v1.5M12 10v1.5"/>
+  </symbol>
+  <symbol id="i-van" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2 10.5V6l2-2h6l2 2.5V10.5"/><path d="M2 10.5h10M4 10.5v1.3M10 10.5v1.3M9 4v3"/>
+  </symbol>
+  <symbol id="i-ferry" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 8V4h6l2 4"/><path d="M1.5 12c1 1 2.5 1 3.5 0s2.5-1 3.5 0 2.5 1 3.5 0"/><path d="M6 4V2"/>
+  </symbol>
+  <symbol id="i-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="7" cy="7" r="4.5"/><path d="M13.5 13.5 10.3 10.3"/>
+  </symbol>
+  <symbol id="i-link" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6.5 9.5 9.5 6.5"/><path d="M7 4.5 8.5 3a2.5 2.5 0 0 1 3.5 3.5L10.5 8"/><path d="M9 11.5 7.5 13A2.5 2.5 0 0 1 4 9.5L5.5 8"/>
+  </symbol>
+  <symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 8.5 6.2 12 13 4"/>
+  </symbol>
+  <symbol id="i-sun" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M14.5 8H13M3 8H1.5M12.4 3.6l-1 1M4.6 11.4l-1 1M12.4 12.4l-1-1M4.6 4.6l-1-1"/>
+  </symbol>
+  <symbol id="i-moon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13.5 9.8A5.5 5.5 0 1 1 6.2 2.5a4.3 4.3 0 0 0 7.3 7.3Z"/>
+  </symbol>
+  <symbol id="i-globe" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="8" cy="8" r="6.5"/><path d="M1.5 8h13M8 1.5c2 2 2 11 0 13M8 1.5c-2 2-2 11 0 13"/>
+  </symbol>
+  <symbol id="i-leaf" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 13c0-6 3.5-9.5 10-9.5C13 10 9.5 13 3 13Z"/><path d="M3 13c1.5-3 4-5.5 7-7"/>
+  </symbol>
+  <symbol id="i-pin" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 14.5S13 9.8 13 6.5a5 5 0 0 0-10 0C3 9.8 8 14.5 8 14.5Z"/><circle cx="8" cy="6.5" r="1.8"/>
+  </symbol>
+  <symbol id="i-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon--arrow">
+    <path d="M3 8h10M9 4l4 4-4 4"/>
+  </symbol>
+</svg>
 
-<div id="map" role="application" aria-label="Trip map — click a destination to plan a route"></div>
+<a class="skip-link" href="#results" data-i18n="skip.results">Skip to results</a>
+
+<div id="map" role="application" aria-label="Trip map — click a destination to plan a route" data-i18n-attr="aria-label:map.aria"></div>
 
 <div id="spinner" class="card" role="status" hidden>
-  <span class="spinner-dot" aria-hidden="true"></span>
-  Calculating&hellip;
+  <svg class="spinner-motif" viewBox="0 0 22 22" aria-hidden="true">
+    <circle class="spinner-track" cx="11" cy="11" r="8" fill="none" stroke-width="2"/>
+    <circle class="spinner-dot" cx="11" cy="11" r="8"/>
+  </svg>
+  <span data-i18n="spinner.calculating">Crunching the numbers&hellip;</span>
 </div>
 
 <!-- Screen-reader-only live region for status/result announcements — visual state lives in #results. -->
 <p id="sr-status" class="sr-only" role="status" aria-live="polite"></p>
 
-<section id="controls" class="card" aria-label="Trip search and settings">
+<section id="controls" class="card" aria-label="Trip search and settings" data-i18n-attr="aria-label:controls.aria">
   <div class="controls-head">
-    <h1><span aria-hidden="true">✈️</span> Hop and Haul</h1>
+    <h1>
+      <svg width="19" height="19" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M5 22 Q 14 5 21 14" fill="none" stroke="var(--arc)" stroke-width="3.2" stroke-linecap="round"/>
+        <path d="M21 14 L 27 22" fill="none" stroke="var(--rail)" stroke-width="3.2" stroke-linecap="round"/>
+        <circle cx="21" cy="14" r="2.6" fill="var(--ink)"/>
+      </svg>
+      Hop and Haul
+    </h1>
     <div class="top-actions">
-      <button type="button" id="theme-toggle" class="btn btn--icon" aria-pressed="false" aria-label="Switch to light theme">☀️</button>
+      <button type="button" id="lang-toggle" class="btn btn--icon" aria-haspopup="dialog" aria-label="Choose language" data-i18n-attr="aria-label:lang.buttonAria">
+        <svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg> <span id="lang-code">EN</span>
+      </button>
+      <button type="button" id="theme-toggle" class="btn btn--icon" aria-label="Switch to light theme" data-i18n-attr="aria-label:theme.toLight">
+        <svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg>
+      </button>
     </div>
   </div>
-  <p class="sub">Search a place or click the map to set your destination. I compare flying
+  <p class="sub" data-i18n="sub">Search a place or click the map to set your destination. I compare flying
     direct against hopping into a cheaper hub and hauling the rest by train, bus, or car —
     and only recommend the split when it actually saves you money.</p>
 
   <div class="search">
-    <label for="place" class="sr-only">Search a city, address, or landmark</label>
+    <label for="place" class="sr-only" data-i18n="search.label">Search a city, address, or landmark</label>
     <input id="place" type="text" placeholder="Search a city, address or landmark…"
+      data-i18n-attr="placeholder:search.placeholder"
       autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false"
-      aria-controls="aclist" aria-autocomplete="list" />
-    <span class="mag" aria-hidden="true">🔎</span>
-    <ul id="aclist" class="aclist" role="listbox" aria-label="Place suggestions" hidden></ul>
+      aria-controls="aclist" aria-autocomplete="list" enterkeyhint="search" />
+    <svg class="icon mag" aria-hidden="true"><use href="#i-search"/></svg>
+    <ul id="aclist" class="aclist" role="listbox" aria-label="Place suggestions" data-i18n-attr="aria-label:search.suggestions" hidden></ul>
   </div>
 
   <div class="row">
-    <label for="origin">From (airport code)
-      <input id="origin" class="field-input" value="JFK" maxlength="4" autocomplete="off" />
+    <label for="origin"><span data-i18n="form.origin">From (airport code)</span>
+      <input id="origin" class="field-input" value="JFK" maxlength="4" autocomplete="off" autocapitalize="characters" />
     </label>
-    <label for="travelers">Travelers
+    <label for="travelers"><span data-i18n="form.travelers">Travelers</span>
       <input id="travelers" class="field-input" type="number" min="1" max="9" step="1" value="1" />
     </label>
   </div>
   <div class="row">
-    <label for="date">Depart (optional)
+    <label for="date"><span data-i18n="form.date">Depart (optional)</span>
       <input id="date" class="field-input" type="date" />
     </label>
-    <label for="ret">Return (optional)
+    <label for="ret"><span data-i18n="form.return">Return (optional)</span>
       <input id="ret" class="field-input" type="date" />
     </label>
   </div>
   <div class="row">
-    <label for="vot">Value of time $/hr
-      <input id="vot" class="field-input" type="number" min="0" step="5" placeholder="e.g. 30" />
+    <label for="vot"><span data-i18n="form.vot">Value of time $/hr</span>
+      <input id="vot" class="field-input" type="number" min="0" step="5" placeholder="e.g. 30" data-i18n-attr="placeholder:form.votPlaceholder" />
     </label>
-    <label for="threshold">Split saves &ge; $
+    <label for="threshold"><span data-i18n="form.threshold">Split saves &ge; $</span>
       <input id="threshold" class="field-input" type="number" min="0" step="25" value="200" />
     </label>
   </div>
   <div class="row">
-    <label for="maxg">Max ground hrs
+    <label for="maxg"><span data-i18n="form.maxGround">Max ground hrs</span>
       <input id="maxg" class="field-input" type="number" min="1" step="1" value="6" />
     </label>
     <div>
-      <span class="sr-only" id="mode-toggle-label">Clicking the map sets</span>
+      <span class="sr-only" id="mode-toggle-label" data-i18n="form.clickSets">Clicking the map sets</span>
       <div class="seg" id="mode-toggle" role="group" aria-labelledby="mode-toggle-label">
-        <button type="button" data-m="dest" class="on" aria-pressed="true">Destination</button>
-        <button type="button" data-m="origin" aria-pressed="false">Origin</button>
+        <button type="button" data-m="dest" class="on" aria-pressed="true" data-i18n="form.destBtn">Destination</button>
+        <button type="button" data-m="origin" aria-pressed="false" data-i18n="form.originBtn">Origin</button>
       </div>
     </div>
   </div>
   <label class="check" for="round">
-    <input type="checkbox" id="round" /> Round trip (real fares with a return date, else &asymp; 2&times;)
+    <input type="checkbox" id="round" /> <span data-i18n="form.round">Round trip (real fares with a return date, else &asymp; 2&times;)</span>
   </label>
   <p class="hint">
-    Pricing: <span id="srcbadge" class="badge badge--est">estimate</span>
+    <span data-i18n="form.pricing">Pricing:</span> <span id="srcbadge" class="badge badge--est" data-i18n="badge.estimate">estimate</span>
     <span id="srcnote"></span>
   </p>
 </section>
 
-<section id="results" class="card" aria-live="polite" aria-atomic="false" hidden></section>
+<section id="results" class="card" tabindex="-1" hidden></section>
 
 <div id="legend" class="legend card" aria-hidden="true">
-  <span class="legend-item">🟢 origin</span>
-  <span class="legend-item">🔴 destination</span>
-  <span class="legend-item">🟣 gateway hub</span>
-  <span class="legend-item">— flight</span>
-  <span class="legend-item">&middot;&middot; ground</span>
+  <span class="legend-item"><span class="swatch pin--origin"></span> <span data-i18n="legend.origin">origin</span></span>
+  <span class="legend-item"><span class="swatch pin--dest"></span> <span data-i18n="legend.dest">destination</span></span>
+  <span class="legend-item"><span class="swatch pin--hub"></span> <span data-i18n="legend.hub">gateway hub</span></span>
+  <span class="legend-item">&middot;&middot; <span data-i18n="legend.flight">flight</span></span>
+  <span class="legend-item">- - <span data-i18n="legend.ground">ground</span></span>
 </div>
-<p class="sr-only">
-  Map legend: green marker is your origin airport, red marker is the destination airport,
-  purple markers are candidate gateway hubs. A solid line is a flight leg; a dashed line is
-  a ground leg (train, bus, or drive).
+<p class="sr-only" data-i18n="legend.sr">
+  Map legend: blue marker is your origin airport, ink-colored marker is the destination
+  airport, dim markers are candidate gateway hubs — the recommended hub turns green, matching
+  the recommendation card. A dotted line is a flight leg; a dashed line is a ground leg
+  (train, bus, or drive).
 </p>
+
+<div id="lang-modal" class="lang-overlay" hidden>
+  <div class="lang-card card" role="dialog" aria-modal="true" aria-labelledby="lang-title">
+    <div class="lang-head">
+      <h2 id="lang-title" data-i18n="lang.title">Language</h2>
+      <button type="button" id="lang-close" class="btn btn--icon btn--ghost" aria-label="Close" data-i18n-attr="aria-label:lang.close">
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 3l10 10M13 3 3 13"/></svg>
+      </button>
+    </div>
+    <input id="lang-filter" type="text" class="lang-filter" placeholder="Filter languages…" data-i18n-attr="placeholder:lang.filter"
+      autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="lang-list" aria-autocomplete="list" />
+    <ul id="lang-list" class="lang-list" role="listbox" aria-label="Language" data-i18n-attr="aria-label:lang.title"></ul>
+  </div>
+</div>
 
 <script src="./vendor/leaflet.js"></script>
 <script type="module" src="./app.js"></script>

@@ -53,20 +53,41 @@ export function shareUrl(state) {
   return `${location.origin}${location.pathname}?${q.toString()}`;
 }
 
-const THEME_KEY = "hopandhaul:theme";
-
-export function loadTheme() {
+/** Shared localStorage read/write for the small set of non-shareable prefs (theme, language) —
+ * both silently no-op on failure (private browsing, storage disabled) since neither is fatal
+ * to the app; the pref just won't persist. */
+function readPref(key) {
   try {
-    return localStorage.getItem(THEME_KEY);
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
-export function saveTheme(theme) {
+function writePref(key, val) {
   try {
-    localStorage.setItem(THEME_KEY, theme);
+    localStorage.setItem(key, val);
   } catch {
-    // storage disabled (private browsing) — theme just won't persist, not fatal
+    // storage disabled — pref just won't persist, not fatal
   }
+}
+
+const THEME_KEY = "hopandhaul:theme";
+
+export function loadTheme() {
+  return readPref(THEME_KEY);
+}
+
+export function saveTheme(theme) {
+  writePref(THEME_KEY, theme);
+}
+
+const LANG_KEY = "hopandhaul:lang";
+
+export function loadLangPref() {
+  return readPref(LANG_KEY);
+}
+
+export function saveLangPref(code) {
+  writePref(LANG_KEY, code);
 }

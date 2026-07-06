@@ -1,4 +1,5 @@
 // Pure formatting/escaping helpers. No DOM access, no state — safe to import anywhere.
+import { t } from "./i18n.js";
 
 /** Escape a string for safe insertion into HTML markup (attribute or text position). */
 export function esc(s) {
@@ -34,42 +35,47 @@ export function fmtH(hours) {
 }
 
 // Every ground mode trip.py can emit, plus "fly" as a first-class key — no post-hoc special case.
-const MODE_EMOJI = {
-  fly: "✈️",
-  train: "🚆", rail: "🚆",
-  bus: "🚌", coach: "🚌", shuttle: "🚐",
-  drive: "🚗", car: "🚗", rental: "🚗",
-  ferry: "⛴️",
+const MODE_ICON = {
+  fly: "i-plane",
+  train: "i-train", rail: "i-train",
+  bus: "i-bus", coach: "i-bus", shuttle: "i-van",
+  drive: "i-car", car: "i-car", rental: "i-car",
+  ferry: "i-ferry",
 };
 
-/** Emoji glyph for a ground/flight mode. Always paired with a text label in the DOM. */
-export function modeEmoji(mode) {
-  return MODE_EMOJI[mode] || "🚌";
+/** `<svg>` markup referencing the sprite symbol for a ground/flight mode — always paired
+ * with a text label in the DOM (see modeLabel). aria-hidden since it's decorative. */
+export function modeIcon(mode) {
+  const id = MODE_ICON[mode] || "i-bus";
+  return `<svg class="icon" aria-hidden="true"><use href="#${id}"/></svg>`;
 }
 
-/** Plain-English label for a mode — the text alternative that goes next to the emoji. */
+/** Localized text label for a mode — the screen-reader-only text alternative for the
+ * aria-hidden mode icon (see modeIcon). */
 export function modeLabel(mode) {
-  const labels = {
-    fly: "flight", train: "train", rail: "train", bus: "bus", coach: "bus",
-    shuttle: "shuttle", drive: "drive", car: "drive", rental: "rental car",
-    ferry: "ferry",
+  const keys = {
+    fly: "mode.flight", train: "mode.train", rail: "mode.train", bus: "mode.bus", coach: "mode.bus",
+    shuttle: "mode.shuttle", drive: "mode.drive", car: "mode.drive", rental: "mode.rentalCar",
+    ferry: "mode.ferry",
   };
-  return labels[mode] || mode || "ground";
+  const key = keys[mode];
+  return key ? t(key) : (mode || t("mode.ground"));
 }
 
 // Every status trip.py's evaluate() can emit — all 7, not just the 4 the old UI styled.
 // Raw implementation vocabulary (e.g. "pricier_faster") never reaches the user.
-const STATUS_LABEL = {
-  baseline: { text: "direct", tone: "base" },
-  dominant: { text: "cheaper & faster", tone: "ok" },
-  split_qualifies: { text: "saves ≥ rule", tone: "ok" },
-  alt_qualifies: { text: "saves ≥ rule", tone: "ok" },
-  cheaper_below_threshold: { text: "under threshold", tone: "warn" },
-  pricier_faster: { text: "faster, costs more", tone: "warn" },
-  worse: { text: "costlier & slower", tone: "bad" },
+const STATUS_KEY = {
+  baseline: { key: "status.direct", tone: "base" },
+  dominant: { key: "status.cheaperFaster", tone: "ok" },
+  split_qualifies: { key: "status.savesRule", tone: "ok" },
+  alt_qualifies: { key: "status.savesRule", tone: "ok" },
+  cheaper_below_threshold: { key: "status.underThreshold", tone: "warn" },
+  pricier_faster: { key: "status.fasterCostsMore", tone: "warn" },
+  worse: { key: "status.worse", tone: "bad" },
 };
 
 /** { text, tone } for a trip.py option status — tone maps to a CSS class, never color alone. */
 export function statusLabel(status) {
-  return STATUS_LABEL[status] || { text: status, tone: "" };
+  const entry = STATUS_KEY[status];
+  return entry ? { text: t(entry.key), tone: entry.tone } : { text: status, tone: "" };
 }
