@@ -7,7 +7,7 @@ name = "hopandhaul"
 version = "0.1.0"
 description = "Flies you into the cheap airport, then tells you honestly whether the train ride is worth it."
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "Prosperity Public License 3.0.0" }
 requires-python = ">=3.10"
 authors = [{ name = "Cole Munz" }]
 dependencies = []

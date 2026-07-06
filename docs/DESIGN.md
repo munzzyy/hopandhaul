@@ -50,7 +50,7 @@ directly changes.
 travelcheap/
   pyproject.toml              # dependencies = [] for the core package, always
   README.md
-  LICENSE                     # MIT
+  LICENSE                     # Prosperity Public License 3.0.0
   SECURITY.md
   CONTRIBUTING.md
   .gitignore
@@ -228,7 +228,7 @@ tooling and is a should-ship, not a stretch — see §3.
 | Security: SECURITY.md + document the existing good posture (Host-header guard, 127.0.0.1-only bind, no path traversal, no secrets to the browser) | This is genuinely already well-built; say so explicitly and give a real vulnerability-reporting channel before this goes public. | XS |
 | `pyproject.toml`, `src/` layout, `[project.scripts]` entry points, `dependencies = []` | Makes this installable/forkable without touching runtime behavior or adding a dependency. Table stakes for "genuinely excellent public repo." | M |
 | CI (GitHub Actions: ruff lint + run every existing `--selftest`) | Zero CI exists today on a clean-slate repo. Cheap, matches the existing self-test discipline, gives a real green badge. | S |
-| README (hook, GIF, quick start, the actual $200 rule stated plainly, honest scope) + LICENSE (MIT) | Nothing exists yet. This is the single highest-leverage piece of the whole launch — see §6. | M |
+| README (hook, GIF, quick start, the actual $200 rule stated plainly, honest scope) + LICENSE (Prosperity) | Nothing exists yet. This is the single highest-leverage piece of the whole launch — see §6. | M |
 
 ### SHOULD (clear, high-value, do soon after MUST)
 
@@ -405,15 +405,15 @@ use only if the "$200 rule" framing becomes the core marketing angle), `layoverl
 fit — "layover" technically means a connection within one itinerary, not a deliberately split
 pair of separate tickets, and this audience will notice).
 
-**License: MIT.** Small, single-purpose CLI + local-server tool aimed at maximum adoption and
-zero legal friction. Apache 2.0's patent grant doesn't buy anything here (fare-estimation
-heuristics and haversine math aren't the kind of subject matter that benefits from it). Plain
-MIT `LICENSE` at repo root, Cole's name, current year.
+**License: Prosperity Public License 3.0.0** (free for noncommercial use, commercial use by
+paid license). The original launch shipped MIT for maximum adoption and zero legal friction;
+it was later relicensed to Prosperity to keep hopandhaul noncommercial and owner-held. The
+`LICENSE` file at the repo root is authoritative.
 
 **README outline** (the single highest-leverage artifact in the whole launch):
 1. One-line hook, above the fold, verbatim or close to: *"Flies you into the airport that's
    actually cheap, then tells you honestly whether the train ride is worth it."*
-2. 3 badges max, each a real signal: CI status, MIT license, a "zero dependencies" badge (rare
+2. 3 badges max, each a real signal: CI status, a license badge, a "zero dependencies" badge (rare
    and legitimately differentiating).
 3. A 10-15s GIF of the actual click-to-plan flow, immediately after the hook, before any prose —
    this is the single highest-conversion element. Capture it **after** the frontend's savings-
@@ -528,7 +528,7 @@ The completeness-critic grades against this list. Every item must be true, not "
       versions.
 - [ ] README has the hook, the GIF, the 3-step quick start, the rule stated plainly, and an
       honest feature list with no AI-washing.
-- [ ] LICENSE (MIT), SECURITY.md, CONTRIBUTING.md, issue templates, and a PR template all exist.
+- [ ] LICENSE (Prosperity), SECURITY.md, CONTRIBUTING.md, issue templates, and a PR template all exist.
 
 **Voice**
 - [ ] Every user-facing string (README, UI copy, error messages, CLI help text) reads like a

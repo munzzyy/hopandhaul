@@ -4,7 +4,7 @@
 train ride from there is worth it.**
 
 [![CI](https://github.com/munzzyy/hopandhaul/actions/workflows/ci.yml/badge.svg)](https://github.com/munzzyy/hopandhaul/actions/workflows/ci.yml)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: Prosperity 3.0.0](https://img.shields.io/badge/license-Prosperity--3.0.0-blue.svg)](LICENSE)
 ![zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 
 ![Click a destination and the recommendation card answers with the math: cost, time, CO2 per option, the $200 rule applied](docs/media/app-dark.png)
@@ -163,5 +163,5 @@ you can read in `trip.py`, not a model's guess.
 ## Contributing / License / Security
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to run tests and the code-style/voice
-expectations, [LICENSE](LICENSE) (MIT), and [SECURITY.md](SECURITY.md) for the security
+expectations, [LICENSE](LICENSE) (Prosperity Public License, free for noncommercial use), and [SECURITY.md](SECURITY.md) for the security
 posture and how to report a vulnerability.
