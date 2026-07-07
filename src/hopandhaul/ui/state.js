@@ -82,6 +82,17 @@ export function saveTheme(theme) {
   writePref(THEME_KEY, theme);
 }
 
+/** Drop back to "Auto" — no stored choice means prefers-color-scheme decides (theme-boot.js
+ * and theme.js both already treat an absent key this way; this just makes clearing it explicit
+ * instead of every caller reaching for localStorage.removeItem directly). */
+export function clearTheme() {
+  try {
+    localStorage.removeItem(THEME_KEY);
+  } catch {
+    // storage disabled — nothing was persisted in the first place
+  }
+}
+
 const LANG_KEY = "hopandhaul:lang";
 
 export function loadLangPref() {

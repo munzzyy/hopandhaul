@@ -6,8 +6,6 @@
   "spinner.calculating": "Calculs en cours…",
   "controls.aria": "Recherche et réglages du trajet",
   "sub": "Recherchez un lieu ou cliquez sur la carte pour fixer votre destination. Je compare le vol direct avec un vol vers un hub moins cher suivi du reste du trajet en train, bus ou voiture — et je ne recommande la combinaison que si elle vous fait vraiment économiser de l'argent.",
-  "theme.toLight": "Passer au thème clair",
-  "theme.toDark": "Passer au thème sombre",
   "search.label": "Rechercher une ville, une adresse ou un lieu connu",
   "search.placeholder": "Rechercher une ville, une adresse ou un lieu connu…",
   "search.suggestions": "Suggestions de lieux",

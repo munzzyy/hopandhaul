@@ -2,14 +2,25 @@
    native nesting-free selectors so it works in any evergreen browser without a preprocessor. */
 
 /* ---------------------------------------------------------------- tokens
-   Accent discipline — blue = flight + interaction, green = savings + rail, never anything
-   else. --arc goes ONLY on: links, focus rings, the one selected control per group, the
+   Accent discipline — --arc = flight + interaction, --rail = savings + ground leg, never
+   swapped. --arc goes ONLY on: links, focus rings, the one selected control per group, the
    combobox active option, .skip-link, spinner, flight legs + origin pin, and the direct-flight
-   hero value. --arc NEVER on: the hero savings number (always --rail — green = money saved =
-   the product story), panel borders/titles (stay --dim), .btn at rest/hover, badges/tags at
-   rest, weather chip, non-recommended pins, scrollbars, or any wash stronger than 14%. */
+   hero value. --arc NEVER on: the hero savings number (always --rail — that figure staying in
+   the "money saved" color is the product story), panel borders/titles (stay --dim), .btn at
+   rest/hover, badges/tags at rest, weather chip, non-recommended pins, scrollbars, or any wash
+   stronger than 14%.
+
+   This discipline is per-TOKEN, not per-hex: every theme below reassigns --arc/--rail to its
+   own palette (a jetstream blue in most, but the amber terminal theme below deliberately
+   breaks from blue — blue has no place in a monochrome-phosphor CRT look, so --arc goes amber
+   there and --rail stays a second, cooler phosphor green, matching real dual-color terminals).
+   What never moves is which SLOT a color goes in and what it means once it's there. Every
+   theme's worst-case text contrast (ink/dim/arc/rail/warn/bad against panel, plus the
+   rec-card color-mix blends) is computed against WCAG AA — 4.5:1 body text, 3:1 large text
+   and UI components — before it ships, not eyeballed. The contrast comment on each color
+   below is that computed ratio against --panel. */
 :root,
-[data-theme="dark"] {                /* DARK — Night Leg (default) */
+[data-theme="dark"] {                /* DARK — Departure Board (default) */
   color-scheme: dark;
   --bg:        #0c1519;
   --panel:     #122026;
@@ -36,7 +47,7 @@
   --radius-xs: 6px;
 }
 
-[data-theme="light"] {               /* LIGHT — Day Leg (warm timetable paper) */
+[data-theme="light"] {               /* LIGHT — Boarding Pass (warm timetable paper) */
   color-scheme: light;
   --bg:        #f6f4ee;
   --panel:     #ffffff;
@@ -58,6 +69,167 @@
   --shadow-1:  0 1px 3px  rgba(27, 43, 51, .10);
   --shadow-2:  0 6px 18px rgba(27, 43, 51, .12);
   --shadow-3:  0 10px 30px rgba(27, 43, 51, .14);
+}
+
+[data-theme="oled"] {                /* DARK — Night Flight (true OLED black) */
+  color-scheme: dark;
+  --bg:        #000000;
+  --panel:     #0a0a0c;
+  --panel-2:   #131316;
+  --line:      #2a2a30;
+  --ink:       #f2f5f7;              /* 18.1:1 on panel */
+  --dim:       #a9b2ba;              /* 9.2:1 on panel */
+  --arc:       #5ec2ff;              /* 10.0:1 on panel */
+  --rail:      #38e6a4;              /* 12.3:1 on panel */
+  --accent:    var(--arc);
+  --accent-ink:#00131c;
+  --good:      var(--rail);
+  --warn:      #ffcf4d;
+  --bad:       #ff6e6b;
+  --hub:       var(--dim);
+  --map-bg:    #000000;
+  --map-ref:   #4d5761;
+  --focus:     0 0 0 3px rgba(94, 194, 255, .55);
+  --shadow-1:  0 1px 3px  rgba(0, 0, 0, .55);
+  --shadow-2:  0 6px 18px rgba(0, 0, 0, .60);
+  --shadow-3:  0 10px 30px rgba(0, 0, 0, .68);
+}
+
+[data-theme="amber"] {               /* DARK — Terminal (monochrome CRT departure board) */
+  color-scheme: dark;
+  --bg:        #0a0704;
+  --panel:     #120d07;
+  --panel-2:   #1c140b;
+  --line:      #4a3418;
+  --ink:       #ffd899;              /* 14.3:1 on panel */
+  --dim:       #c99a55;              /* 7.6:1 on panel */
+  --arc:       #ffb000;              /* primary phosphor amber — 10.6:1 on panel. Deliberately
+                                         not blue: see the accent-discipline note above. */
+  --rail:      #33d17a;              /* secondary phosphor green — 9.7:1 on panel, the one
+                                         concession to a second hue, matching real dual-trace
+                                         terminals and keeping "green = savings" legible here too */
+  --accent:    var(--arc);
+  --accent-ink:#1a0f00;
+  --good:      var(--rail);
+  --warn:      #ff8f2e;
+  --bad:       #ff5a4d;
+  --hub:       var(--dim);
+  --map-bg:    #0a0704;
+  --map-ref:   #6b4e26;
+  --focus:     0 0 0 3px rgba(255, 176, 0, .55);
+  --shadow-1:  0 1px 3px  rgba(0, 0, 0, .55);
+  --shadow-2:  0 6px 18px rgba(0, 0, 0, .60);
+  --shadow-3:  0 10px 30px rgba(0, 0, 0, .68);
+}
+
+[data-theme="contrast"] {            /* DARK — High Contrast (accessibility: max-contrast) */
+  color-scheme: dark;
+  --bg:        #000000;
+  --panel:     #000000;
+  --panel-2:   #0d0d0d;
+  --line:      #ffffff;              /* full-strength borders, not a subtle hairline */
+  --ink:       #ffffff;              /* 21:1 on panel */
+  --dim:       #d9d9d9;              /* 14.9:1 on panel — still far above AA, kept off pure
+                                         white only so hierarchy (label vs value) still reads */
+  --arc:       #ffd400;              /* 14.7:1 on panel — the canonical high-contrast link/
+                                         focus yellow */
+  --rail:      #22e06b;              /* 11.9:1 on panel */
+  --accent:    var(--arc);
+  --accent-ink:#000000;
+  --good:      var(--rail);
+  --warn:      #ffb300;
+  --bad:       #ff5252;
+  --hub:       var(--dim);
+  --map-bg:    #000000;
+  --map-ref:   #ffffff;
+  --focus:     0 0 0 3px #ffd400;
+  --shadow-1:  none;                 /* real high-contrast modes drop soft shadows too — the
+                                         white 1px border alone (already 21:1) draws every
+                                         boundary; a blurred shadow doesn't add legibility */
+  --shadow-2:  none;
+  --shadow-3:  none;
+}
+/* Thicker focus outline for this theme only — cheap, real accessibility value, not a hue swap. */
+[data-theme="contrast"] :focus-visible {
+  outline-width: 3px;
+}
+[data-theme="contrast"] button:focus-visible,
+[data-theme="contrast"] input:focus-visible,
+[data-theme="contrast"] select:focus-visible,
+[data-theme="contrast"] [role="option"]:focus-visible {
+  outline-width: 3px;
+}
+
+[data-theme="vintage"] {             /* LIGHT — Rail Poster (parchment + silkscreen ink) */
+  color-scheme: light;
+  --bg:        #f2e4c8;
+  --panel:     #fbf3e1;
+  --panel-2:   #ecdcb8;
+  --line:      #b99a63;
+  --ink:       #3b2412;              /* 13.1:1 on panel */
+  --dim:       #6b4a20;              /* 7.2:1 on panel */
+  --arc:       #0d6e63;              /* poster teal — 5.6:1 on panel */
+  --rail:      #3f6d27;              /* poster olive-green — 5.6:1 on panel */
+  --accent:    var(--arc);
+  --accent-ink:#fdf6e7;
+  --good:      var(--rail);
+  --warn:      #8a5a0a;
+  --bad:       #a23b2e;
+  --hub:       var(--dim);
+  --map-bg:    #c9b98a;
+  --map-ref:   #9c7f4d;
+  --focus:     0 0 0 3px rgba(13, 110, 99, .35);
+  --shadow-1:  0 1px 3px  rgba(59, 36, 18, .18);
+  --shadow-2:  0 6px 18px rgba(59, 36, 18, .22);
+  --shadow-3:  0 10px 30px rgba(59, 36, 18, .26);
+}
+
+[data-theme="sepia"] {               /* LIGHT — Old Map (aged-paper cartography) */
+  color-scheme: light;
+  --bg:        #e3d3b0;
+  --panel:     #efe2c4;
+  --panel-2:   #ddc99f;
+  --line:      #a98b5c;
+  --ink:       #3f2f18;              /* 10.0:1 on panel */
+  --dim:       #5f4a26;              /* 6.6:1 on panel */
+  --arc:       #2c4a6e;              /* old map-ink blue — 7.1:1 on panel */
+  --rail:      #54662a;              /* faded ledger green — 4.9:1 on panel */
+  --accent:    var(--arc);
+  --accent-ink:#fbf3df;
+  --good:      var(--rail);
+  --warn:      #8a5410;
+  --bad:       #953226;
+  --hub:       var(--dim);
+  --map-bg:    #c3b083;
+  --map-ref:   #8d7346;
+  --focus:     0 0 0 3px rgba(44, 74, 110, .35);
+  --shadow-1:  0 1px 3px  rgba(63, 47, 24, .20);
+  --shadow-2:  0 6px 18px rgba(63, 47, 24, .24);
+  --shadow-3:  0 10px 30px rgba(63, 47, 24, .28);
+}
+
+[data-theme="coastal"] {             /* LIGHT — Coastal (sand + sea) */
+  color-scheme: light;
+  --bg:        #eaf1ee;
+  --panel:     #f8fbfa;
+  --panel-2:   #dcebe6;
+  --line:      #a9c9c0;
+  --ink:       #123531;              /* 12.8:1 on panel */
+  --dim:       #3f6b64;              /* 5.8:1 on panel */
+  --arc:       #00738f;              /* ocean teal — 5.2:1 on panel */
+  --rail:      #177056;              /* seagrass green — 5.8:1 on panel */
+  --accent:    var(--arc);
+  --accent-ink:#ffffff;
+  --good:      var(--rail);
+  --warn:      #8a5a10;
+  --bad:       #af3b33;
+  --hub:       var(--dim);
+  --map-bg:    #8fd0c8;
+  --map-ref:   #5c9089;
+  --focus:     0 0 0 3px rgba(0, 115, 143, .35);
+  --shadow-1:  0 1px 3px  rgba(18, 53, 49, .12);
+  --shadow-2:  0 6px 18px rgba(18, 53, 49, .14);
+  --shadow-3:  0 10px 30px rgba(18, 53, 49, .16);
 }
 
 /* type scale — the savings figure needs headroom above everything else on the page */
@@ -316,6 +488,74 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 
 @media (pointer: coarse) {
   .lang-item { padding-block: 12px; min-height: 44px; }
+}
+
+/* ---------------------------------------------------------------- theme picker
+   A small anchored listbox popup (not a full-screen modal like the language picker above —
+   9 rows never need a filter box, so the lighter "menu button" pattern fits better and stays
+   compact at any viewport width with zero special-casing for 360px). */
+.theme-picker { position: relative; }
+#theme-toggle { position: relative; }
+
+/* Decorative-only preview of the CURRENTLY active theme's own accent — no JS required to keep
+   this in sync: it's var(--accent), so it repaints for free every time data-theme changes. */
+.theme-swatch-dot {
+  position: absolute; inset-inline-end: 4px; inset-block-end: 4px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent); border: 1.5px solid var(--panel);
+  pointer-events: none;
+}
+
+.theme-list {
+  position: absolute; top: calc(100% + 6px); inset-inline-end: 0; z-index: 1300;
+  width: max-content; min-width: 15rem;
+  max-width: min(19rem, calc(100vw - 2 * var(--space-4)));
+  max-height: min(24rem, 70vh); overflow-y: auto; overscroll-behavior: contain;
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-3);
+  list-style: none; margin: 0; padding: 6px;
+}
+.theme-list[hidden] { display: none; }
+
+.theme-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 8px; border-radius: var(--radius-xs); border: 1px solid transparent;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .theme-item:hover { background: var(--panel-2); }
+}
+.theme-item:focus-visible {
+  background: var(--panel-2);
+  outline: 2px solid var(--accent); outline-offset: -2px;
+}
+.theme-item--active { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.theme-item-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.theme-item-name { font-size: var(--fs-base); font-weight: 600; }
+.theme-item-desc { font-size: var(--fs-xs); color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-item-check { color: var(--good); font-weight: 700; flex: none; }
+
+/* Live two-tone previews (bg / accent) of every OTHER theme's real palette — necessarily
+   hardcoded here rather than read from custom properties, since the point is showing what a
+   theme that ISN'T active looks like. Keep these in sync with their [data-theme] block above
+   if a palette ever changes. */
+.theme-swatch { width: 20px; height: 20px; border-radius: 50%; flex: none; border: 1px solid rgba(0, 0, 0, .18); }
+.theme-swatch--auto     { background: linear-gradient(135deg, #0c1519 50%, #f6f4ee 50%); }
+.theme-swatch--dark     { background: linear-gradient(135deg, #0c1519 50%, #47b6ff 50%); }
+.theme-swatch--light    { background: linear-gradient(135deg, #f6f4ee 50%, #086dbd 50%); }
+.theme-swatch--oled     { background: linear-gradient(135deg, #000000 50%, #5ec2ff 50%); }
+.theme-swatch--amber    { background: linear-gradient(135deg, #0a0704 50%, #ffb000 50%); }
+.theme-swatch--contrast { background: linear-gradient(135deg, #000000 50%, #ffd400 50%); }
+.theme-swatch--vintage  { background: linear-gradient(135deg, #f2e4c8 50%, #0d6e63 50%); }
+.theme-swatch--sepia    { background: linear-gradient(135deg, #e3d3b0 50%, #2c4a6e 50%); }
+.theme-swatch--coastal  { background: linear-gradient(135deg, #eaf1ee 50%, #00738f 50%); }
+
+@media (pointer: coarse) {
+  .theme-item { padding-block: 12px; min-height: 44px; }
+}
+@media (max-width: 360px) {
+  .theme-list { min-width: 0; width: min(17rem, calc(100vw - 2 * var(--space-3))); }
 }
 
 /* ---------------------------------------------------------------- results panel */

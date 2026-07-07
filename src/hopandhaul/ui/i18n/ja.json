@@ -6,8 +6,6 @@
   "spinner.calculating": "計算中…",
   "controls.aria": "旅程検索と設定",
   "sub": "場所を検索するか、地図をクリックして目的地を指定してください。直行便と、安いハブ空港経由で電車・バス・車を組み合わせるプランを比較し、実際に得する場合だけ乗り継ぎをおすすめします。",
-  "theme.toLight": "ライトテーマに切り替え",
-  "theme.toDark": "ダークテーマに切り替え",
   "search.label": "都市、住所、ランドマークを検索",
   "search.placeholder": "都市、住所、ランドマークを検索…",
   "search.suggestions": "候補地",

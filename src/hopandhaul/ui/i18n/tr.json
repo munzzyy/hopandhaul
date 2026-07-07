@@ -6,8 +6,6 @@
   "spinner.calculating": "Hesaplar yapılıyor…",
   "controls.aria": "Yolculuk arama ve ayarları",
   "sub": "Bir yer arayın veya hedefinizi belirlemek için haritaya tıklayın. Direkt uçuşu, daha ucuz bir aktarma havalimanına uçup gerisini tren, otobüs veya arabayla tamamlamakla karşılaştırıyorum — ve bu kombinasyonu yalnızca gerçekten para kazandırıyorsa öneriyorum.",
-  "theme.toLight": "Açık temaya geç",
-  "theme.toDark": "Koyu temaya geç",
   "search.label": "Bir şehir, adres veya simge yapı arayın",
   "search.placeholder": "Bir şehir, adres veya simge yapı arayın…",
   "search.suggestions": "Yer önerileri",

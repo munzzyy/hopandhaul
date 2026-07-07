@@ -6,8 +6,6 @@
   "spinner.calculating": "Zahlen werden durchgerechnet…",
   "controls.aria": "Reisesuche und Einstellungen",
   "sub": "Suche einen Ort oder klicke auf die Karte, um dein Ziel festzulegen. Ich vergleiche den Direktflug mit einem Flug zu einem günstigeren Hub plus dem Rest per Zug, Bus oder Auto — und empfehle die Kombination nur, wenn sie wirklich Geld spart.",
-  "theme.toLight": "Zum hellen Thema wechseln",
-  "theme.toDark": "Zum dunklen Thema wechseln",
   "search.label": "Stadt, Adresse oder Sehenswürdigkeit suchen",
   "search.placeholder": "Stadt, Adresse oder Sehenswürdigkeit suchen…",
   "search.suggestions": "Ortsvorschläge",

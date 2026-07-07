@@ -6,8 +6,6 @@
   "spinner.calculating": "Számolom a lehetőségeket…",
   "controls.aria": "Útkeresés és beállítások",
   "sub": "Keress rá egy helyre, vagy kattints a térképre a célpont beállításához. Összevetem a közvetlen repülést azzal, hogy beugrasz egy olcsóbb csomópontba, és onnan vonattal, busszal vagy autóval mész tovább — és csak akkor ajánlom ezt, ha tényleg spórolsz vele.",
-  "theme.toLight": "Váltás világos témára",
-  "theme.toDark": "Váltás sötét témára",
   "search.label": "Keress várost, címet vagy nevezetességet",
   "search.placeholder": "Keress várost, címet vagy nevezetességet…",
   "search.suggestions": "Helyjavaslatok",

@@ -6,8 +6,6 @@
   "spinner.calculating": "Đang tính toán…",
   "controls.aria": "Tìm kiếm và thiết lập chuyến đi",
   "sub": "Tìm một địa điểm hoặc nhấp vào bản đồ để chọn điểm đến. Tôi sẽ so sánh bay thẳng với việc bay vào một sân bay trung chuyển rẻ hơn rồi đi tiếp bằng tàu, xe khách hoặc ô tô — và chỉ gợi ý phương án tách chặng khi nó thực sự tiết kiệm hơn.",
-  "theme.toLight": "Chuyển sang giao diện sáng",
-  "theme.toDark": "Chuyển sang giao diện tối",
   "search.label": "Tìm thành phố, địa chỉ hoặc địa danh",
   "search.placeholder": "Tìm thành phố, địa chỉ hoặc địa danh…",
   "search.suggestions": "Gợi ý địa điểm",

@@ -6,8 +6,6 @@
   "spinner.calculating": "Počítám varianty…",
   "controls.aria": "Vyhledávání cesty a nastavení",
   "sub": "Vyhledejte místo nebo klikněte na mapu a nastavte cíl cesty. Porovnávám přímý let s variantou naskočit do levnějšího uzlu a zbytek dojet vlakem, autobusem nebo autem — a tuhle variantu doporučím jen tehdy, když se opravdu vyplatí.",
-  "theme.toLight": "Přepnout na světlý motiv",
-  "theme.toDark": "Přepnout na tmavý motiv",
   "search.label": "Vyhledejte město, adresu nebo místo",
   "search.placeholder": "Vyhledejte město, adresu nebo místo…",
   "search.suggestions": "Návrhy míst",

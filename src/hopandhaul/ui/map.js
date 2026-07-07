@@ -13,12 +13,15 @@ function tileUrl(theme) {
 }
 
 export function initMap() {
-  // Read the theme theme-boot.js already set pre-paint, so the very first tile request
-  // matches what's on screen — no dark-tile flash under a light boot.
-  const bootTheme = document.documentElement.getAttribute("data-theme") || "dark";
-  currentTheme = bootTheme;
+  // theme-boot.js sets data-theme pre-paint to one of 8 theme codes, not just "dark"/"light" —
+  // read the light/dark SCHEME the browser already resolved from it (every [data-theme] block
+  // in styles.css sets color-scheme) rather than assuming the raw attribute value IS the base,
+  // so the very first tile request matches what's on screen for every theme, not just the two
+  // literally named "dark" and "light".
+  const bootBase = getComputedStyle(document.documentElement).colorScheme === "dark" ? "dark" : "light";
+  currentTheme = bootBase;
   map = L.map("map", { zoomControl: true, worldCopyJump: true }).setView([41, -30], 3);
-  tileLayer = L.tileLayer(tileUrl(bootTheme), {
+  tileLayer = L.tileLayer(tileUrl(bootBase), {
     attribution: "&copy; OpenStreetMap &copy; CARTO",
     subdomains: "abcd",
     maxZoom: 19,

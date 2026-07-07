@@ -47,11 +47,8 @@
   <symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <path d="M3 8.5 6.2 12 13 4"/>
   </symbol>
-  <symbol id="i-sun" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M14.5 8H13M3 8H1.5M12.4 3.6l-1 1M4.6 11.4l-1 1M12.4 12.4l-1-1M4.6 4.6l-1-1"/>
-  </symbol>
-  <symbol id="i-moon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M13.5 9.8A5.5 5.5 0 1 1 6.2 2.5a4.3 4.3 0 0 0 7.3 7.3Z"/>
+  <symbol id="i-theme" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="8" cy="8" r="6.25"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5Z" fill="currentColor" stroke="none"/>
   </symbol>
   <symbol id="i-globe" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="8" cy="8" r="6.5"/><path d="M1.5 8h13M8 1.5c2 2 2 11 0 13M8 1.5c-2 2-2 11 0 13"/>
@@ -96,9 +93,14 @@
       <button type="button" id="lang-toggle" class="btn btn--icon" aria-haspopup="dialog" aria-label="Choose language" data-i18n-attr="aria-label:lang.buttonAria">
         <svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg> <span id="lang-code">EN</span>
       </button>
-      <button type="button" id="theme-toggle" class="btn btn--icon" aria-label="Switch to light theme" data-i18n-attr="aria-label:theme.toLight">
-        <svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg>
-      </button>
+      <div class="theme-picker">
+        <button type="button" id="theme-toggle" class="btn btn--icon" aria-haspopup="listbox" aria-expanded="false"
+          aria-controls="theme-list" aria-label="Choose theme" data-i18n-attr="aria-label:theme.buttonAria">
+          <svg class="icon" aria-hidden="true"><use href="#i-theme"/></svg>
+          <span class="theme-swatch-dot" aria-hidden="true"></span>
+        </button>
+        <ul id="theme-list" class="theme-list" role="listbox" aria-label="Theme" data-i18n-attr="aria-label:theme.title" hidden></ul>
+      </div>
     </div>
   </div>
   <p class="sub" data-i18n="sub">Search a place or click the map to set your destination. I compare flying

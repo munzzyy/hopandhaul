@@ -6,8 +6,6 @@
   "spinner.calculating": "正在计算…",
   "controls.aria": "行程搜索与设置",
   "sub": "搜索地点，或点击地图设置目的地。我会比较直飞和「飞到更便宜的枢纽机场、再转乘火车、大巴或自驾」这两种方案，只有真正省钱时才会推荐后者。",
-  "theme.toLight": "切换到浅色主题",
-  "theme.toDark": "切换到深色主题",
   "search.label": "搜索城市、地址或地标",
   "search.placeholder": "搜索城市、地址或地标…",
   "search.suggestions": "地点建议",

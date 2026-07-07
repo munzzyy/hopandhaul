@@ -6,8 +6,6 @@
   "spinner.calculating": "Lasketaan lukuja…",
   "controls.aria": "Matkahaku ja asetukset",
   "sub": "Hae paikka tai klikkaa karttaa valitaksesi määränpään. Vertaan suoraa lentoa siihen, että lennät halvempaan solmukohtaan ja jatkat loppumatkan junalla, bussilla tai autolla — ja suosittelen jälkimmäistä vain silloin, kun se oikeasti säästää rahaa.",
-  "theme.toLight": "Vaihda vaaleaan teemaan",
-  "theme.toDark": "Vaihda tummaan teemaan",
   "search.label": "Hae kaupunkia, osoitetta tai nähtävyyttä",
   "search.placeholder": "Hae kaupunkia, osoitetta tai nähtävyyttä…",
   "search.suggestions": "Paikkaehdotukset",

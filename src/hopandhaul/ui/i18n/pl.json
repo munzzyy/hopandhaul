@@ -6,8 +6,6 @@
   "spinner.calculating": "Liczę warianty…",
   "controls.aria": "Wyszukiwanie podróży i ustawienia",
   "sub": "Wyszukaj miejsce albo kliknij mapę, by ustawić cel. Porównuję lot bezpośredni z wariantem: wskoczyć do tańszego hubu i dalej pociągiem, autobusem albo autem — i polecam ten drugi wariant tylko wtedy, gdy naprawdę wychodzi tańszy.",
-  "theme.toLight": "Przełącz na jasny motyw",
-  "theme.toDark": "Przełącz na ciemny motyw",
   "search.label": "Wyszukaj miasto, adres lub punkt orientacyjny",
   "search.placeholder": "Wyszukaj miasto, adres lub punkt orientacyjny…",
   "search.suggestions": "Podpowiedzi miejsc",

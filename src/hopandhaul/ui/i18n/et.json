@@ -6,8 +6,6 @@
   "spinner.calculating": "Teen arvutusi…",
   "controls.aria": "Reisiotsing ja seaded",
   "sub": "Otsi kohta või klõpsa kaardil, et valida sihtkoht. Võrdlen otselendu sellega, et lennata odavamasse sõlmlennujaama ja jätkata rongi, bussi või autoga — ja soovitan viimast ainult siis, kui see tegelikult raha kokku hoiab.",
-  "theme.toLight": "Lülitu heledale teemale",
-  "theme.toDark": "Lülitu tumedale teemale",
   "search.label": "Otsi linna, aadressi või vaatamisväärsust",
   "search.placeholder": "Otsi linna, aadressi või vaatamisväärsust…",
   "search.suggestions": "Kohasoovitused",

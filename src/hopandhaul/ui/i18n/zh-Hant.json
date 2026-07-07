@@ -6,8 +6,6 @@
   "spinner.calculating": "計算中…",
   "controls.aria": "行程搜尋與設定",
   "sub": "搜尋地點，或點擊地圖設定目的地。我會比較直飛，以及「飛到較便宜的樞紐機場、再轉乘火車、客運或自駕」這兩種方案，只有真正省錢時才會建議後者。",
-  "theme.toLight": "切換為淺色主題",
-  "theme.toDark": "切換為深色主題",
   "search.label": "搜尋城市、地址或地標",
   "search.placeholder": "搜尋城市、地址或地標…",
   "search.suggestions": "地點建議",

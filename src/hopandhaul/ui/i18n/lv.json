@@ -6,8 +6,6 @@
   "spinner.calculating": "Rēķina ciparus…",
   "controls.aria": "Ceļojuma meklēšana un iestatījumi",
   "sub": "Meklējiet vietu vai noklikšķiniet uz kartes, lai izvēlētos galamērķi. Salīdzinu tiešo lidojumu ar lidošanu uz lētāku pārsēšanās lidostu un tālāku ceļu ar vilcienu, autobusu vai auto — un otro variantu iesaku tikai tad, ja tas tiešām ietaupa naudu.",
-  "theme.toLight": "Pārslēgt uz gaišo tēmu",
-  "theme.toDark": "Pārslēgt uz tumšo tēmu",
   "search.label": "Meklējiet pilsētu, adresi vai apskates objektu",
   "search.placeholder": "Meklējiet pilsētu, adresi vai apskates objektu…",
   "search.suggestions": "Vietu ieteikumi",

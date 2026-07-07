@@ -6,8 +6,6 @@
   "spinner.calculating": "계산하는 중…",
   "controls.aria": "여행 검색 및 설정",
   "sub": "장소를 검색하거나 지도를 클릭해 목적지를 정하세요. 직항과, 더 저렴한 허브 공항으로 들어가서 기차·버스·자동차로 나머지를 이동하는 방법을 비교해 실제로 이득일 때만 추천해 드립니다.",
-  "theme.toLight": "라이트 테마로 전환",
-  "theme.toDark": "다크 테마로 전환",
   "search.label": "도시, 주소, 랜드마크 검색",
   "search.placeholder": "도시, 주소 또는 랜드마크 검색…",
   "search.suggestions": "추천 장소",
