@@ -5,7 +5,7 @@
 // what you get when THEME_KEY is simply absent, matching theme-boot.js's own pre-paint logic.
 import { loadTheme, saveTheme, clearTheme } from "./state.js";
 import { t } from "./i18n.js";
-import { setMapTheme } from "./map.js";
+import { setMapTheme, redrawLastPlan } from "./map.js";
 import { esc } from "./format.js";
 
 // Every theme rides one of map.js's two existing tile variants (dark_all / voyager) — no new
@@ -52,6 +52,10 @@ function apply(code) {
   // tiles/route colors, and the browser-chrome theme-color meta.
   document.documentElement.setAttribute("data-theme", code);
   setMapTheme(baseOf(code));
+  // Route/reference-line colors are snapshotted at draw time, not live-bound like the pins —
+  // redraw even when the tile base (and so setMapTheme) had nothing to do, e.g. switching
+  // between two dark-based themes.
+  redrawLastPlan();
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
     // Read --bg live off the just-applied data-theme rather than keeping a second copy of

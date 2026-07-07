@@ -30,15 +30,16 @@ export function initMap() {
 }
 
 /** Swap the basemap for the given theme — Voyager (warm cream, "travel atlas") in light,
- * dark_all (labels kept — users need city names to click) in dark. Re-draws the last plan
- * so route/pin colors (read live from CSS vars) follow the same toggle gesture. No-ops when
- * `theme` matches what's already applied — callers like refreshThemeLabel() run on every
- * language switch too, and shouldn't trigger a full map rebuild when the theme didn't change. */
+ * dark_all (labels kept — users need city names to click) in dark. Tiles only, and a no-op
+ * when `theme` matches what's already applied — callers like refreshThemeLabel() run on every
+ * language switch too, and shouldn't trigger a tile reload when the theme didn't change.
+ * Redrawing the plan overlay is the theme-change caller's job (apply() in theme.js): route
+ * colors are hex snapshots taken at draw time, so they go stale on ANY theme change — including
+ * one between two themes that share a tile base, where this function correctly does nothing. */
 export function setMapTheme(theme) {
   if (!tileLayer || theme === currentTheme) return;
   currentTheme = theme;
   tileLayer.setUrl(tileUrl(theme));
-  if (lastPlan) draw(lastPlan.data, lastPlan.rec);
 }
 
 /** Re-run draw() with whatever plan is currently cached, with no theme/tile change — used to
