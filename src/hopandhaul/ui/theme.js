@@ -77,10 +77,13 @@ function rowHtml(code, nameKey, descKey, activeCode) {
 }
 
 function renderList() {
-  const active = savedOrNull(); // null while on Auto — no real theme row should show as selected
-  const rows = [rowHtml("auto", "theme.name.auto", "theme.desc.auto", active)];
+  const saved = savedOrNull();
+  // null (nothing saved) means Auto itself is the active choice, not "no selection" — normalize
+  // to "auto" so the same equality check in rowHtml marks exactly one row, Auto included.
+  const activeCode = saved ?? "auto";
+  const rows = [rowHtml("auto", "theme.name.auto", "theme.desc.auto", activeCode)];
   for (const th of THEMES) {
-    rows.push(rowHtml(th.code, `theme.name.${th.code}`, `theme.desc.${th.code}`, active));
+    rows.push(rowHtml(th.code, `theme.name.${th.code}`, `theme.desc.${th.code}`, activeCode));
   }
   list.innerHTML = rows.join("");
 }
