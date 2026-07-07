@@ -81,6 +81,8 @@ estimates (see below). Add keys later for live fares; nothing else changes.
 - Click-anywhere map UI (Leaflet self-hosted; map tiles stream from CARTO's servers)
 - UI in 46 languages, four of them fully right-to-left, behind a hand-rolled i18n runtime
   instead of a framework — pick yours from the globe button
+- Eight themes plus Auto, picked from the header: Departure Board, Boarding Pass, Night
+  Flight (OLED), a CRT-amber Terminal, High Contrast, Rail Poster, Old Map, and Coastal
 - Destination weather for the date you're planning
 - Cheapest vs greenest: a rough CO2 estimate per option, with the lowest-carbon one flagged
   separately from the recommendation — estimates, not a certified footprint, and never used to
