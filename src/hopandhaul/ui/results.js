@@ -147,6 +147,39 @@ function optionRow(o, recName, greenestName) {
     + "    </li>";
 }
 
+// Mobile-only bottom-sheet expand/collapse (see the #results/.sheet-toggle rules in
+// styles.css) — everything past the hero recommendation card (why-greenest-differs note,
+// weather, the full option list, caveats) is one tap away instead of fighting the map for
+// space by default. No-op wrapper element on desktop: the floating panel there already shows
+// everything at once, so .sheet-toggle just stays display:none per the CSS.
+// aria-expanded/label are derived from #results' own .results-expanded class, the single
+// source of truth — reread here rather than tracked in a second module-level flag, so a fresh
+// renderPlan() (a new plan, or a language-switch re-render of the same one) always reflects
+// whatever the visitor last chose instead of silently resetting it.
+function sheetToggleButton(optionCount) {
+  const expanded = panel().classList.contains("results-expanded");
+  return "\n"
+    + "    <button type=\"button\" id=\"sheet-toggle\" class=\"btn btn--ghost btn--sm sheet-toggle\" "
+    + "aria-expanded=\"" + expanded + "\" aria-controls=\"opt-list\">\n"
+    + "      <svg class=\"icon\" aria-hidden=\"true\"><use href=\"#i-arrow\"/></svg> "
+    + esc(expanded ? t("results.sheetCollapse") : t("results.sheetExpand", { count: optionCount })) + "\n"
+    + "    </button>";
+}
+
+/** Flip the bottom sheet between its peek height (just the hero card) and full height (the
+ * complete option list) — a cheap in-place class/label swap, not a re-render, so it can't
+ * disturb scroll position or steal focus the way rebuilding the whole panel would. */
+export function toggleSheet() {
+  const el = panel();
+  const expanded = el.classList.toggle("results-expanded");
+  const btn = document.getElementById("sheet-toggle");
+  if (!btn) return;
+  btn.setAttribute("aria-expanded", String(expanded));
+  const count = document.querySelectorAll("#opt-list > .opt").length;
+  btn.innerHTML = "<svg class=\"icon\" aria-hidden=\"true\"><use href=\"#i-arrow\"/></svg> "
+    + esc(expanded ? t("results.sheetCollapse") : t("results.sheetExpand", { count }));
+}
+
 /** Full render of a successful plan response. `placeLabel` is the free-text search label,
  * if the user searched rather than clicked, for the "X -> Y (place)" heading. `focusPanel`
  * should be true only for a user-initiated render (a new plan finishing) — not for a
@@ -199,10 +232,11 @@ export function renderPlan(data, placeLabel, focusPanel = false) {
     + "      </button>\n"
     + "    </div>\n"
     + recommendationCard(R, rec, isDirect) + "\n"
+    + sheetToggleButton(R.options.length) + "\n"
     + cheapestVsGreenest + "\n"
     + weatherChip(data.weather) + "\n"
     + "    <h2 class=\"results-subtitle\">" + allOptionsHeading + "</h2>\n"
-    + "    <ul class=\"opt-list\">" + optionsHtml + "</ul>\n"
+    + "    <ul class=\"opt-list\" id=\"opt-list\">" + optionsHtml + "</ul>\n"
     + "    <div class=\"notes\">\n"
     + "      <p class=\"notes-head\">" + esc(t("results.headsUp")) + "</p>\n"
     + "      <ul>" + cautionLines.map((n) => "<li>" + esc(n) + "</li>").join("") + "</ul>\n"
@@ -217,6 +251,10 @@ export function renderPlan(data, placeLabel, focusPanel = false) {
 // tells the user what to do.
 export function renderError(msg, focusPanel = false) {
   const el = panel();
+  // A previous plan may have left the mobile sheet expanded (see toggleSheet()) — this state
+  // has no option list and no toggle button to shrink it back, so drop back to the compact
+  // peek height rather than stranding the visitor with a full-height sheet hiding the map.
+  el.classList.remove("results-expanded");
   el.innerHTML = "\n"
     + "    <div class=\"state-panel state-panel--error\">\n"
     + "      <p class=\"state-title\">" + esc(t("err.title")) + "</p>\n"
@@ -241,6 +279,7 @@ const EMPTY_ART = "\n"
 
 export function renderEmpty() {
   const el = panel();
+  el.classList.remove("results-expanded"); // see the comment in renderError() above
   el.innerHTML = "\n"
     + "    <div class=\"state-panel state-panel--empty\">\n"
     + EMPTY_ART
@@ -252,6 +291,13 @@ export function renderEmpty() {
 
 export function renderLoading() {
   const el = panel();
+  // Every new plan attempt (planTo()) routes through here first, so this is also the natural
+  // place to drop a carried-over expanded sheet back to peek for the NEW route — the visitor
+  // gets the map back while it's working, same as renderError()/renderEmpty() above. A
+  // language switch on an already-finished plan (rerenderCurrent()) skips this function
+  // entirely and goes straight to renderPlan(), so it isn't affected — that path still
+  // preserves whatever the visitor had open.
+  el.classList.remove("results-expanded");
   el.innerHTML = "\n"
     + "    <div class=\"state-panel state-panel--loading\">\n"
     + "      <p class=\"state-title\">" + esc(t("loading.title")) + "</p>\n"

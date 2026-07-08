@@ -809,14 +809,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 .leaflet-control-attribution a { color: var(--accent); }
 
 @media (pointer: coarse) {
-  .leaflet-touch .leaflet-bar a { width: 40px; height: 40px; line-height: 40px; }
+  .leaflet-touch .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; }
 }
 
 /* inputs */
 #origin { font-family: var(--font-num); text-transform: uppercase; letter-spacing: .06em; }
 
-@media (max-width: 760px) {
-  .row input, .row select, .field-input, .search input { font-size: 1rem; } /* kills iOS focus-zoom */
+/* kills iOS focus-zoom (Safari zooms in on any focused input under 16px). Matched on
+   (pointer: coarse) too, not just the width breakpoint — a landscape phone (e.g. 812x375) is
+   wider than 760px but is still a touch device with the exact same zoom-on-focus behavior, so
+   width alone let it slip through. */
+@media (max-width: 760px), (pointer: coarse) {
+  .row input, .row select, .field-input, .search input, .lang-filter { font-size: 1rem; }
 }
 
 /* ================================================================== responsive */
@@ -827,7 +831,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
   #controls {
     top: 0; inset-inline: 0; width: auto;
     border-radius: 0; border-left: 0; border-right: 0; border-top: 0;
-    max-height: 62vh;
+    /* Capped well under half the screen, not 62vh — the map is the point of this app, and a
+       top bar plus a results sheet that each claimed most of the viewport left it fully
+       hidden behind both panels the moment a plan rendered (see #results below). The form is
+       still there in full, just an internal scroll away, same as it already was at 62vh. */
+    max-height: 38vh; max-height: 38dvh;
   }
   #controls h1 { font-size: var(--fs-base); }
 
@@ -835,7 +843,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 
   #results {
     top: auto; inset-inline: 0; bottom: 0; width: auto;
-    max-height: 72vh; max-height: 72dvh;
+    /* Peek height by default: tall enough for the hero recommendation, short enough that it
+       can't ever meet #controls' own cap above (38vh + 40vh <= 78vh, always leaving a real
+       strip of map visible). #sheet-toggle (rendered by results.js, only for a real plan)
+       expands this to the full option list on demand via .results-expanded. */
+    max-height: 40vh; max-height: 40dvh;
+    /* Re-states the base transform/opacity transition (not just adds to it — a `transition`
+       shorthand here would otherwise fully replace, not merge with, the desktop rule above)
+       plus the new max-height animation for the peek<->expanded toggle. */
+    transition: transform .28s var(--ease), opacity .28s var(--ease), max-height .22s var(--ease);
     border-radius: var(--radius) var(--radius) 0 0;
     border-bottom: 0;
     transform: translateY(100%);
@@ -844,6 +860,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
     overscroll-behavior: contain;
   }
   #results.show { transform: translateY(0); }
+  #results.results-expanded { max-height: 72vh; max-height: 72dvh; }
   #results::before {
     content: ""; display: block; width: 36px; height: 4px; border-radius: 999px;
     background: var(--line); margin: 0 auto var(--space-2);
@@ -852,6 +869,25 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
   #spinner { display: none; } /* the sheet carries loading state on mobile — no duplicate indicator */
 
   .row { flex-wrap: wrap; }
+}
+
+/* Bottom-sheet expand/collapse control — renderPlan() only (nothing to expand in the empty/
+   loading/error states). display:none by default and only switched on inside the mobile
+   @media block below — this order matters: both rules share one class' worth of specificity,
+   so whichever comes LATER in the file wins the tie regardless of viewport. The base rule has
+   to come first, or the mobile override loses on every screen size including mobile. */
+.sheet-toggle {
+  display: none; width: 100%; justify-content: center;
+  margin: 0 0 var(--space-3);
+}
+.sheet-toggle .icon { transform: rotate(90deg); transition: transform .15s var(--ease); }
+.sheet-toggle[aria-expanded="true"] .icon { transform: rotate(-90deg); }
+@media (prefers-reduced-motion: reduce) {
+  #results { transition: none; }
+  .sheet-toggle .icon { transition: none; }
+}
+@media (max-width: 760px) {
+  .sheet-toggle { display: flex; }
 }
 
 @media (max-width: 420px) {

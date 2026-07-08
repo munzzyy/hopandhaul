@@ -5,7 +5,7 @@ import { fetchConfig, fetchNearest, fetchPlan } from "./api.js";
 import { readUrlState, writeUrlState, shareUrl, loadLangPref, saveLangPref } from "./state.js";
 import { initMap, markOrigin, draw, clearMap, redrawLastPlan } from "./map.js";
 import { initSearch } from "./search.js";
-import { renderPlan, renderError, renderEmpty, renderLoading } from "./results.js";
+import { renderPlan, renderError, renderEmpty, renderLoading, toggleSheet } from "./results.js";
 import { initTheme, refreshThemeLabel } from "./theme.js";
 import { loadLang, detectLang, t } from "./i18n.js";
 import { initLangPicker, updateLauncherAfterInit } from "./lang.js";
@@ -149,6 +149,7 @@ async function planTo(lat, lng) {
   announce(isDirect ? t("announce.readyDirect") : t("announce.readySplit", { name: rec.name }));
 
   $("#copy-link")?.addEventListener("click", onCopyLink);
+  $("#sheet-toggle")?.addEventListener("click", toggleSheet);
 }
 
 /** Re-render whatever is currently on screen using the newly-loaded catalog, without any
@@ -159,6 +160,7 @@ function rerenderCurrent() {
   } else if (lastPlanData) {
     renderPlan(lastPlanData, lastPlaceLabel);
     $("#copy-link")?.addEventListener("click", onCopyLink);
+    $("#sheet-toggle")?.addEventListener("click", toggleSheet);
     redrawLastPlan(); // map popups bake t() strings at draw time — re-translate them too
   } else if (lastErrorMsg != null) {
     // re-render the panel so the title/chrome re-translate; if the body was the client-side

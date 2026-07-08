@@ -68,6 +68,8 @@
   "results.copyLink": "Copy link",
   "results.allOptions": "All options — {route}",
   "results.headsUp": "Heads up",
+  "results.sheetExpand": "Show all {count} options",
+  "results.sheetCollapse": "Show summary only",
   "rec.flyDirect": "Fly direct",
   "rec.noBeat": "No option beats it by {money}",
   "rec.directBest": "The cheapest direct flight is already your best option.",
