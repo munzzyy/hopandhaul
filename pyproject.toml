@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hopandhaul"
-version = "0.3.0"
+version = "0.4.0"
 description = "Flies you into the cheap airport, then tells you honestly whether the train ride is worth it."
 readme = "README.md"
 license = { text = "Prosperity Public License 3.0.0" }
