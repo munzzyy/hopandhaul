@@ -836,6 +836,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
        hidden behind both panels the moment a plan rendered (see #results below). The form is
        still there in full, just an internal scroll away, same as it already was at 62vh. */
     max-height: 38vh; max-height: 38dvh;
+    /* manifest.webmanifest declares display:standalone (installable), and index.html's
+       viewport meta now has viewport-fit=cover to actually activate env() — without both
+       halves this padding silently resolves to 0 and does nothing. Mirrors the existing
+       safe-area-inset-bottom on #results below; this bar had never had its own top counterpart,
+       so an installed PWA on a notched phone could render its title/lang/theme buttons under
+       the notch or status bar. */
+    padding-top: calc(var(--space-4) + env(safe-area-inset-top));
   }
   #controls h1 { font-size: var(--fs-base); }
 
