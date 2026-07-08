@@ -3,7 +3,7 @@
 // and the results render — no more independent recomputation in two places.
 import { fetchConfig, fetchNearest, fetchPlan } from "./api.js";
 import { readUrlState, writeUrlState, shareUrl, loadLangPref, saveLangPref } from "./state.js";
-import { initMap, markOrigin, draw, clearMap, redrawLastPlan } from "./map.js";
+import { initMap, markOrigin, draw, clearMap, redrawLastPlan, renderGeoLabels } from "./map.js";
 import { initSearch } from "./search.js";
 import { renderPlan, renderError, renderEmpty, renderLoading, toggleSheet } from "./results.js";
 import { initTheme, refreshThemeLabel } from "./theme.js";
@@ -155,6 +155,7 @@ async function planTo(lat, lng) {
 /** Re-render whatever is currently on screen using the newly-loaded catalog, without any
  * network refetch — called after a language switch. */
 function rerenderCurrent() {
+  renderGeoLabels(); // re-translate the map's continent/country labels into the new language
   if (planInFlight) {
     renderLoading();
   } else if (lastPlanData) {

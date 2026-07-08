@@ -925,3 +925,34 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 @media (max-width: 760px) {
   [dir="rtl"] #results:not(.show) { transform: translateY(100%); }
 }
+
+/* Translated place labels drawn over the label-free base tiles (map.js renderGeoLabels).
+   Names come from Intl.DisplayNames for the active locale; the boxes are non-interactive so
+   map clicks pass through. A dark translucent pill keeps them legible on every theme's base. */
+.geo-label { background: none; border: 0; }
+.geo-label > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  pointer-events: none;
+  font: 600 11px/1.15 var(--font, system-ui, -apple-system, sans-serif);
+  color: #eef2f6;
+  background: rgba(12, 15, 20, 0.55);
+  padding: 1px 6px;
+  border-radius: 5px;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+}
+.geo-label--continent > span {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: rgba(12, 15, 20, 0.42);
+}
+
+/* With one world (no wrap), a wide viewport at min zoom shows void beside the map. Tint it to
+   the scheme so it reads as intentional margin, not a black bar. light-dark() follows the
+   color-scheme every [data-theme] block sets. */
+.leaflet-container { background: light-dark(#dbe2e8, #0b0f13); }

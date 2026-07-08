@@ -1,14 +1,22 @@
 // Leaflet setup + draw(): markers, great-circle arcs, gateway pins.
 import { esc, fmtMoney, fmtH, modeIcon, modeLabel } from "./format.js";
-import { t } from "./i18n.js";
+import { t, currentLangCode } from "./i18n.js";
+import { CONTINENTS, COUNTRIES, continentName } from "./geo-labels.js";
 
 let map = null;
 let tileLayer = null;
 let lastPlan = null; // { data, rec } — replayed by setMapTheme() so a theme toggle redraws colors
 let currentTheme = null; // last theme actually applied — lets setMapTheme() no-op when unchanged
 
+// One world, no repeats: the base map wraps infinitely by default, so panning used to reveal
+// copies of Earth side by side. maxBounds (with full viscosity) plus a noWrap tile layer keeps
+// exactly one world on screen.
+const WORLD_BOUNDS = L.latLngBounds([-85, -180], [85, 180]);
+
 function tileUrl(theme) {
-  const style = theme === "dark" ? "dark_all" : "rastertiles/voyager";
+  // *_nolabels bases: the tile images carry no place names, so the only labels on the map are
+  // our own translated overlay (renderGeoLabels), instead of tile text baked in English.
+  const style = theme === "dark" ? "dark_nolabels" : "rastertiles/voyager_nolabels";
   return `https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png`;
 }
 
@@ -20,22 +28,32 @@ export function initMap() {
   // literally named "dark" and "light".
   const bootBase = getComputedStyle(document.documentElement).colorScheme === "dark" ? "dark" : "light";
   currentTheme = bootBase;
-  map = L.map("map", { zoomControl: true, worldCopyJump: true }).setView([41, -30], 3);
+  map = L.map("map", {
+    zoomControl: true,
+    minZoom: 2,
+    maxBounds: WORLD_BOUNDS,
+    maxBoundsViscosity: 1,
+  }).setView([41, -30], 3);
   tileLayer = L.tileLayer(tileUrl(bootBase), {
     attribution: "&copy; OpenStreetMap &copy; CARTO",
     subdomains: "abcd",
     maxZoom: 19,
+    noWrap: true,
+    bounds: WORLD_BOUNDS,
   }).addTo(map);
+  geoLabels.addTo(map);
+  map.on("zoomend moveend", renderGeoLabels);
+  renderGeoLabels();
   return map;
 }
 
 /** Swap the basemap for the given theme — Voyager (warm cream, "travel atlas") in light,
- * dark_all (labels kept — users need city names to click) in dark. Tiles only, and a no-op
- * when `theme` matches what's already applied — callers like refreshThemeLabel() run on every
- * language switch too, and shouldn't trigger a tile reload when the theme didn't change.
- * Redrawing the plan overlay is the theme-change caller's job (apply() in theme.js): route
- * colors are hex snapshots taken at draw time, so they go stale on ANY theme change — including
- * one between two themes that share a tile base, where this function correctly does nothing. */
+ * dark_nolabels in dark. Both label-free; our own overlay carries the (translated) place names.
+ * Tiles only, and a no-op when `theme` matches what's already applied — callers like
+ * refreshThemeLabel() run on every language switch too, and shouldn't trigger a tile reload when
+ * the theme didn't change. Redrawing the plan overlay is the theme-change caller's job (apply()
+ * in theme.js): route colors are hex snapshots taken at draw time, so they go stale on ANY theme
+ * change — including one between two themes that share a tile base, where this correctly no-ops. */
 export function setMapTheme(theme) {
   if (!tileLayer || theme === currentTheme) return;
   currentTheme = theme;
@@ -47,6 +65,59 @@ export function setMapTheme(theme) {
  * plan is on screen. */
 export function redrawLastPlan() {
   if (lastPlan) draw(lastPlan.data, lastPlan.rec);
+}
+
+// --- translated place labels: continents + countries, names resolved per active locale ---
+// The tiles are label-free; these overlay labels are the map's place names. Every name comes
+// from Intl.DisplayNames("region") for the current UI language — country ISO codes and UN M49
+// continent codes both localize — so all 56 languages are covered with no translation data.
+const geoLabels = L.layerGroup();
+let namesLocale = null, regionNames = null;
+
+function regionNamesFor(locale) {
+  if (locale !== namesLocale) {
+    namesLocale = locale;
+    try { regionNames = new Intl.DisplayNames([locale], { type: "region" }); }
+    catch { regionNames = new Intl.DisplayNames(["en"], { type: "region" }); }
+  }
+  return regionNames;
+}
+
+function placeName(code) {
+  try { return regionNames && (regionNames.of(code) || null); } catch { return null; }
+}
+
+// Cheap axis-aligned overlap test on pixel label boxes, so labels don't stack on each other.
+function overlaps(a, b) {
+  return Math.abs(a.x - b.x) * 2 < a.w + b.w && Math.abs(a.y - b.y) * 2 < a.h + b.h;
+}
+
+/** Redraw continent + country labels for the current zoom, view, and language. Continents are
+ * placed first, so when you're zoomed out they win and you read continents; countries fill the
+ * gaps and take over as you zoom in and they stop colliding. Called on zoom, pan, and language
+ * change. Labels are non-interactive, so map clicks pass straight through to pick a destination. */
+export function renderGeoLabels() {
+  if (!map) return;
+  geoLabels.clearLayers();
+  const locale = currentLangCode();
+  regionNamesFor(locale);
+  const z = map.getZoom(), view = map.getBounds(), placed = [];
+  const items = [];
+  if (z <= 5) for (const c of CONTINENTS) items.push({ code: c.code, at: c.at, kind: "continent" });
+  if (z >= 3) for (const iso in COUNTRIES) items.push({ code: iso, at: COUNTRIES[iso], kind: "country" });
+  for (const it of items) {
+    if (!view.contains(it.at)) continue;
+    const name = it.kind === "continent" ? continentName(it.code, locale) : placeName(it.code);
+    if (!name) continue;
+    const p = map.latLngToContainerPoint(it.at);
+    const box = { x: p.x, y: p.y, w: name.length * 7.5 + 12, h: 18 };
+    if (placed.some((q) => overlaps(box, q))) continue;
+    placed.push(box);
+    geoLabels.addLayer(L.marker(it.at, {
+      interactive: false, keyboard: false,
+      icon: L.divIcon({ className: `geo-label geo-label--${it.kind}`, html: `<span>${esc(name)}</span>`, iconSize: [0, 0] }),
+    }));
+  }
 }
 
 function cssVar(name) {

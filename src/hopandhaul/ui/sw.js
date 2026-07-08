@@ -12,7 +12,7 @@
 // generic fetch handler below on first successful load, so whichever language a visitor
 // actually chooses works offline from then on, and they're dropped on every version bump
 // along with the rest of the runtime cache.
-const CACHE_VERSION = "hopandhaul-shell-v6";
+const CACHE_VERSION = "hopandhaul-shell-v7";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -21,6 +21,7 @@ const SHELL_FILES = [
   "./state.js",
   "./api.js",
   "./map.js",
+  "./geo-labels.js",
   "./results.js",
   "./search.js",
   "./format.js",
