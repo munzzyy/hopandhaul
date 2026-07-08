@@ -1,0 +1,50 @@
+name: Deploy web UI to Pages
+
+# Publishes src/hopandhaul/ui/ (the in-browser port of hopandhaul — see
+# src/hopandhaul/ui/engine/) to GitHub Pages. The app is fully static and runs client-side
+# (no build, no bundler) — this job's only real work is staging the airport/gateway data JSON
+# into the published directory before upload; everything else is a file copy.
+#
+# Cole enables Pages and cuts the release after a security gate — this workflow existing does
+# not turn Pages on by itself (see repo Settings > Pages, and the `environment:` block below,
+# which only starts creating deployments once that's configured).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/hopandhaul/ui/**"
+      - "src/hopandhaul/data/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Stage the airport/gateway data JSON into the published site
+        # engine/data.js fetches these as "./data/<file>" relative to ui/ — same two files
+        # server.py's geo.py reads, copied here instead of duplicated in git (single source of
+        # truth stays src/hopandhaul/data/). This is a plain file copy, not a build step.
+        run: |
+          mkdir -p src/hopandhaul/ui/data
+          cp src/hopandhaul/data/airports.json src/hopandhaul/data/gateways.json src/hopandhaul/ui/data/
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: src/hopandhaul/ui
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

@@ -1,0 +1,312 @@
+[
+  {
+    "name": "na_jfk_aspen_baseline",
+    "type": "plan",
+    "params": { "dest_lat": 39.19, "dest_lng": -106.82, "origin_iata": "JFK" }
+  },
+  {
+    "name": "na_ord_denver_major_hub",
+    "type": "plan",
+    "params": { "dest_lat": 39.74, "dest_lng": -104.99, "origin_iata": "ORD" }
+  },
+  {
+    "name": "na_lga_boston_short_hop",
+    "type": "plan",
+    "params": { "dest_lat": 42.3656, "dest_lng": -71.0096, "origin_iata": "LGA" }
+  },
+  {
+    "name": "na_sfo_honolulu_pacific",
+    "type": "plan",
+    "params": { "dest_lat": 21.3187, "dest_lng": -157.9224, "origin_iata": "SFO" }
+  },
+  {
+    "name": "na_ord_jackson_hole_gateway",
+    "type": "plan",
+    "params": { "dest_lat": 43.6073, "dest_lng": -110.7377, "origin_iata": "ORD" }
+  },
+  {
+    "name": "na_atl_key_west_gateway",
+    "type": "plan",
+    "params": { "dest_lat": 24.5561, "dest_lng": -81.7596, "origin_iata": "ATL" }
+  },
+  {
+    "name": "eu_cdg_barcelona",
+    "type": "plan",
+    "params": { "dest_lat": 41.2971, "dest_lng": 2.0785, "origin_iata": "CDG" }
+  },
+  {
+    "name": "eu_cdg_rome",
+    "type": "plan",
+    "params": { "dest_lat": 41.8003, "dest_lng": 12.2389, "origin_iata": "CDG" }
+  },
+  {
+    "name": "eu_lhr_santorini_ferry_gateway",
+    "type": "plan",
+    "params": { "dest_lat": 36.3992, "dest_lng": 25.4793, "origin_iata": "LHR" }
+  },
+  {
+    "name": "transatlantic_jfk_london",
+    "type": "plan",
+    "params": { "dest_lat": 51.4700, "dest_lng": -0.4543, "origin_iata": "JFK" }
+  },
+  {
+    "name": "transatlantic_jfk_paris",
+    "type": "plan",
+    "params": { "dest_lat": 49.0097, "dest_lng": 2.5479, "origin_iata": "JFK" }
+  },
+  {
+    "name": "transatlantic_lax_reykjavik",
+    "type": "plan",
+    "params": { "dest_lat": 63.9850, "dest_lng": -22.6056, "origin_iata": "LAX" }
+  },
+  {
+    "name": "africa_accra_lagos",
+    "type": "plan",
+    "params": { "dest_lat": 6.5774, "dest_lng": 3.3212, "origin_iata": "ACC" }
+  },
+  {
+    "name": "africa_nairobi_capetown",
+    "type": "plan",
+    "params": { "dest_lat": -33.9715, "dest_lng": 18.6021, "origin_iata": "NBO" }
+  },
+  {
+    "name": "africa_joburg_livingstone_gateway",
+    "type": "plan",
+    "params": { "dest_lat": -17.8218, "dest_lng": 25.8221, "origin_iata": "JNB" }
+  },
+  {
+    "name": "asia_seoul_jeju_ferry_gateway",
+    "type": "plan",
+    "params": { "dest_lat": 33.5113, "dest_lng": 126.4930, "origin_iata": "ICN" }
+  },
+  {
+    "name": "asia_tokyo_bangkok",
+    "type": "plan",
+    "params": { "dest_lat": 13.6900, "dest_lng": 100.7501, "origin_iata": "NRT" }
+  },
+  {
+    "name": "asia_singapore_manila",
+    "type": "plan",
+    "params": { "dest_lat": 14.5086, "dest_lng": 121.0198, "origin_iata": "SIN" }
+  },
+  {
+    "name": "asia_delhi_mumbai",
+    "type": "plan",
+    "params": { "dest_lat": 19.0887, "dest_lng": 72.8679, "origin_iata": "DEL" }
+  },
+  {
+    "name": "oceania_sydney_auckland",
+    "type": "plan",
+    "params": { "dest_lat": -37.0082, "dest_lng": 174.7850, "origin_iata": "SYD" }
+  },
+  {
+    "name": "oceania_auckland_fiji",
+    "type": "plan",
+    "params": { "dest_lat": -17.7554, "dest_lng": 177.4434, "origin_iata": "AKL" }
+  },
+  {
+    "name": "oceania_sydney_whitsundays_gateway",
+    "type": "plan",
+    "params": { "dest_lat": -20.3844, "dest_lng": 148.9514, "origin_iata": "SYD" }
+  },
+  {
+    "name": "latam_saopaulo_buenosaires",
+    "type": "plan",
+    "params": { "dest_lat": -34.5592, "dest_lng": -58.4156, "origin_iata": "GRU" }
+  },
+  {
+    "name": "latam_mexicocity_huatulco_gateway",
+    "type": "plan",
+    "params": { "dest_lat": 15.7753, "dest_lng": -96.2626, "origin_iata": "MEX" }
+  },
+  {
+    "name": "travelers_2_aspen",
+    "type": "plan",
+    "params": { "dest_lat": 39.19, "dest_lng": -106.82, "origin_iata": "JFK", "travelers": 2 }
+  },
+  {
+    "name": "travelers_4_aspen",
+    "type": "plan",
+    "params": { "dest_lat": 39.19, "dest_lng": -106.82, "origin_iata": "JFK", "travelers": 4 }
+  },
+  {
+    "name": "date_far_out_aspen",
+    "type": "plan",
+    "params": { "dest_lat": 39.19, "dest_lng": -106.82, "origin_iata": "JFK", "date": "2026-08-15" }
+  },
+  {
+    "name": "date_close_in_aspen",
+    "type": "plan",
+    "params": { "dest_lat": 39.19, "dest_lng": -106.82, "origin_iata": "JFK", "date": "2026-07-10" }
+  },
+  {
+    "name": "roundtrip_with_return_date_aspen",
+    "type": "plan",
+    "params": {
+      "dest_lat": 39.19, "dest_lng": -106.82, "origin_iata": "JFK",
+      "date": "2026-08-15", "ret": "2026-08-22"
+    }
+  },
+  {
+    "name": "roundtrip_no_return_date_aspen",
+    "type": "plan",
+    "params": { "dest_lat": 39.19, "dest_lng": -106.82, "origin_iata": "JFK", "roundtrip": true }
+  },
+  {
+    "name": "threshold_50_aspen",
+    "type": "plan",
+    "params": { "dest_lat": 39.19, "dest_lng": -106.82, "origin_iata": "JFK", "threshold": 50 }
+  },
+  {
+    "name": "threshold_1000_aspen",
+    "type": "plan",
+    "params": { "dest_lat": 39.19, "dest_lng": -106.82, "origin_iata": "JFK", "threshold": 1000 }
+  },
+  {
+    "name": "vot_30_aspen",
+    "type": "plan",
+    "params": { "dest_lat": 39.19, "dest_lng": -106.82, "origin_iata": "JFK", "vot": 30 }
+  },
+  {
+    "name": "error_unknown_origin",
+    "type": "plan",
+    "params": { "dest_lat": 39.19, "dest_lng": -106.82, "origin_iata": "ZZZ" }
+  },
+  {
+    "name": "error_origin_is_destination",
+    "type": "plan",
+    "params": { "dest_lat": 40.64, "dest_lng": -73.78, "origin_iata": "JFK" }
+  },
+  {
+    "name": "error_ocean_click_no_airport",
+    "type": "plan",
+    "params": { "dest_lat": 30.0, "dest_lng": -40.0, "origin_iata": "JFK" }
+  },
+  {
+    "name": "eval_headline_split_wins",
+    "type": "evaluate",
+    "options": [
+      { "name": "Fly direct", "legs": [{ "mode": "fly", "cost": 620, "hours": 5.5 }] },
+      { "name": "DEN + Amtrak", "legs": [{ "mode": "fly", "cost": 210, "hours": 3.0 }, { "mode": "train", "cost": 75, "hours": 6.0 }] }
+    ],
+    "threshold": 200
+  },
+  {
+    "name": "eval_below_threshold_direct_wins",
+    "type": "evaluate",
+    "options": [
+      { "name": "Fly direct", "legs": [{ "mode": "fly", "cost": 620, "hours": 5.5 }] },
+      { "name": "Split", "legs": [{ "mode": "fly", "cost": 400, "hours": 4.0 }, { "mode": "train", "cost": 70, "hours": 4.0 }] }
+    ],
+    "threshold": 200
+  },
+  {
+    "name": "eval_dominance",
+    "type": "evaluate",
+    "options": [
+      { "name": "Fly direct", "legs": [{ "mode": "fly", "cost": 620, "hours": 5.5 }] },
+      { "name": "Secondary + train", "legs": [{ "mode": "fly", "cost": 430, "hours": 2.5 }, { "mode": "train", "cost": 70, "hours": 1.5 }] }
+    ],
+    "threshold": 200
+  },
+  {
+    "name": "eval_vot_high_prefers_direct",
+    "type": "evaluate",
+    "options": [
+      { "name": "Fly direct", "legs": [{ "mode": "fly", "cost": 600, "hours": 4.0 }] },
+      { "name": "Cheap + bus", "legs": [{ "mode": "fly", "cost": 280, "hours": 5.0 }, { "mode": "bus", "cost": 70, "hours": 4.0 }] }
+    ],
+    "threshold": 200,
+    "vot": 60
+  },
+  {
+    "name": "eval_vot_low_prefers_split",
+    "type": "evaluate",
+    "options": [
+      { "name": "Fly direct", "legs": [{ "mode": "fly", "cost": 600, "hours": 4.0 }] },
+      { "name": "Cheap + bus", "legs": [{ "mode": "fly", "cost": 280, "hours": 5.0 }, { "mode": "bus", "cost": 70, "hours": 4.0 }] }
+    ],
+    "threshold": 200,
+    "vot": 10
+  },
+  {
+    "name": "eval_transfer_buffer_lengthens_split",
+    "type": "evaluate",
+    "options": [
+      { "name": "Fly direct", "legs": [{ "mode": "fly", "cost": 620, "hours": 5.5 }] },
+      { "name": "Split", "legs": [{ "mode": "fly", "cost": 300, "hours": 3 }, { "mode": "train", "cost": 60, "hours": 3 }] }
+    ],
+    "threshold": 200,
+    "transfer_buffer": 1.0
+  },
+  {
+    "name": "eval_group_math_solo",
+    "type": "evaluate",
+    "options": [
+      { "name": "Fly direct", "legs": [{ "mode": "fly", "cost": 620, "hours": 5.5 }] },
+      { "name": "DEN + train", "legs": [{ "mode": "fly", "cost": 210, "hours": 3.0 }, { "mode": "train", "cost": 75, "hours": 6.0 }] },
+      { "name": "EGE + rental", "legs": [{ "mode": "fly", "cost": 240, "hours": 4.0 }, { "mode": "rental", "cost": 80, "hours": 4.5 }] }
+    ],
+    "threshold": 200,
+    "travelers": 1
+  },
+  {
+    "name": "eval_group_math_quad",
+    "type": "evaluate",
+    "options": [
+      { "name": "Fly direct", "legs": [{ "mode": "fly", "cost": 620, "hours": 5.5 }] },
+      { "name": "DEN + train", "legs": [{ "mode": "fly", "cost": 210, "hours": 3.0 }, { "mode": "train", "cost": 75, "hours": 6.0 }] },
+      { "name": "EGE + rental", "legs": [{ "mode": "fly", "cost": 240, "hours": 4.0 }, { "mode": "rental", "cost": 80, "hours": 4.5 }] }
+    ],
+    "threshold": 200,
+    "travelers": 4
+  },
+  {
+    "name": "eval_time_budget_binding",
+    "type": "evaluate",
+    "options": [
+      { "name": "Fly direct", "legs": [{ "mode": "fly", "cost": 620, "hours": 5.5 }] },
+      { "name": "Slow split", "legs": [{ "mode": "fly", "cost": 210, "hours": 3.0 }, { "mode": "train", "cost": 75, "hours": 6.0 }] }
+    ],
+    "threshold": 200,
+    "max_hours": 8.0
+  },
+  {
+    "name": "eval_time_budget_impossible_falls_back",
+    "type": "evaluate",
+    "options": [
+      { "name": "Fly direct", "legs": [{ "mode": "fly", "cost": 620, "hours": 5.5 }] },
+      { "name": "Slow split", "legs": [{ "mode": "fly", "cost": 210, "hours": 3.0 }, { "mode": "train", "cost": 75, "hours": 6.0 }] }
+    ],
+    "threshold": 200,
+    "max_hours": 2.0
+  },
+  {
+    "name": "eval_buffered_dominance_edge",
+    "type": "evaluate",
+    "options": [
+      { "name": "Direct", "legs": [{ "mode": "fly", "cost": 620, "hours": 5.0 }] },
+      { "name": "Hub", "legs": [{ "mode": "fly", "cost": 500, "hours": 2.5 }, { "mode": "train", "cost": 50, "hours": 2.4 }] }
+    ],
+    "threshold": 200,
+    "transfer_buffer": 1.0
+  },
+  {
+    "name": "eval_multi_split_ranking",
+    "type": "evaluate",
+    "options": [
+      { "name": "Direct", "legs": [{ "mode": "fly", "cost": 500, "hours": 5.0 }] },
+      { "name": "Split A", "legs": [{ "mode": "fly", "cost": 200, "hours": 3.0 }, { "mode": "train", "cost": 80, "hours": 3.5 }] },
+      { "name": "Split B", "legs": [{ "mode": "fly", "cost": 300, "hours": 2.0 }, { "mode": "bus", "cost": 50, "hours": 2.0 }] }
+    ],
+    "threshold": 200
+  },
+  {
+    "name": "eval_single_option_baseline_only",
+    "type": "evaluate",
+    "options": [
+      { "name": "Only option", "legs": [{ "mode": "fly", "cost": 415, "hours": 3.25 }] }
+    ],
+    "threshold": 200
+  }
+]

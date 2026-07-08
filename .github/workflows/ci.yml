@@ -39,3 +39,22 @@ jobs:
           python -m hopandhaul.weather --selftest
           python -m hopandhaul.providers --selftest
           python -m hopandhaul.integrations.net
+
+  # The GitHub Pages build (src/hopandhaul/ui/engine/) ships its own JS port of the estimate
+  # path in trip.py/geo.py/emissions.py/server.py's plan(). This proves it stays in exact
+  # numeric agreement with the Python engine, so the browser app can never quietly disagree
+  # with the CLI/server — see tests/web_parity/.
+  web-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "20"
+      - name: Install the package (no runtime dependencies)
+        run: pip install -e .
+      - run: python tests/web_parity/gen_fixtures.py
+      - run: node tests/web_parity/check.mjs

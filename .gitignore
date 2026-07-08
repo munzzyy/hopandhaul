@@ -23,3 +23,14 @@ Thumbs.db
 
 # Design scratch (working notes, not shipped)
 docs/_design/
+
+# web-parity: fixtures are regenerated fresh every run (see tests/web_parity/gen_fixtures.py),
+# never committed — a couple of cases depend on the real system date.
+tests/web_parity/fixtures/
+
+# Pages artifact staging: the data JSON gets copied here for local preview / the Pages
+# workflow, straight from src/hopandhaul/data/ — never a second committed copy.
+src/hopandhaul/ui/data/
+
+# Node, for the web-parity check script only (no runtime/browser dependency)
+node_modules/

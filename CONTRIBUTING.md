@@ -36,6 +36,41 @@ behavior. A fix with no test attached to it is a fix that can silently regress.
 
 Lint with `ruff check .`. CI runs it too.
 
+## The browser build
+
+`src/hopandhaul/ui/engine/` is a hand-ported JS copy of the estimate path in `trip.py`/
+`geo.py`/`emissions.py`/`server.py`'s `plan()` — it's what runs the whole app client-side on
+GitHub Pages, no server, no API keys. If you touch the reasoning in any of those Python
+modules, port the change to the matching file under `engine/` too (`trip.py` -> `trip.js`,
+`geo.py` -> `geo.js`, etc.) — a divergence there means the Pages build silently disagrees with
+the CLI.
+
+`tests/web_parity/` is the gate that catches drift: `cases.json` is a shared list of inputs,
+`gen_fixtures.py` runs them through the real Python engine, `check.mjs` runs the same inputs
+through the JS port and deep-equals the two.
+
+```
+python tests/web_parity/gen_fixtures.py
+node tests/web_parity/check.mjs
+```
+
+If a case fails, the JS is wrong — fix it to match Python, never loosen the check. The classic
+trap is rounding: Python's `round()` is round-half-to-even computed off the float's exact
+decimal expansion, not `Math.round()`/`toFixed()` — see `engine/pyround.js` for the port and
+why a naive epsilon check gets `round(2.675, 2)` wrong.
+
+To preview the Pages build locally, stage the data JSON the workflow copies in at deploy time,
+then serve `ui/` statically:
+
+```
+mkdir src/hopandhaul/ui/data
+cp src/hopandhaul/data/*.json src/hopandhaul/ui/data/
+python -m http.server 8899 --directory src/hopandhaul/ui
+```
+
+`src/hopandhaul/ui/data/` is gitignored — don't commit it; `src/hopandhaul/data/` stays the one
+source of truth.
+
 ## Code style
 
 - **Zero runtime dependencies, always.** This project's whole pitch includes "clone it and
