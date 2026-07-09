@@ -26,8 +26,10 @@ python -m hopandhaul.emissions --selftest
 python -m hopandhaul.itinerary --selftest
 python -m hopandhaul.duffel --selftest
 python -m hopandhaul.geoapify --selftest
+python -m hopandhaul.places --selftest
+python -m hopandhaul.transit --selftest
 python -m hopandhaul.weather --selftest
-python -m hopandhaul.providers --selftest
+python -m hopandhaul.go --selftest
 python -m hopandhaul.integrations.net
 ```
 

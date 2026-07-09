@@ -48,8 +48,8 @@ anything in the dict and 404s.
 
 ## No secrets reach the browser
 
-`/api/config` returns booleans and provider *names* only (`"duffel"` / `"amadeus"` /
-`null`) — never a key, never a masked fragment of one. Every other endpoint follows the
+`/api/config` returns booleans and provider *names* only (`"duffel"` / `"photon"` /
+`"geoapify"` / `null`) — never a key, never a masked fragment of one. Every other endpoint follows the
 same rule. If you add a new endpoint, keep this invariant: nothing that touches
 `_secrets.get(...)` should ever appear in a response body.
 
@@ -106,11 +106,12 @@ contractual SLA — but a real one, and a real fix, not a "thanks, wontfix."
 ## Scope
 
 In scope: this repo's server (`src/hopandhaul/server.py`), key-handling
-(`src/hopandhaul/_secrets.py`), and the fare/geocode/weather-fetching code in
-`src/hopandhaul/{duffel,geoapify,weather,flights,providers}.py`.
+(`src/hopandhaul/_secrets.py`), and the fare/geocode/transit/weather-fetching code in
+`src/hopandhaul/{duffel,geoapify,places,transit,weather,flights}.py`.
 
-Out of scope: vulnerabilities in Duffel, Geoapify, OpenWeather, or any other upstream
-provider's own API or infrastructure — report those to the provider directly. Also out of
+Out of scope: vulnerabilities in Duffel, Geoapify, Transitous, Photon, Open-Meteo,
+frankfurter, or any other upstream provider's own API or infrastructure — report those to
+the provider directly. Also out of
 scope: the consequences of running `hopandhaul-serve` with a manually-flipped bind address
 or behind your own reverse proxy without the TLS/auth/rate-limiting called out above —
 that's a deployment choice this project explicitly doesn't make for you.
