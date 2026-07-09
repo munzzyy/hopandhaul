@@ -31,7 +31,7 @@ import urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
-from . import __version__, emissions, geo, trip
+from . import __version__, emissions, geo, itinerary, trip
 from .integrations import net
 try:
     from . import flights     # provider-agnostic live pricing (Duffel preferred, Amadeus fallback)
@@ -322,9 +322,12 @@ def _cached_live_search(session, origin_iata, dest_iata, date, adults, return_da
 
 
 def _price_flight(origin, dest, date, ret, travelers, session, ctx, deadline):
-    """Return {'price','hours','source','rt'} — TOTAL for all travelers; a real round-trip
-    fare when the provider priced the return (rt True), else one-way. Live if possible,
-    else a date-aware distance estimate."""
+    """Return {'price','hours','source','rt', ...} — TOTAL for all travelers; a real round-trip
+    fare when the provider priced the return (rt True), else one-way. Live if possible, else a
+    date-aware distance estimate. Also carries whatever provenance itinerary.py needs to explain
+    the number: 'estimate_detail' (geo.estimate_flight's own dict) on the estimate branch,
+    'segments'/'carrier'/'native_price'/'currency'/'converted' on the live branch — never
+    discarded here just because _flight_cost()/the option string only needs the price."""
     if session and date and time.monotonic() < deadline:
         try:
             live = _cached_live_search(session, origin["iata"], dest["iata"], date,
@@ -337,7 +340,10 @@ def _price_flight(origin, dest, date, ret, travelers, session, ctx, deadline):
                 elif live.get("currency") not in (None, "USD"):
                     ctx["fx_unknown"] = live["currency"]
                 return {"price": live["price"], "hours": live["hours"],
-                        "source": live["source"], "rt": live.get("rt", False)}
+                        "source": live["source"], "rt": live.get("rt", False),
+                        "segments": live.get("segments", []), "carrier": live.get("carrier"),
+                        "native_price": live.get("native_price"), "currency": live.get("currency"),
+                        "converted": live.get("converted", False)}
         # network/HTTP-shaped failures only — a real bug in the normalization code should
         # surface as a crash, not silently and permanently masquerade as "provider is down".
         # net.FetchError is what fetch_json() raises for every wrapped provider failure
@@ -354,7 +360,53 @@ def _price_flight(origin, dest, date, ret, travelers, session, ctx, deadline):
         price += est_back["price"] * max(1, travelers)
         rt = True
     ctx["est_used"] = True
-    return {"price": round(price, 2), "hours": est["hours"], "source": "estimate", "rt": rt}
+    return {"price": round(price, 2), "hours": est["hours"], "source": "estimate", "rt": rt,
+            "estimate_detail": est}
+
+
+def _resolve_segment_airport(iata, fallback):
+    """A live segment's endpoint by IATA, from our own airport DB (never trust a provider's own
+    name/city formatting when we already have a curated one) — falls back to the leg's known
+    origin/dest record on the rare code our DB doesn't carry, so a timeline row never ends up
+    with a blank name instead of just slightly-wrong provenance."""
+    return geo.by_iata(iata) or fallback
+
+
+def _flight_leg_spec(origin, dest, f, cost, date):
+    """itinerary.py leg spec for a flight leg, built from _price_flight()'s return dict —
+    `cost` is the already-computed group/round-trip total (_flight_cost()'s output), passed in
+    rather than re-read from `f["price"]` so the itinerary never disagrees with the option's own
+    printed cost."""
+    is_live = f.get("source") not in (None, "estimate")
+    segments = None
+    if is_live and f.get("segments"):
+        segments = [{
+            "from": _resolve_segment_airport(s.get("from_iata"), origin),
+            "to": _resolve_segment_airport(s.get("to_iata"), dest),
+            "depart_at": s["depart_at"], "arrive_at": s["arrive_at"],
+            "carrier": s.get("carrier"), "flight_number": s.get("flight_number"),
+        } for s in f["segments"]]
+        price_basis = itinerary.flight_provenance_live(f)
+    else:
+        price_basis = itinerary.flight_provenance_estimate(f.get("estimate_detail"), date)
+    return {
+        "mode": "fly", "cost": round(cost, 2), "hours": f["hours"],
+        "from": origin, "to": dest, "price_basis": price_basis,
+        "verify_url": itinerary.verify_link("fly", origin, dest, date),
+        "is_live": is_live, "segments": segments,
+    }
+
+
+def _ground_leg_spec(g, dest, cost, road_km):
+    """itinerary.py leg spec for a ground leg — always an estimate (see README: no free, open
+    multimodal fares API worth calling here)."""
+    return {
+        "mode": g["ground_mode"], "cost": round(cost, 2), "hours": g["ground_hours"],
+        "from": g, "to": dest,
+        "price_basis": itinerary.ground_provenance(g, road_km),
+        "verify_url": itinerary.verify_link(g["ground_mode"], g, dest),
+        "is_live": False, "segments": None,
+    }
 
 
 def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=200.0,
@@ -436,7 +488,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             if v:
                 ctx[k] = v
 
-    options, geo_by_name, emissions_legs_by_name, notes = [], {}, {}, []
+    options, geo_by_name, emissions_legs_by_name, leg_specs_by_name, notes = [], {}, {}, {}, []
 
     def _flight_cost(f):
         """Flight leg cost: already all-travelers; ×2 only when a RT wasn't really priced."""
@@ -447,8 +499,10 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     # direct
     df = priced[0][0]
     direct_name = f"Fly direct to {dest['iata']}"
-    options.append(trip.parse_option(f"{direct_name} | fly {_flight_cost(df)} {df['hours']}"))
+    direct_cost = _flight_cost(df)
+    options.append(trip.parse_option(f"{direct_name} | fly {direct_cost} {df['hours']}"))
     geo_by_name[direct_name] = [{"type": "flight", "from": _pt(origin), "to": _pt(dest)}]
+    leg_specs_by_name[direct_name] = [_flight_leg_spec(origin, dest, df, direct_cost, date)]
     # emissions distance is always the great-circle flight distance, regardless of whether the
     # fare itself came from a live quote or an estimate — CO2e only cares about km flown, not $.
     direct_km = geo.haversine_km(origin["lat"], origin["lng"], dest["lat"], dest["lng"]) * rt_mult
@@ -459,9 +513,10 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     for g, (gf, _local) in zip(gws, priced[1:]):
         g["fly"] = gf
         ground_cost = trip.scale_leg_cost(g["ground_mode"], g["ground_cost"], travelers) * rt_mult
+        fly_cost = _flight_cost(gf)
         name = f"{g['iata']} + {g['ground_mode']}"
         options.append(trip.parse_option(
-            f"{name} | fly {_flight_cost(gf)} {gf['hours']} ; "
+            f"{name} | fly {fly_cost} {gf['hours']} ; "
             f"{g['ground_mode']} {ground_cost} {g['ground_hours']}"))
         geo_by_name[name] = [
             {"type": "flight", "from": _pt(origin), "to": _pt(g)},
@@ -476,19 +531,27 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             {"mode": "fly", "distance_km": fly_km},
             {"mode": g["ground_mode"], "road_km": ground_km},
         ]
+        leg_specs_by_name[name] = [
+            _flight_leg_spec(origin, g, gf, fly_cost, date),
+            _ground_leg_spec(g, dest, ground_cost, ground_km / max(rt_mult, 1)),
+        ]
 
     res = trip.evaluate(options, threshold=threshold, vot=vot,
                         transfer_buffer=transfer_buffer, travelers=travelers)
 
-    # attach map geometry + a rough CO2e estimate to each option, then strip private keys.
-    # co2e_kg is ESTIMATED from leg distances (see emissions.py) — never treated as a booking
-    # fact, and never used to pick "recommended"; it's shown alongside cost/time so the person
-    # looking at the numbers can weigh it themselves.
+    # attach map geometry, a rough CO2e estimate, and a leg-by-leg itinerary to each option,
+    # then strip private keys. co2e_kg is ESTIMATED from leg distances (see emissions.py) —
+    # never treated as a booking fact, and never used to pick "recommended"; it's shown
+    # alongside cost/time so the person looking at the numbers can weigh it themselves. The
+    # itinerary is what turns a bare dollar figure into something a user can actually check —
+    # real airports, an example clock schedule, per-leg price provenance, a verify link.
     clean = {k: v for k, v in res.items() if not k.startswith("_")}
     for o in clean["options"]:
         o["geo"] = geo_by_name.get(o["name"], [])
         o["co2e_kg"] = emissions.co2e_for_option(
             emissions_legs_by_name.get(o["name"], []), travelers=travelers)
+        o["itinerary"] = itinerary.build_timeline(
+            leg_specs_by_name.get(o["name"], []), date=date, transfer_buffer_h=transfer_buffer)
     greenest = min(clean["options"], key=lambda o: o["co2e_kg"])["name"] if clean["options"] else None
     clean["greenest"] = greenest
 
@@ -566,7 +629,8 @@ def _pt(a, full=False):
 
 
 def _gw(g):
-    return {"iata": g["iata"], "name": g["name"], "lat": g["lat"], "lng": g["lng"],
+    return {"iata": g["iata"], "name": g["name"], "city": g.get("city"),
+            "lat": g["lat"], "lng": g["lng"],
             "hub": g["hub"], "ground_mode": g["ground_mode"], "ground_hours": g["ground_hours"],
             "ground_cost": g["ground_cost"], "source": g["source"], "notes": g.get("notes", ""),
             "fly": g.get("fly")}
@@ -779,6 +843,26 @@ def selftest():
     recopt = next(o for o in out_lo["result"]["options"] if o["name"] == reclo)
     check("recommended split carries flight+ground map geo", len(recopt.get("geo", [])) == 2)
 
+    # every option carries an itinerary: real airports, an example clock schedule, per-leg
+    # price provenance, and a verify link — not just a bare dollar figure.
+    check("every option carries an itinerary with the right leg count",
+          all(len(o["itinerary"]["legs"]) == o["nlegs"] for o in out_lo["result"]["options"]))
+    itin_leg0 = recopt["itinerary"]["legs"][0]
+    check("itinerary leg carries real airport identity (iata+name+city), not a bare code",
+          itin_leg0["from"]["iata"] == "JFK" and itin_leg0["from"]["name"]
+          and itin_leg0["to"]["iata"] == "DEN" and itin_leg0["to"]["name"])
+    check("itinerary leg names its price provenance, not just a number",
+          "estimate" in itin_leg0["price_basis"].lower())
+    check("itinerary leg carries a verify link to Google Flights (a fly leg)",
+          itin_leg0["verify_url"].startswith("https://www.google.com/travel/flights"))
+    itin_leg1 = recopt["itinerary"]["legs"][1]
+    check("the ground leg's verify link is Rome2Rio, not Google Flights",
+          itin_leg1["verify_url"].startswith("https://www.rome2rio.com/map/"))
+    check("an all-estimate itinerary is flagged example_day, with no live legs",
+          recopt["itinerary"]["example_day"] is True and recopt["itinerary"]["any_live"] is False)
+    check("a split's second leg departs after the first leg's arrival plus the transfer buffer",
+          itin_leg1["depart_clock"] != itin_leg0["depart_clock"])
+
     # every option carries a co2e_kg estimate, and the response points at whichever is lowest
     check("every option has a non-negative co2e_kg estimate",
           all(o.get("co2e_kg") is not None and o["co2e_kg"] >= 0 for o in out["result"]["options"]))
@@ -911,6 +995,36 @@ def selftest():
           out_budget.get("ok") is True)
     check("pricing degrades to estimate when the deadline is hit before any live result",
           out_budget.get("pricing_source") == "estimate")
+
+    # ---- a successful live offer must produce a "live" itinerary leg: real segment times/
+    # carrier from Duffel, not the synthetic 08:00-anchored example schedule.
+    def _fake_live_search(session, origin_iata, dest_iata, date, adults, return_date):
+        return {"price": 241.5, "hours": 5.5, "stops": 0, "carrier": "United Airlines",
+                "currency": "USD", "converted": False, "source": "duffel", "rt": False,
+                "checked_bags_included": 1, "refundable": False, "changeable": True,
+                "native_price": 241.5,
+                "segments": [{"from_iata": origin_iata, "to_iata": dest_iata,
+                             "depart_at": datetime.datetime(2026, 8, 15, 8, 12),
+                             "arrive_at": datetime.datetime(2026, 8, 15, 10, 5),
+                             "carrier": "United Airlines", "flight_number": "UA1234"}]}
+
+    with _mock.patch.object(flights, "have_keys", return_value=True), \
+         _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
+         _mock.patch.object(flights, "search_cheapest", side_effect=_fake_live_search):
+        out_live = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15",
+                        fetch_weather=False, allow_live=True)
+    check("a successful live search prices the plan live", out_live.get("pricing_source") != "estimate")
+    live_direct = next(o for o in out_live["result"]["options"] if o["name"].startswith("Fly direct"))
+    live_leg0 = live_direct["itinerary"]["legs"][0]
+    check("a live-priced leg's itinerary uses the real segment clock times, not the synthetic 08:00 anchor",
+          live_leg0["depart_clock"] == "08:12" and live_leg0["arrive_clock"] == "10:05")
+    check("a live-priced leg carries the real carrier/flight number",
+          live_leg0["is_live"] is True and live_leg0["carrier"] == "United Airlines"
+          and live_leg0["flight_number"] == "UA1234")
+    check("a live leg's price provenance says 'live', not 'estimate'",
+          "live" in live_leg0["price_basis"].lower())
+    check("an itinerary with a live leg is not flagged example_day",
+          live_direct["itinerary"]["example_day"] is False)
 
     # ---- error-contract + input-validation checks (no HTTP needed — call the validators
     # and handlers' underlying helpers directly, matching what Handler does with parse_qs output)

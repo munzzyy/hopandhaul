@@ -29,7 +29,9 @@ import re
 import sys
 import urllib.parse
 
-from . import _secrets, trip  # deterministic engine + report
+from datetime import datetime
+
+from . import _secrets, geo, itinerary, trip  # deterministic engine + report
 from .integrations import net
 
 BASE = os.environ.get("DUFFEL_BASE", "https://api.duffel.com")
@@ -169,6 +171,42 @@ def _checked_bags_included(first_slice: dict) -> int | None:
     return min(counts) if counts else None
 
 
+def _parse_dt(s: str | None) -> datetime | None:
+    """Duffel's departing_at/arriving_at are local-to-the-airport, naive ISO8601 timestamps
+    ('2026-08-15T08:12:00') — no timezone math needed, Duffel already resolved that server-side.
+    Tolerant of a trailing 'Z' some providers add out of habit even on a naive local timestamp."""
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(s[:-1] if s.endswith("Z") else s)
+    except ValueError:
+        return None
+
+
+def _parse_segments(first_slice: dict) -> list[dict]:
+    """Real per-hop schedule data Duffel already returns and the old parser discarded — this is
+    what lets itinerary.py show a live leg's actual departure/arrival clock and carrier instead
+    of a synthetic example. from_iata/to_iata only (not full airport records): resolving those
+    to name/city is geo.py's job, not this module's — keeps this a pure Duffel-shape parser."""
+    out = []
+    for seg in first_slice.get("segments") or []:
+        dep = _parse_dt(seg.get("departing_at"))
+        arr = _parse_dt(seg.get("arriving_at"))
+        if not dep or not arr:
+            continue   # a segment with no usable schedule data can't drive a real timeline row
+        carrier_obj = seg.get("marketing_carrier") or seg.get("operating_carrier") or {}
+        out.append({
+            "from_iata": (seg.get("origin") or {}).get("iata_code"),
+            "to_iata": (seg.get("destination") or {}).get("iata_code"),
+            "depart_at": dep,
+            "arrive_at": arr,
+            "carrier": carrier_obj.get("name") or carrier_obj.get("iata_code"),
+            "flight_number": seg.get("marketing_carrier_flight_number")
+                or seg.get("operating_carrier_flight_number"),
+        })
+    return out
+
+
 def _fare_conditions(o: dict) -> dict:
     """Refund/change eligibility Duffel already returns and the old parser discarded."""
     cond = o.get("conditions") or {}
@@ -200,6 +238,7 @@ def _parse_offer(o: dict) -> dict:
         "source": "duffel",
         "rt": len(slices) >= 2,          # price covers the return slice too
         "checked_bags_included": _checked_bags_included(first),
+        "segments": _parse_segments(first),   # real per-hop schedule, for itinerary.py
     }
     out.update(_fare_conditions(o))
     if out["rt"]:
@@ -267,18 +306,70 @@ def auto_gateways(dest_airport: str) -> list[dict]:
 
 
 # --------------------------------------------------------------------------- orchestration (CLI)
+def _airport_or_stub(code: str) -> dict:
+    """Full airport record from our own DB when we have one; a bare-bones stand-in when we
+    don't (Duffel's IATA universe is bigger than the curated 4175-row airports.json) — so an
+    itinerary leg always has SOMETHING to show instead of crashing on an obscure code."""
+    return geo.by_iata(code) or {"iata": code.upper(), "name": code.upper(), "city": None}
+
+
+def _flight_leg_spec_cli(origin_a, dest_a, f, date):
+    """itinerary.py leg spec for a duffel.py CLI flight leg — always a real live Duffel offer
+    by construction (build_and_evaluate only reaches here after search_cheapest succeeded;
+    there's no distance-estimate fallback in the CLI path, unlike server.py's plan()).
+    `f["segments"]` is duffel.py's own raw per-hop schedule (see _parse_segments) — resolved to
+    full airport records here the same way server.py's _flight_leg_spec does, so the itinerary
+    shows the real departure/arrival clock and carrier instead of a synthetic example."""
+    segments = None
+    if f.get("segments"):
+        segments = [{
+            "from": _airport_or_stub(s.get("from_iata") or origin_a["iata"]),
+            "to": _airport_or_stub(s.get("to_iata") or dest_a["iata"]),
+            "depart_at": s["depart_at"], "arrive_at": s["arrive_at"],
+            "carrier": s.get("carrier"), "flight_number": s.get("flight_number"),
+        } for s in f["segments"]]
+    return {
+        "mode": "fly", "cost": f["price"], "hours": f["hours"], "from": origin_a, "to": dest_a,
+        "price_basis": itinerary.flight_provenance_live(f),
+        "verify_url": itinerary.verify_link("fly", origin_a, dest_a, date),
+        "is_live": True, "segments": segments,
+    }
+
+
+def _ground_leg_spec_cli(gw_iata_a, dest_a, mode, cost, hours):
+    """itinerary.py leg spec for a duffel.py CLI ground leg — always an estimate; gateways
+    passed on this CLI (--gateway / --auto-gateways) carry no 'source'/'notes' the way
+    geo.py's curated/auto-discovered gateway dicts do, so provenance is generic distance-based."""
+    road_km = None
+    if gw_iata_a.get("lat") is not None and dest_a.get("lat") is not None:
+        road_km = geo.haversine_km(gw_iata_a["lat"], gw_iata_a["lng"],
+                                   dest_a["lat"], dest_a["lng"]) * geo.ROAD_WINDING
+    return {
+        "mode": mode, "cost": cost, "hours": hours, "from": gw_iata_a, "to": dest_a,
+        "price_basis": itinerary.ground_provenance({}, road_km),
+        "verify_url": itinerary.verify_link(mode, gw_iata_a, dest_a),
+        "is_live": False, "segments": None,
+    }
+
+
 def build_and_evaluate(origin, dest, date, gateways, adults, cabin, nonstop,
                        vot, transfer_buffer, threshold, return_date=None):
     """Duffel flight fares are itinerary totals for ALL passengers (and both directions when
     return_date is set). Ground legs come in as one-way per-person estimates, so they are
-    scaled ×adults (per-person modes only) and ×2 on a round-trip to keep the sums honest."""
-    options, warnings = [], []
+    scaled ×adults (per-person modes only) and ×2 on a round-trip to keep the sums honest.
+
+    Each returned option also carries an 'itinerary' (see itinerary.py): real airport names,
+    an example clock schedule, per-leg price provenance, and a one-click verify link."""
+    options, warnings, leg_specs_by_name = [], [], {}
     rt_mult = 2 if return_date else 1
+    origin_a, dest_a = _airport_or_stub(origin), _airport_or_stub(dest)
     direct = search_cheapest(origin, dest, date, adults, cabin, nonstop,
                              return_date=return_date)
     if direct:
+        direct_name = f"Fly direct to {dest.upper()}"
         options.append(trip.parse_option(
-            f"Fly direct to {dest.upper()} | fly {direct['price']} {direct['hours']}"))
+            f"{direct_name} | fly {direct['price']} {direct['hours']}"))
+        leg_specs_by_name[direct_name] = [_flight_leg_spec_cli(origin_a, dest_a, direct, date)]
         if not direct["fx_ok"]:
             warnings.append(f"Direct fare in {direct['currency']} — no FX rate, treated as USD.")
         elif direct["converted"]:
@@ -297,11 +388,19 @@ def build_and_evaluate(origin, dest, date, gateways, adults, cabin, nonstop,
         options.append(trip.parse_option(
             f"{name} | fly {fly['price']} {fly['hours']} ; "
             f"{g['ground_mode']} {ground_cost} {g['ground_hours']}"))
+        gw_a = _airport_or_stub(g["hub_airport"])
+        leg_specs_by_name[name] = [
+            _flight_leg_spec_cli(origin_a, gw_a, fly, date),
+            _ground_leg_spec_cli(gw_a, dest_a, g["ground_mode"], ground_cost, g["ground_hours"]),
+        ]
 
     if not options:
         return None, warnings
     res = trip.evaluate(options, threshold=threshold, vot=vot,
                         transfer_buffer=transfer_buffer, travelers=adults)
+    for o in res["options"]:
+        o["itinerary"] = itinerary.build_timeline(
+            leg_specs_by_name.get(o["name"], []), date=date, transfer_buffer_h=transfer_buffer)
     return res, warnings
 
 
@@ -313,6 +412,52 @@ def print_setup_help():
     print("       setx DUFFEL_API_KEY \"duffel_test_...\"        (new shell), or")
     print("       add DUFFEL_API_KEY to secrets.local.json in this folder")
     print("\nMeanwhile the agent prices flights via web search and still runs trip.py.")
+
+
+def _fmt_money(x: float) -> str:
+    """Mirrors trip.py's private _fmt_money — duplicated here rather than reached into across
+    modules, same one-function-worth-of-footprint every other module in this repo keeps local."""
+    return f"${x:,.0f}" if abs(x - round(x)) < 0.005 else f"${x:,.2f}"
+
+
+def _format_itinerary_block(option: dict) -> str:
+    """Human-readable leg-by-leg schedule for one priced option — real airports, an example
+    (or, when live, a real) clock schedule, per-leg price provenance, and a verify link. This is
+    what turns 'DEN + train  $XXX' into something a person can actually check."""
+    itin = option.get("itinerary") or {}
+    legs = itin.get("legs") or []
+    if not legs:
+        return ""
+    lines = [f"    {option['name']}:"]
+    if itin.get("example_day"):
+        lines.append("      (example schedule, not a real booking — see 'verify' links below)")
+    for i, leg in enumerate(legs, 1):
+        frm, to = leg["from"], leg["to"]
+        tag = "LIVE" if leg["is_live"] else "est."
+        carrier = f" — {leg['carrier']}" + (f" {leg['flight_number']}" if leg.get("flight_number") else "") \
+            if leg.get("carrier") else ""
+        lines.append(
+            f"      {i}. {leg['mode'].upper():<6} {frm['iata']} ({frm['name']}, {frm.get('city') or '?'})"
+            f" -> {to['iata']} ({to['name']}, {to.get('city') or '?'})")
+        lines.append(
+            f"         {leg['depart_day']} {leg['depart_clock']} -> {leg['arrive_day']} {leg['arrive_clock']}"
+            f"  ({leg['duration_h']:g}h)  {tag}{carrier}")
+        if leg.get("checkin_by"):
+            lines.append(f"         be at the airport by {leg['checkin_by']['day']} {leg['checkin_by']['clock']}")
+        lines.append(f"         {_fmt_money(leg['cost'])} · {leg['price_basis']}")
+        lines.append(f"         verify: {leg['verify_url']}")
+    return "\n".join(lines)
+
+
+def format_itineraries(res: dict) -> str:
+    """Itinerary blocks for every option in an evaluate()d result, in the same order as the
+    options table trip.format_report() already printed."""
+    blocks = [_format_itinerary_block(o) for o in res["options"]]
+    blocks = [b for b in blocks if b]
+    if not blocks:
+        return ""
+    return "ITINERARIES (real airports, example or live clock times, verify before booking):\n\n" \
+        + "\n\n".join(blocks)
 
 
 # --------------------------------------------------------------------------- CLI
@@ -398,6 +543,10 @@ def main(argv=None):
         print(json.dumps({k: v for k, v in res.items() if not k.startswith("_")}, indent=2))
     else:
         print(trip.format_report(res, args.origin, args.dest))
+        print()
+        itin_block = format_itineraries(res)
+        if itin_block:
+            print(itin_block)
     return 0
 
 
@@ -461,6 +610,57 @@ def selftest():
     check("wired engine recommends the qualifying split", r["recommended"] == "DEN + train")
     check("have_keys() is a bool", isinstance(have_keys(), bool))
 
+    # build_and_evaluate() end-to-end, offline (mocked search_cheapest): every option must
+    # come back with a leg-by-leg itinerary — real airports, live schedule for the flight leg,
+    # provenance + a verify link for both legs.
+    import unittest.mock as _mock
+
+    def _fake_search_cheapest(origin, dest, date, adults=1, cabin="economy", nonstop=False,
+                              return_date=None):
+        if dest.upper() == "EGE":
+            return None    # simulates "no Duffel offer for this gateway"
+        return {"price": 210.0, "hours": 3.0, "stops": 0, "carrier": "United Airlines",
+                "currency": "USD", "converted": False, "fx_ok": True, "source": "duffel",
+                "rt": False, "checked_bags_included": 1, "refundable": False, "changeable": True,
+                "native_price": 210.0,
+                "segments": [{"from_iata": origin.upper(), "to_iata": dest.upper(),
+                             "depart_at": datetime(2026, 8, 15, 9, 30),
+                             "arrive_at": datetime(2026, 8, 15, 12, 30),
+                             "carrier": "United Airlines", "flight_number": "UA55"}]}
+
+    # patch this module's OWN globals (not a dotted string path) — same reasoning as the
+    # equivalent guard in server.py's selftest: run via `python -m hopandhaul.duffel --selftest`
+    # this module is loaded as __main__, so a string-path patch risks hitting a second,
+    # separately-imported copy instead of the one build_and_evaluate() actually calls into.
+    _this_module = sys.modules[__name__]
+    with _mock.patch.object(_this_module, "search_cheapest", side_effect=_fake_search_cheapest):
+        res_cli, warn_cli = build_and_evaluate(
+            "JFK", "ASE", "2026-08-15",
+            [{"hub_airport": "DEN", "ground_mode": "bus", "ground_cost": 75.0, "ground_hours": 4.0},
+             {"hub_airport": "EGE", "ground_mode": "rental", "ground_cost": 90.0, "ground_hours": 2.0}],
+            adults=1, cabin="economy", nonstop=False, vot=None, transfer_buffer=1.0, threshold=200)
+    check("build_and_evaluate returns a result",  res_cli is not None)
+    check("a gateway with no Duffel offer is skipped with a warning, not silently dropped or fatal",
+          any("EGE" in w for w in warn_cli)
+          and not any(o["name"].startswith("EGE") for o in res_cli["options"]))
+    den_opt = next(o for o in res_cli["options"] if o["name"].startswith("DEN"))
+    check("CLI-built option carries a 2-leg itinerary", len(den_opt["itinerary"]["legs"]) == 2)
+    cli_fly_leg = den_opt["itinerary"]["legs"][0]
+    check("CLI flight leg resolves real airport identity via geo.by_iata, not a bare code",
+          cli_fly_leg["from"]["iata"] == "JFK" and cli_fly_leg["from"]["name"])
+    check("CLI flight leg uses the real Duffel segment clock/carrier, not a synthetic schedule",
+          cli_fly_leg["is_live"] is True and cli_fly_leg["depart_clock"] == "09:30"
+          and cli_fly_leg["carrier"] == "United Airlines" and cli_fly_leg["flight_number"] == "UA55")
+    check("CLI flight leg's price provenance says 'live'", "live" in cli_fly_leg["price_basis"].lower())
+    cli_ground_leg = den_opt["itinerary"]["legs"][1]
+    check("CLI ground leg carries a Rome2Rio verify link", cli_ground_leg["verify_url"].startswith(
+        "https://www.rome2rio.com/map/"))
+    itin_text = format_itineraries(res_cli)
+    check("format_itineraries renders every priced option with a leg count, not just the winner",
+          itin_text.count(" -> ") >= 2 * len(res_cli["options"]))
+    check("format_itineraries includes the verify links as plain URLs (CLI text output)",
+          "verify: https://" in itin_text)
+
     # baggage + fare-conditions surfaced from an offer Duffel already returns them on
     offer_with_extras = {
         "total_amount": "300.00", "total_currency": "USD", "owner": {"iata_code": "DL"},
@@ -481,6 +681,41 @@ def selftest():
           no_baggage_data["checked_bags_included"] is None)
 
     check("FX table has a grep-able as-of date", bool(FX_AS_OF) and FX_AS_OF[:4].isdigit())
+
+    # real segment schedule data — what lets itinerary.py show a live leg's actual times/carrier
+    # instead of a synthetic example, and what the old parser silently discarded.
+    offer_with_segments = {
+        "total_amount": "241.50", "total_currency": "USD",
+        "owner": {"iata_code": "AA"},
+        "slices": [{"duration": "PT5H30M", "segments": [
+            {"origin": {"iata_code": "JFK"}, "destination": {"iata_code": "DEN"},
+             "departing_at": "2026-08-15T08:12:00", "arriving_at": "2026-08-15T10:05:00",
+             "marketing_carrier": {"iata_code": "UA", "name": "United Airlines"},
+             "marketing_carrier_flight_number": "1234"},
+            {"origin": {"iata_code": "DEN"}, "destination": {"iata_code": "ASE"},
+             "departing_at": "2026-08-15T11:20:00Z", "arriving_at": "2026-08-15T12:05:00Z",
+             "marketing_carrier": {"iata_code": "UA", "name": "United Airlines"},
+             "marketing_carrier_flight_number": "5678"},
+        ]}],
+    }
+    parsed_segs = _parse_offer(offer_with_segments)["segments"]
+    check("segments are parsed for a connecting itinerary (2 hops)", len(parsed_segs) == 2)
+    check("segment carries real IATA endpoints",
+          parsed_segs[0]["from_iata"] == "JFK" and parsed_segs[0]["to_iata"] == "DEN")
+    check("segment carries real carrier name + flight number, not invented",
+          parsed_segs[0]["carrier"] == "United Airlines" and parsed_segs[0]["flight_number"] == "1234")
+    check("segment departure/arrival parse to real datetimes",
+          parsed_segs[0]["depart_at"] == datetime(2026, 8, 15, 8, 12)
+          and parsed_segs[0]["arrive_at"] == datetime(2026, 8, 15, 10, 5))
+    check("a trailing 'Z' some providers add to a naive local timestamp is tolerated",
+          parsed_segs[1]["depart_at"] == datetime(2026, 8, 15, 11, 20))
+    check("an offer with no segment data at all yields an empty list, not a crash",
+          _parse_offer({"total_amount": "100", "total_currency": "USD", "owner": {},
+                       "slices": [{"duration": "PT1H", "segments": []}]})["segments"] == [])
+    check("a segment missing usable departure/arrival timestamps is skipped, not fabricated",
+          _parse_offer({"total_amount": "100", "total_currency": "USD", "owner": {},
+                       "slices": [{"duration": "PT1H", "segments": [{"origin": {"iata_code": "JFK"}}]}]}
+                      )["segments"] == [])
 
     # offer cache: widened key includes cabin/nonstop/return_date, not just origin/dest/date
     key_a = ("JFK", "ASE", "2026-08-15", 1, "economy", False, None)

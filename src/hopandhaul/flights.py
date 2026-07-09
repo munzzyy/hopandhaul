@@ -13,9 +13,13 @@ Preference order: Duffel (Cole's key) first, then Amadeus if those env vars happ
 else None (server falls back to distance estimates). Normalized result shape:
   {"price": <usd float>, "hours": float, "stops": int, "carrier": str,
    "currency": str, "converted": bool, "source": "duffel"|"amadeus",
-   "checked_bags_included": int|None, "refundable": bool, "changeable": bool}
+   "checked_bags_included": int|None, "refundable": bool, "changeable": bool,
+   "native_price": float|None, "segments": list[dict]}
 Baggage/fare-condition fields are Duffel-only (None/False on Amadeus, which doesn't return them
 via this call) — never silently invented, always present so callers don't need a hasattr check.
+"segments" (also Duffel-only; always [] on Amadeus) is the real per-hop schedule — departure/
+arrival clock, carrier, flight number — itinerary.py uses to show a live leg's actual timeline
+instead of a synthetic example one.
 """
 from __future__ import annotations
 
@@ -75,7 +79,8 @@ def search_cheapest(session, origin, dest, date, nonstop=False, cabin="economy",
                 "carrier": r["carrier"], "currency": r["currency"],
                 "converted": r["converted"], "source": "duffel", "rt": r.get("rt", False),
                 "checked_bags_included": r.get("checked_bags_included"),
-                "refundable": r.get("refundable", False), "changeable": r.get("changeable", False)}
+                "refundable": r.get("refundable", False), "changeable": r.get("changeable", False),
+                "native_price": r.get("native_price"), "segments": r.get("segments", [])}
     if session["provider"] == "amadeus":
         r = providers.search_cheapest(session["base"], session["token"], origin, dest, date,
                                       nonstop=nonstop)
@@ -84,5 +89,6 @@ def search_cheapest(session, origin, dest, date, nonstop=False, cabin="economy",
         return {"price": round(r["price"] * max(1, adults), 2), "hours": r["hours"],
                 "stops": r.get("stops", 0), "carrier": r.get("carrier", "?"),
                 "currency": "USD", "converted": False, "source": "amadeus", "rt": False,
-                "checked_bags_included": None, "refundable": False, "changeable": False}
+                "checked_bags_included": None, "refundable": False, "changeable": False,
+                "native_price": None, "segments": []}
     return None

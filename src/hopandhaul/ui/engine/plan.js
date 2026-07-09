@@ -8,6 +8,7 @@
 import * as geo from "./geo.js";
 import * as trip from "./trip.js";
 import * as emissions from "./emissions.js";
+import * as itinerary from "./itinerary.js";
 import { byIata } from "./data.js";
 import { pyRound } from "./pyround.js";
 
@@ -19,14 +20,17 @@ function pt(a, full = false) {
 
 function gw(g) {
   return {
-    iata: g.iata, name: g.name, lat: g.lat, lng: g.lng, hub: g.hub,
+    iata: g.iata, name: g.name, city: g.city ?? null, lat: g.lat, lng: g.lng, hub: g.hub,
     ground_mode: g.ground_mode, ground_hours: g.ground_hours, ground_cost: g.ground_cost,
     source: g.source, notes: g.notes || "", fly: g.fly ?? null,
   };
 }
 
 /** Estimate-only flight leg pricing — mirrors server.py's _price_flight() with `session=None`
- * (i.e. the branch it always falls into once allow_live=False, which the Pages build always is). */
+ * (i.e. the branch it always falls into once allow_live=False, which the Pages build always is).
+ * Keeps `estimateDetail` (the outbound-leg estimate only, same as the Python side) so the
+ * itinerary can narrate where the fare came from — never discarded just because the option
+ * string only needs the price. */
 function priceFlightEstimate(origin, dest, date, ret, travelers) {
   const est = geo.estimateFlight(origin, dest, date);
   let price = est.price * Math.max(1, travelers);
@@ -36,7 +40,29 @@ function priceFlightEstimate(origin, dest, date, ret, travelers) {
     price += estBack.price * Math.max(1, travelers);
     rt = true;
   }
-  return { price: pyRound(price, 2), hours: est.hours, source: "estimate", rt };
+  return { price: pyRound(price, 2), hours: est.hours, source: "estimate", rt, estimate_detail: est };
+}
+
+/** itinerary.js leg spec for a flight leg — mirrors server.py's _flight_leg_spec(), estimate
+ * branch only (the Pages build never has a live provider). */
+function flightLegSpec(origin, dest, f, cost, date) {
+  return {
+    mode: "fly", cost: pyRound(cost, 2), hours: f.hours, from: origin, to: dest,
+    price_basis: itinerary.flightProvenanceEstimate(f.estimate_detail, date),
+    verify_url: itinerary.verifyLink("fly", origin, dest, date),
+    is_live: false, segments: null,
+  };
+}
+
+/** itinerary.js leg spec for a ground leg — mirrors server.py's _ground_leg_spec(); ground legs
+ * are always an estimate (see README: no free, open multimodal fares API worth calling here). */
+function groundLegSpec(g, dest, cost, roadKm) {
+  return {
+    mode: g.ground_mode, cost: pyRound(cost, 2), hours: g.ground_hours, from: g, to: dest,
+    price_basis: itinerary.groundProvenance(g, roadKm),
+    verify_url: itinerary.verifyLink(g.ground_mode, g, dest),
+    is_live: false, segments: null,
+  };
 }
 
 /**
@@ -86,6 +112,7 @@ export function plan({
   const options = [];
   const geoByName = {};
   const emissionsLegsByName = {};
+  const legSpecsByName = {};
 
   function flightCost(f) {
     if (roundtrip && !f.rt) return f.price * 2;
@@ -95,8 +122,10 @@ export function plan({
   // direct
   const df = priced[0];
   const directName = `Fly direct to ${dest.iata}`;
-  options.push(trip.parseOption(`${directName} | fly ${flightCost(df)} ${df.hours}`));
+  const directCost = flightCost(df);
+  options.push(trip.parseOption(`${directName} | fly ${directCost} ${df.hours}`));
   geoByName[directName] = [{ type: "flight", from: pt(origin), to: pt(dest) }];
+  legSpecsByName[directName] = [flightLegSpec(origin, dest, df, directCost, date)];
   const directKm = geo.haversineKm(origin.lat, origin.lng, dest.lat, dest.lng) * rtMult;
   emissionsLegsByName[directName] = [{ mode: "fly", distance_km: directKm }];
 
@@ -105,9 +134,10 @@ export function plan({
     const gf = priced[i + 1];
     g.fly = gf;
     const groundCost = trip.scaleLegCost(g.ground_mode, g.ground_cost, travelers) * rtMult;
+    const flyCost = flightCost(gf);
     const name = `${g.iata} + ${g.ground_mode}`;
     options.push(trip.parseOption(
-      `${name} | fly ${flightCost(gf)} ${gf.hours} ; ${g.ground_mode} ${groundCost} ${g.ground_hours}`,
+      `${name} | fly ${flyCost} ${gf.hours} ; ${g.ground_mode} ${groundCost} ${g.ground_hours}`,
     ));
     geoByName[name] = [
       { type: "flight", from: pt(origin), to: pt(g) },
@@ -118,6 +148,10 @@ export function plan({
     emissionsLegsByName[name] = [
       { mode: "fly", distance_km: flyKm },
       { mode: g.ground_mode, road_km: groundKm },
+    ];
+    legSpecsByName[name] = [
+      flightLegSpec(origin, g, gf, flyCost, date),
+      groundLegSpec(g, dest, groundCost, groundKm / Math.max(rtMult, 1)),
     ];
   });
 
@@ -130,6 +164,9 @@ export function plan({
   for (const o of clean.options) {
     o.geo = geoByName[o.name] || [];
     o.co2e_kg = emissions.co2eForOption(emissionsLegsByName[o.name] || [], travelers);
+    o.itinerary = itinerary.buildTimeline(legSpecsByName[o.name] || [], {
+      date, transferBufferH: transferBuffer,
+    });
   }
   clean.greenest = clean.options.length
     ? clean.options.reduce((best, o) => (o.co2e_kg < best.co2e_kg ? o : best)).name

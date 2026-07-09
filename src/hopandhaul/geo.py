@@ -477,7 +477,8 @@ def curated_gateways(dest_iata: str) -> list[dict]:
                 if not a:
                     continue
                 out.append({
-                    "iata": a["iata"], "name": a["name"], "lat": a["lat"], "lng": a["lng"],
+                    "iata": a["iata"], "name": a["name"], "city": a.get("city"),
+                    "lat": a["lat"], "lng": a["lng"],
                     "hub": a["hub"], "ground_mode": g["ground_mode"],
                     "ground_hours": float(g["ground_time_h"]),
                     "ground_cost": float(g["ground_cost_usd"]),
@@ -526,7 +527,8 @@ def discover_gateways(dest: dict, origin: dict | None = None, max_ground_h: floa
         if g["hours"] > max_ground_h:
             continue
         cands.append({
-            "iata": a["iata"], "name": a["name"], "lat": a["lat"], "lng": a["lng"],
+            "iata": a["iata"], "name": a["name"], "city": a.get("city"),
+            "lat": a["lat"], "lng": a["lng"],
             "hub": a["hub"], "ground_mode": mode, "ground_hours": g["hours"],
             "ground_cost": g["cost"], "notes": f"auto: ~{int(d)}km {mode}", "source": "auto",
             "_dist": d,
@@ -589,6 +591,10 @@ def selftest():
     check(f"Aspen gateways include DEN & EGE (got {sorted(codes)})", {"DEN", "EGE"} <= codes)
     check("gateways carry ground_mode/hours/cost",
           all("ground_mode" in g and g["ground_hours"] > 0 for g in gws))
+    # itinerary.py's leg labels need a full airport name+city for every gateway, curated and
+    # auto alike — not just the bare code discover_gateways used to leave off "city" for.
+    check("every gateway (curated and auto) carries a city, for itinerary display",
+          all("city" in g and g["city"] for g in gws))
 
     # a major hub (DEN) as destination yields few/no gateways (already cheap & connected)
     dg = discover_gateways(den, origin=jfk)

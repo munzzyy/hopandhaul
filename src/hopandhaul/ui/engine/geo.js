@@ -390,7 +390,7 @@ export function curatedGateways(destIata) {
         const a = byIata(g.hub_airport);
         if (!a) continue;
         out.push({
-          iata: a.iata, name: a.name, lat: a.lat, lng: a.lng,
+          iata: a.iata, name: a.name, city: a.city ?? null, lat: a.lat, lng: a.lng,
           hub: a.hub, ground_mode: g.ground_mode,
           ground_hours: Number(g.ground_time_h),
           ground_cost: Number(g.ground_cost_usd),
@@ -429,7 +429,7 @@ export function discoverGateways(dest, origin = null, { maxGroundH = 6.0, maxGat
     const g = estimateGround(d, mode, region);
     if (g.hours > maxGroundH) continue;
     cands.push({
-      iata: a.iata, name: a.name, lat: a.lat, lng: a.lng,
+      iata: a.iata, name: a.name, city: a.city ?? null, lat: a.lat, lng: a.lng,
       hub: a.hub, ground_mode: mode, ground_hours: g.hours,
       ground_cost: g.cost, notes: `auto: ~${Math.trunc(d)}km ${mode}`, source: "auto",
       _dist: d,
