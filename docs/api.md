@@ -149,7 +149,10 @@ applies the $200 rule to recommend one.
     "result": {
       "recommended": "Fly direct to ASE",
       "greenest": "DEN + bus",
-      "options": [{"name": "...", "cost": 620.0, "co2e_kg": 415.78, "legs": [...], "geo": [...], "...": "..."}]
+      "options": [{"name": "...", "cost": 620.0, "co2e_kg": 415.78, "legs": [...], "geo": [...],
+                   "itinerary": {"legs": [{"...": "see 'Itinerary, price provenance, and verify links' below"}],
+                                  "any_live": false, "example_day": true, "depart_local": "08:00"},
+                   "...": "..."}]
     },
     "weather": null,
     "notes": ["Fares are distance-based ESTIMATES ... add a date for live fares.",
@@ -186,6 +189,57 @@ regional line higher), coach/bus ~28 g/pkm, car ~170 g per VEHICLE-km (divided a
 travelers only when a mode is priced per-person; a drive/rental leg is per-vehicle, same
 distinction `trip.py` already makes for cost). Full citations and reasoning in
 `src/hopandhaul/emissions.py`'s module docstring.
+
+### Itinerary, price provenance, and verify links: `result.options[].itinerary`
+
+A dollar figure with no airports, no schedule, and no way to check it isn't worth much. Every
+option carries an `itinerary` (built by `itinerary.py`) turning its total into a leg-by-leg,
+checkable schedule:
+
+```json
+{
+  "legs": [{
+    "mode": "fly",
+    "from": {"iata": "JFK", "name": "New York JFK", "city": "New York"},
+    "to": {"iata": "DEN", "name": "Denver", "city": "Denver"},
+    "depart_clock": "08:00", "depart_day": "2026-08-15",
+    "arrive_clock": "11:00", "arrive_day": "2026-08-15",
+    "duration_h": 3.0,
+    "checkin_by": {"clock": "06:00", "day": "2026-08-15"},
+    "cost": 210.0,
+    "price_basis": "route-band estimate for 2026-08-15; NA-NA market ×1.00; date factor ×1.08",
+    "verify_url": "https://www.google.com/travel/flights?q=Flights+from+JFK+to+DEN+on+2026-08-15",
+    "is_live": false, "carrier": null, "flight_number": null
+  }],
+  "any_live": false, "example_day": true, "depart_local": "08:00"
+}
+```
+
+- `from`/`to`: the real airport or station — IATA code, full name, and city — never a bare code.
+- `depart_clock`/`arrive_clock`/`depart_day`/`arrive_day`: a clock schedule. **These are an
+  EXAMPLE day** (`example_day: true`) unless a live Duffel fare priced that specific leg
+  (`is_live: true`), in which case they're the real offer's real departure/arrival times.
+  Synthetic times walk forward from a sane default departure (`depart_local`, `08:00`) with a
+  connection buffer between legs (the same `buffer` query param that already lengthens
+  `hours_eff` — the itinerary's elapsed time always reconciles with the summary card next to
+  it) and no timezone conversion: `airports.json` carries no timezone data, and a
+  longitude-based guess would be its own kind of dishonesty. A live leg's times ARE real
+  per-airport local times (Duffel resolves that server-side).
+- `checkin_by`: present on a flight leg only — a generic 2-hour-early airport-arrival
+  recommendation, not an airline-specific claim.
+- `price_basis`: plain-English provenance for that leg's `cost` — which route-band multipliers
+  applied (estimate) or which carrier/fare priced it (live). Free text, like `notes` elsewhere
+  in this response — not translated by the UI's i18n catalog.
+- `verify_url`: a one-click way to check the number — a Google Flights search
+  (`?q=Flights+from+XXX+to+YYY+on+YYYY-MM-DD`) for a flight leg, a Rome2Rio map link
+  (`/map/{from}/{to}`) for a ground leg.
+- `is_live` / `carrier` / `flight_number`: only real (not invented) — `null`/`false` on every
+  estimate leg.
+
+The same live-vs-estimate split shows up one level up too: `direct` and each entry in
+`gateways[].fly` are the raw pricing dict `itinerary` was built from, so a caller who wants the
+provenance without the formatted timeline can read `estimate_detail` (estimate) or `segments`/
+`carrier`/`native_price` (live) directly.
 
 ## `GET /favicon.ico`
 

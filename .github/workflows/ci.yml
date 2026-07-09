@@ -37,6 +37,7 @@ jobs:
           python -m hopandhaul.geo --selftest
           python -m hopandhaul.server --selftest
           python -m hopandhaul.emissions --selftest
+          python -m hopandhaul.itinerary --selftest
           python -m hopandhaul.duffel --selftest
           python -m hopandhaul.geoapify --selftest
           python -m hopandhaul.weather --selftest

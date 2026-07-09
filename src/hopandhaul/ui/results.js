@@ -114,6 +114,60 @@ function recommendationCard(R, rec, isDirect) {
     + "    </div>";
 }
 
+/** One leg of an option's itinerary — real airport identity, a clock schedule (example or
+ * live), the airport-arrival buffer for a flight leg, per-leg price + provenance, and a
+ * one-click verify link. verify_url always opens in a new tab: it's a hop off the app to a
+ * third-party site, never something that should navigate the plan away. */
+function itineraryLegRow(leg) {
+  const tag = leg.is_live
+    ? "<span class=\"tag tag--ok\">" + esc(t("itin.liveTag")) + "</span>"
+    : "<span class=\"tag tag--base\">" + esc(t("opt.est")) + "</span>";
+  const carrier = leg.carrier
+    ? " <span class=\"itin-carrier\">" + esc(leg.carrier)
+      + (leg.flight_number ? " " + esc(leg.flight_number) : "") + "</span>"
+    : "";
+  const fromLabel = esc(leg.from.iata) + " — " + esc(leg.from.name)
+    + (leg.from.city ? ", " + esc(leg.from.city) : "");
+  const toLabel = esc(leg.to.iata) + " — " + esc(leg.to.name)
+    + (leg.to.city ? ", " + esc(leg.to.city) : "");
+  const checkin = leg.checkin_by
+    ? "<div class=\"itin-checkin\">" + esc(t("itin.checkinBy",
+        { day: leg.checkin_by.day, clock: leg.checkin_by.clock })) + "</div>\n"
+    : "";
+  return "\n"
+    + "      <li class=\"itin-leg\">\n"
+    + "        <div class=\"itin-leg-route\">" + modeIcon(leg.mode)
+    + " <span class=\"sr-only\">" + esc(modeLabel(leg.mode)) + "</span> "
+    + "<bdi dir=\"ltr\">" + fromLabel
+    + " <svg class=\"icon icon--arrow\" aria-hidden=\"true\"><use href=\"#i-arrow\"/></svg> "
+    + toLabel + "</bdi> " + tag + carrier + "</div>\n"
+    + "        <div class=\"itin-leg-time\"><bdi dir=\"ltr\">" + esc(leg.depart_day) + " "
+    + esc(leg.depart_clock) + " <svg class=\"icon icon--arrow\" aria-hidden=\"true\">"
+    + "<use href=\"#i-arrow\"/></svg> " + esc(leg.arrive_day) + " " + esc(leg.arrive_clock)
+    + "</bdi> &middot; " + esc(fmtH(leg.duration_h)) + "</div>\n"
+    + checkin
+    + "        <div class=\"itin-leg-price\">" + fmtMoney(leg.cost) + " &middot; "
+    + esc(leg.price_basis) + "</div>\n"
+    + "        <a class=\"itin-leg-verify\" href=\"" + esc(leg.verify_url)
+    + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + esc(t("itin.verify"))
+    + " <svg class=\"icon\" aria-hidden=\"true\"><use href=\"#i-link\"/></svg></a>\n"
+    + "      </li>";
+}
+
+/** Collapsible itinerary block for one option — <details> so a list of several options doesn't
+ * force every leg's worth of text on screen before anyone asks for it. */
+function itineraryBlock(o) {
+  const itin = o.itinerary;
+  if (!itin || !itin.legs || !itin.legs.length) return "";
+  const noteKey = itin.example_day ? "itin.example" : "itin.live";
+  return "\n"
+    + "      <details class=\"itin\">\n"
+    + "        <summary>" + esc(t("itin.summary")) + "</summary>\n"
+    + "        <p class=\"itin-note\">" + esc(t(noteKey)) + "</p>\n"
+    + "        <ol class=\"itin-legs\">" + itin.legs.map(itineraryLegRow).join("") + "</ol>\n"
+    + "      </details>";
+}
+
 function optionRow(o, recName, greenestName) {
   const { text: statusText, tone } = statusLabel(o.status);
   const legs = o.legs.map(legLabel).join(" + ");
@@ -144,7 +198,8 @@ function optionRow(o, recName, greenestName) {
     + "        <span class=\"tag tag--" + tone + "\">" + (o.name === recName ? "★ " : "") + esc(statusText) + "</span>\n"
     + "      </div>\n"
     + (co2Line ? "      <div class=\"opt-meta opt-meta--co2\">" + co2Line + "</div>\n" : "")
-    + "    </li>";
+    + itineraryBlock(o)
+    + "\n    </li>";
 }
 
 // Mobile-only bottom-sheet expand/collapse (see the #results/.sheet-toggle rules in

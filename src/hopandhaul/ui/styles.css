@@ -658,6 +658,35 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 .opt-co2 { color: var(--dim); }
 .opt-co2--greenest { color: var(--good); font-weight: 600; }
 
+/* per-option itinerary: real airports, an example (or live) clock schedule, per-leg price
+   provenance, and a verify link — a <details> so a 5-option list doesn't force every leg's
+   worth of text on screen at once; the disclosure triangle is free a11y from the native element. */
+.itin { margin-top: var(--space-2); font-size: var(--fs-xs); }
+.itin > summary {
+  cursor: pointer; color: var(--dim); font-weight: 600;
+  padding: 3px 0; list-style: none;
+}
+.itin > summary::-webkit-details-marker { display: none; }
+.itin > summary::before { content: "▸ "; }
+.itin[open] > summary::before { content: "▾ "; }
+.itin-note { color: var(--dim); margin: 4px 0 6px; line-height: 1.4; }
+.itin-legs {
+  list-style: none; margin: 0; padding: 0;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden;
+}
+.itin-leg { padding: 6px 9px; background: var(--panel); }
+.itin-leg + .itin-leg { border-block-start: 1px solid var(--line); }
+.itin-leg-route { font-weight: 600; color: var(--ink); }
+.itin-leg-route .icon--arrow { margin-inline: 3px; }
+.itin-leg-time { color: var(--dim); margin-top: 2px; font-family: var(--font-num); }
+.itin-checkin { color: var(--dim); margin-top: 2px; }
+.itin-leg-price { margin-top: 2px; }
+.itin-leg-verify {
+  display: inline-flex; align-items: center; gap: 3px; margin-top: 4px;
+  color: var(--arc); text-decoration: none; font-weight: 600;
+}
+.itin-leg-verify:hover, .itin-leg-verify:focus-visible { text-decoration: underline; }
+
 /* cheapest-vs-greenest callout under the recommendation card, when they differ */
 .rec-greenest-note {
   font-size: var(--fs-sm); color: var(--ink); line-height: 1.45;

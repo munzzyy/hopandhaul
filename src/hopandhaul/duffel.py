@@ -8,6 +8,11 @@ hands the whole thing to trip.py — which applies Cole's $200 fly-then-train ru
 
 Auth is a single bearer key (no OAuth token dance): DUFFEL_API_KEY (a `duffel_test_…` or
 `duffel_live_…` token). Read from env or secrets.local.json via _secrets. Stdlib urllib only.
+No key configured (or a route Duffel has no offer for) isn't a hard failure: the CLI falls back
+to geo.py's distance ESTIMATE per flight leg, same as server.py's map UI — see
+_price_flight_cli(). Every priced option also carries a leg-by-leg itinerary (itinerary.py):
+real airport names, an example (or, once live, real) clock schedule, per-leg price provenance,
+and a verify link — printed as plain text by format_itineraries().
 
 Currency: Duffel returns each offer in the airline's filing currency. To keep the money math
 honest (flight + ground summed in one currency) we convert to USD with a labelled approximate
@@ -313,26 +318,50 @@ def _airport_or_stub(code: str) -> dict:
     return geo.by_iata(code) or {"iata": code.upper(), "name": code.upper(), "city": None}
 
 
+def _price_flight_cli(origin_a, dest_a, date, adults, cabin, nonstop, return_date):
+    """Live if a Duffel key is configured and returns an offer, else a distance ESTIMATE —
+    mirrors server.py's _price_flight() so `hopandhaul duffel` (and the console script) work
+    with NO key at all, the same estimate-first-live-if-possible contract the map UI already
+    has, instead of the CLI refusing to run without one."""
+    if have_keys():
+        live = search_cheapest(origin_a["iata"], dest_a["iata"], date, adults, cabin, nonstop,
+                               return_date=return_date)
+        if live:
+            return live
+    est = geo.estimate_flight(origin_a, dest_a, date=date)
+    price = est["price"] * max(1, adults)
+    rt = False
+    if return_date:
+        est_back = geo.estimate_flight(dest_a, origin_a, date=return_date)
+        price += est_back["price"] * max(1, adults)
+        rt = True
+    return {"price": round(price, 2), "hours": est["hours"], "source": "estimate", "rt": rt,
+            "estimate_detail": est, "fx_ok": True, "converted": False, "currency": "USD",
+            "native_price": None, "carrier": None, "segments": []}
+
+
 def _flight_leg_spec_cli(origin_a, dest_a, f, date):
-    """itinerary.py leg spec for a duffel.py CLI flight leg — always a real live Duffel offer
-    by construction (build_and_evaluate only reaches here after search_cheapest succeeded;
-    there's no distance-estimate fallback in the CLI path, unlike server.py's plan()).
-    `f["segments"]` is duffel.py's own raw per-hop schedule (see _parse_segments) — resolved to
-    full airport records here the same way server.py's _flight_leg_spec does, so the itinerary
-    shows the real departure/arrival clock and carrier instead of a synthetic example."""
+    """itinerary.py leg spec for a duffel.py CLI flight leg — live (real Duffel offer, real
+    segment schedule) when _price_flight_cli() found one, else a distance ESTIMATE. Mirrors
+    server.py's _flight_leg_spec(). `f["segments"]` is duffel.py's own raw per-hop schedule
+    (see _parse_segments) — resolved to full airport records here so the itinerary shows the
+    real departure/arrival clock and carrier instead of a synthetic example."""
+    is_live = f.get("source") != "estimate"
     segments = None
-    if f.get("segments"):
+    if is_live and f.get("segments"):
         segments = [{
             "from": _airport_or_stub(s.get("from_iata") or origin_a["iata"]),
             "to": _airport_or_stub(s.get("to_iata") or dest_a["iata"]),
             "depart_at": s["depart_at"], "arrive_at": s["arrive_at"],
             "carrier": s.get("carrier"), "flight_number": s.get("flight_number"),
         } for s in f["segments"]]
+    price_basis = (itinerary.flight_provenance_live(f) if is_live
+                   else itinerary.flight_provenance_estimate(f.get("estimate_detail"), date))
     return {
         "mode": "fly", "cost": f["price"], "hours": f["hours"], "from": origin_a, "to": dest_a,
-        "price_basis": itinerary.flight_provenance_live(f),
+        "price_basis": price_basis,
         "verify_url": itinerary.verify_link("fly", origin_a, dest_a, date),
-        "is_live": True, "segments": segments,
+        "is_live": is_live, "segments": segments,
     }
 
 
@@ -358,44 +387,42 @@ def build_and_evaluate(origin, dest, date, gateways, adults, cabin, nonstop,
     return_date is set). Ground legs come in as one-way per-person estimates, so they are
     scaled ×adults (per-person modes only) and ×2 on a round-trip to keep the sums honest.
 
-    Each returned option also carries an 'itinerary' (see itinerary.py): real airport names,
-    an example clock schedule, per-leg price provenance, and a one-click verify link."""
+    Every flight leg is priced live when a Duffel key is configured and returns an offer, else
+    a distance ESTIMATE (see _price_flight_cli) — this runs with no key at all, same as the map
+    UI. Each returned option also carries an 'itinerary' (see itinerary.py): real airport names,
+    an example (or, once live, real) clock schedule, per-leg price provenance, and a one-click
+    verify link."""
     options, warnings, leg_specs_by_name = [], [], {}
     rt_mult = 2 if return_date else 1
     origin_a, dest_a = _airport_or_stub(origin), _airport_or_stub(dest)
-    direct = search_cheapest(origin, dest, date, adults, cabin, nonstop,
-                             return_date=return_date)
-    if direct:
-        direct_name = f"Fly direct to {dest.upper()}"
-        options.append(trip.parse_option(
-            f"{direct_name} | fly {direct['price']} {direct['hours']}"))
-        leg_specs_by_name[direct_name] = [_flight_leg_spec_cli(origin_a, dest_a, direct, date)]
-        if not direct["fx_ok"]:
-            warnings.append(f"Direct fare in {direct['currency']} — no FX rate, treated as USD.")
-        elif direct["converted"]:
-            warnings.append(f"Direct fare converted {direct['currency']}->USD (approx).")
-    else:
-        warnings.append(f"No Duffel offers {origin}->{dest} on {date}.")
+    direct = _price_flight_cli(origin_a, dest_a, date, adults, cabin, nonstop, return_date)
+    direct_name = f"Fly direct to {dest.upper()}"
+    options.append(trip.parse_option(
+        f"{direct_name} | fly {direct['price']} {direct['hours']}"))
+    leg_specs_by_name[direct_name] = [_flight_leg_spec_cli(origin_a, dest_a, direct, date)]
+    if direct["source"] == "estimate":
+        warnings.append(f"No live Duffel offer {origin}->{dest}; priced with a distance ESTIMATE.")
+    elif not direct["fx_ok"]:
+        warnings.append(f"Direct fare in {direct['currency']} — no FX rate, treated as USD.")
+    elif direct["converted"]:
+        warnings.append(f"Direct fare converted {direct['currency']}->USD (approx).")
 
     for g in gateways:
-        fly = search_cheapest(origin, g["hub_airport"], date, adults, cabin, nonstop,
-                              return_date=return_date)
-        if not fly:
-            warnings.append(f"No offers {origin}->{g['hub_airport']}; skipped that gateway.")
-            continue
+        gw_a = _airport_or_stub(g["hub_airport"])
+        fly = _price_flight_cli(origin_a, gw_a, date, adults, cabin, nonstop, return_date)
+        if fly["source"] == "estimate":
+            warnings.append(f"No live Duffel offer {origin}->{g['hub_airport']}; "
+                            "priced with a distance ESTIMATE.")
         ground_cost = trip.scale_leg_cost(g["ground_mode"], g["ground_cost"], adults) * rt_mult
         name = f"{g['hub_airport']} + {g['ground_mode']}"
         options.append(trip.parse_option(
             f"{name} | fly {fly['price']} {fly['hours']} ; "
             f"{g['ground_mode']} {ground_cost} {g['ground_hours']}"))
-        gw_a = _airport_or_stub(g["hub_airport"])
         leg_specs_by_name[name] = [
             _flight_leg_spec_cli(origin_a, gw_a, fly, date),
             _ground_leg_spec_cli(gw_a, dest_a, g["ground_mode"], ground_cost, g["ground_hours"]),
         ]
 
-    if not options:
-        return None, warnings
     res = trip.evaluate(options, threshold=threshold, vot=vot,
                         transfer_buffer=transfer_buffer, travelers=adults)
     for o in res["options"]:
@@ -490,11 +517,10 @@ def main(argv=None):
     if args.selftest:
         return selftest()
 
-    if not have_keys():
-        print_setup_help()
-        return 2
-
     if args.probe:
+        if not have_keys():
+            print_setup_help()
+            return 2
         if not (args.origin and args.dest and args.date):
             p.error("--probe needs --from, --to and --date")
         try:
@@ -514,7 +540,11 @@ def main(argv=None):
         return 0
 
     if not (args.origin and args.dest and args.date):
-        p.error("--from, --to and --date are required for a live search")
+        p.error("--from, --to and --date are required")
+
+    if not have_keys():
+        print("(No DUFFEL_API_KEY configured — flight legs priced with distance ESTIMATES, "
+              "same as the map UI with no key. See README.md for how to add one.)\n")
 
     gateways = [parse_gateway_arg(g) for g in args.gateway]
     if args.auto_gateways:
@@ -537,8 +567,8 @@ def main(argv=None):
         print("No priceable options — nothing to recommend.")
         return 1
     rt_note = " · ROUND-TRIP fares (times shown = outbound)" if args.return_date else ""
-    print(f"(source: Duffel {'LIVE' if is_live_key() else 'TEST'} · flights live · "
-          f"ground = estimate, verify{rt_note})\n")
+    flights_src = (f"Duffel {'LIVE' if is_live_key() else 'TEST'}" if have_keys() else "ESTIMATE")
+    print(f"(source: flights {flights_src} · ground = estimate, verify{rt_note})\n")
     if args.json:
         print(json.dumps({k: v for k, v in res.items() if not k.startswith("_")}, indent=2))
     else:
@@ -633,16 +663,20 @@ def selftest():
     # this module is loaded as __main__, so a string-path patch risks hitting a second,
     # separately-imported copy instead of the one build_and_evaluate() actually calls into.
     _this_module = sys.modules[__name__]
-    with _mock.patch.object(_this_module, "search_cheapest", side_effect=_fake_search_cheapest):
+    with _mock.patch.object(_this_module, "search_cheapest", side_effect=_fake_search_cheapest), \
+         _mock.patch.object(_this_module, "have_keys", return_value=True):
         res_cli, warn_cli = build_and_evaluate(
             "JFK", "ASE", "2026-08-15",
             [{"hub_airport": "DEN", "ground_mode": "bus", "ground_cost": 75.0, "ground_hours": 4.0},
              {"hub_airport": "EGE", "ground_mode": "rental", "ground_cost": 90.0, "ground_hours": 2.0}],
             adults=1, cabin="economy", nonstop=False, vot=None, transfer_buffer=1.0, threshold=200)
-    check("build_and_evaluate returns a result",  res_cli is not None)
-    check("a gateway with no Duffel offer is skipped with a warning, not silently dropped or fatal",
-          any("EGE" in w for w in warn_cli)
-          and not any(o["name"].startswith("EGE") for o in res_cli["options"]))
+    check("build_and_evaluate returns a result", res_cli is not None)
+    check("a gateway with no Duffel offer degrades to a distance ESTIMATE, not a hard skip",
+          any("EGE" in w and "ESTIMATE" in w for w in warn_cli)
+          and any(o["name"].startswith("EGE") for o in res_cli["options"]))
+    ege_opt = next(o for o in res_cli["options"] if o["name"].startswith("EGE"))
+    check("the ESTIMATE-fallback gateway's flight leg is correctly flagged not live",
+          ege_opt["itinerary"]["legs"][0]["is_live"] is False)
     den_opt = next(o for o in res_cli["options"] if o["name"].startswith("DEN"))
     check("CLI-built option carries a 2-leg itinerary", len(den_opt["itinerary"]["legs"]) == 2)
     cli_fly_leg = den_opt["itinerary"]["legs"][0]
@@ -660,6 +694,21 @@ def selftest():
           itin_text.count(" -> ") >= 2 * len(res_cli["options"]))
     check("format_itineraries includes the verify links as plain URLs (CLI text output)",
           "verify: https://" in itin_text)
+
+    # with NO key configured at all, build_and_evaluate() must still work end to end (distance
+    # ESTIMATES throughout, same as the map UI with no key) rather than requiring one — this is
+    # the whole point of _price_flight_cli's fallback.
+    with _mock.patch.object(_this_module, "have_keys", return_value=False):
+        res_nokey, warn_nokey = build_and_evaluate(
+            "JFK", "ASE", "2026-08-15",
+            [{"hub_airport": "DEN", "ground_mode": "bus", "ground_cost": 75.0, "ground_hours": 4.0}],
+            adults=1, cabin="economy", nonstop=False, vot=None, transfer_buffer=1.0, threshold=200)
+    check("build_and_evaluate works with zero keys configured (falls back to ESTIMATE)",
+          res_nokey is not None and len(res_nokey["options"]) == 2)
+    check("every leg is flagged not-live when no key is configured",
+          all(leg["is_live"] is False for o in res_nokey["options"] for leg in o["itinerary"]["legs"]))
+    check("a no-key run still warns per flight leg that it's an ESTIMATE",
+          all("ESTIMATE" in w for w in warn_nokey) and len(warn_nokey) == 2)
 
     # baggage + fare-conditions surfaced from an offer Duffel already returns them on
     offer_with_extras = {

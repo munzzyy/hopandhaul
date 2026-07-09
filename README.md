@@ -60,7 +60,9 @@ estimates (see below). Add keys later for live fares; nothing else changes.
 
 - **Live fares (Duffel, or Amadeus as a fallback)**: actual priced itineraries, when you set
   `DUFFEL_API_KEY` (or the Amadeus pair). No key set and no date entered falls back to
-  estimates automatically, and the response says so.
+  estimates automatically, and the response says so. With Duffel, a flight leg's itinerary
+  upgrades too — the real carrier, flight number, and clock times from the offer itself,
+  labeled "live" instead of "example."
 - **Fare and ground-leg ESTIMATES**: a deterministic formula (distance, route-market
   competition, airport size, booking date) calibrated against real fares, not a live quote.
   Every estimate-based response is labeled `"pricing_source": "estimate"` and says so in
@@ -72,6 +74,10 @@ estimates (see below). Add keys later for live fares; nothing else changes.
 
 ## Features
 
+- Every priced option shows its work: a leg-by-leg itinerary with real airport names, an
+  example clock schedule (or the real one, once a live fare is priced), what each leg's price
+  is based on, and a one-click link to check it — Google Flights for a flight leg, Rome2Rio for
+  ground. No number without a way to check it.
 - Deterministic split-vs-direct engine with the $200 rule (configurable threshold and value
   of time)
 - Group-aware costs (per-person fares scale by travelers; a rental car doesn't)
@@ -110,6 +116,10 @@ Native speaker and you spot something off? A translation fix in
   why.
 - `geo.py`: the estimation model. Nearest airport, gateway discovery, and the distance-based
   fare/ground formulas.
+- `itinerary.py`: turns a priced option into a leg-by-leg timeline — real airport names, an
+  example (or, with a live fare, real) clock schedule, per-leg price provenance, and a verify
+  link. No invented flight numbers, no fake departure-time precision, no pretending a
+  longitude-based guess is a real timezone — see the module docstring for the honesty rules.
 - `duffel.py` / `providers.py`: live flight pricing (Duffel primary, Amadeus fallback).
   `flights.py` picks whichever is configured.
 - `geoapify.py` / `weather.py`: geocoding and destination weather, both optional.
@@ -127,6 +137,7 @@ python -m hopandhaul.trip --selftest
 python -m hopandhaul.geo --selftest
 python -m hopandhaul.server --selftest
 python -m hopandhaul.emissions --selftest
+python -m hopandhaul.itinerary --selftest
 python -m hopandhaul.duffel --selftest
 python -m hopandhaul.geoapify --selftest
 python -m hopandhaul.weather --selftest
