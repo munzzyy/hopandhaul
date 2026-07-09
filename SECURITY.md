@@ -1,20 +1,25 @@
 # Security
 
 hopandhaul is a local, single-user tool: `hopandhaul-serve` binds to `127.0.0.1` and
-talks to three third-party APIs (Duffel, Geoapify, OpenWeather) over hardcoded hosts.
-This document says plainly what that means for security, what's already handled, and
-what isn't built yet.
+talks to a fixed set of third-party APIs over hardcoded hosts — Duffel and Geoapify
+(optional, keyed) plus four keyless ones: Transitous (`api.transitous.org`, ground
+schedules), Photon (`photon.komoot.io`, place search), Open-Meteo (`api.open-meteo.com`,
+weather), and frankfurter (`api.frankfurter.dev`, FX rates). The browser build's CSP
+allows exactly two of those (`api.transitous.org`, `photon.komoot.io`) beyond `'self'`,
+because the static GitHub Pages app calls them directly; everything else stays
+server-side. This document says plainly what that means for security, what's already
+handled, and what isn't built yet.
 
 ## No SSRF is possible
 
-Every outbound HTTP call in this codebase targets a hardcoded host literal — Duffel,
-Geoapify, OpenWeather. No code path builds a request URL or hostname from client input,
+Every outbound HTTP call in this codebase targets a hardcoded host literal — the six
+hosts named above, nothing else. No code path builds a request URL or hostname from client input,
 a query parameter, or a map click. `geo.py` (nearest-airport lookup, gateway discovery)
 is pure local JSON/math and never touches the network at all.
 
-This is a checkable claim, not a promise: grep `src/hopandhaul/*.py` for `http://` and
-`https://` and confirm every hit is a literal in the source, never an f-string built from
-a request. If a future feature ever lets a user point the server at their own geocoder or
+This is a checkable claim, not a promise: grep `src/hopandhaul/*.py` and
+`src/hopandhaul/ui/*.js` for `http://` and `https://` and confirm every hit is a literal
+in the source, never an f-string built from a request. If a future feature ever lets a user point the server at their own geocoder or
 tile server, that's the point to add the standard SSRF guards (block RFC1918/loopback/
 link-local ranges, no blind redirect-following) — don't ship that without them.
 

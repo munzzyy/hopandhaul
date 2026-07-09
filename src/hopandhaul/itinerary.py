@@ -123,6 +123,13 @@ def flight_provenance_estimate(detail: dict | None, date: str | None) -> str:
     bits = [f"route-band estimate for {date}" if date else "route-band estimate (no date given)"]
     if detail.get("regions"):
         bits.append(f"{detail['regions']} market ×{detail.get('route_mult', 1.0):.2f}")
+    an = detail.get("anchor")
+    if an:
+        # a REAL number rides along with the model: what this route's passengers actually paid
+        held = ("estimate adjusted into that band" if an.get("adjusted")
+                else "estimate already inside that band")
+        bits.append(f"real market check (BTS {an.get('asof', '')}): avg paid ${an['fare_avg']:g}"
+                    f", lowest-fare carrier ${an['fare_low']:g} — {held}")
     if detail.get("date_mult"):
         bits.append(f"date factor ×{detail['date_mult']:.2f}")
     if detail.get("likely_connection"):
@@ -142,14 +149,49 @@ def flight_provenance_live(live: dict) -> str:
     return "; ".join(bits)
 
 
+def ferry_provenance(ferry: dict) -> str:
+    """'where this number comes from' for a REAL ferry-corridor leg — the one ground mode whose
+    price is a researched fare, not a formula. Names the ports, the operators, the fare band
+    with its as-of date, and the sailing frequency, so the number is checkable against the
+    operator directly."""
+    ops = ", ".join(ferry.get("operators") or []) or "operator n/a"
+    bits = []
+    lo, hi = ferry.get("price_usd_lo"), ferry.get("price_usd_hi")
+    asof = ferry.get("price_asof") or "n/a"
+    if ferry.get("fare_is_real") and lo is not None:
+        band = f"${lo:g}–${hi:g}" if hi is not None and hi != lo else f"from ${lo:g}"
+        bits.append(f"real ferry fare {band} ({ops}; as of {asof})")
+    else:
+        bits.append(f"ferry fare estimate ({ops})")
+    bits.append(f"{ferry['port_a']} → {ferry['port_b']}, ~{ferry['duration_h']:g}h crossing")
+    freq = ferry.get("frequency_per_day")
+    if freq:
+        bits.append(f"~{freq:g} sailings/day" + (", seasonal service" if ferry.get("seasonal") else ""))
+    elif ferry.get("seasonal"):
+        bits.append("seasonal service")
+    if ferry.get("access_cost") is not None:
+        bits.append(f"+ ~${ferry['access_cost']:g} airport–port transfer estimate")
+    return "; ".join(bits)
+
+
 def ground_provenance(gw: dict, road_km: float | None) -> str:
-    """'where this number comes from' for a ground leg — always an estimate; there's no free,
-    open multimodal fares API worth calling here (see README)."""
-    if gw.get("source") == "curated":
+    """'where this number comes from' for a ground leg. Ferry legs built from a real corridor
+    narrate their researched fare/schedule (ferry_provenance); everything else is an estimate —
+    schedules can be checked live (Transitous), but no free, open multimodal FARES API exists
+    (see README)."""
+    base = None
+    if gw.get("ferry"):
+        base = ferry_provenance(gw["ferry"])
+    elif gw.get("source") == "curated":
         note = gw.get("notes")
-        return f"curated gateway estimate{(' — ' + note) if note else ''}"
-    km = f"~{int(road_km)}km" if road_km is not None else "distance-based"
-    return f"ground estimate ({km} road/rail distance, regional rate table)"
+        base = f"curated gateway estimate{(' — ' + note) if note else ''}"
+    else:
+        km = f"~{int(road_km)}km" if road_km is not None else "distance-based"
+        base = f"ground estimate ({km} road/rail distance, regional rate table)"
+    tr = gw.get("transit")
+    if tr and tr.get("line"):
+        base = f"{base}; {tr['line']}"
+    return base
 
 
 # --------------------------------------------------------------------------- timeline builder

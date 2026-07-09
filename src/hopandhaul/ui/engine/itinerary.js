@@ -11,6 +11,7 @@
 // reasoning): clock times are an EXAMPLE schedule, never invented flight numbers, no
 // longitude-based timezone guessing.
 import { pyRound } from "./pyround.js";
+import { pyG } from "./geo.js";
 
 export const AIRPORT_ARRIVAL_BUFFER_H = 2.0;
 export const DEFAULT_DEPART_LOCAL = "08:00";
@@ -101,6 +102,13 @@ export function flightProvenanceEstimate(detail, date) {
   if (!detail) return "route-band estimate";
   const bits = [date ? `route-band estimate for ${date}` : "route-band estimate (no date given)"];
   if (detail.regions) bits.push(`${detail.regions} market ×${(detail.route_mult ?? 1.0).toFixed(2)}`);
+  const an = detail.anchor;
+  if (an) {
+    // a REAL number rides along with the model: what this route's passengers actually paid
+    const held = an.adjusted ? "estimate adjusted into that band" : "estimate already inside that band";
+    bits.push(`real market check (BTS ${an.asof ?? ""}): avg paid $${pyG(an.fare_avg)}`
+      + `, lowest-fare carrier $${pyG(an.fare_low)} — ${held}`);
+  }
   if (detail.date_mult) bits.push(`date factor ×${detail.date_mult.toFixed(2)}`);
   if (detail.likely_connection) bits.push("fare priced assuming a connecting flight (small/remote airport)");
   return bits.join("; ");
@@ -116,13 +124,46 @@ export function flightProvenanceLive(live) {
   return bits.join("; ");
 }
 
-export function groundProvenance(gw, roadKm) {
-  if (gw.source === "curated") {
-    const note = gw.notes;
-    return `curated gateway estimate${note ? " — " + note : ""}`;
+/** 'where this number comes from' for a REAL ferry-corridor leg — mirrors
+ * itinerary.ferry_provenance: names the ports, operators, real fare band and frequency. */
+export function ferryProvenance(ferry) {
+  const ops = (ferry.operators || []).join(", ") || "operator n/a";
+  const bits = [];
+  const lo = ferry.price_usd_lo, hi = ferry.price_usd_hi;
+  const asof = ferry.price_asof || "n/a";
+  if (ferry.fare_is_real && lo != null) {
+    const band = (hi != null && hi !== lo) ? `$${pyG(lo)}–$${pyG(hi)}` : `from $${pyG(lo)}`;
+    bits.push(`real ferry fare ${band} (${ops}; as of ${asof})`);
+  } else {
+    bits.push(`ferry fare estimate (${ops})`);
   }
-  const km = roadKm != null ? `~${Math.trunc(roadKm)}km` : "distance-based";
-  return `ground estimate (${km} road/rail distance, regional rate table)`;
+  bits.push(`${ferry.port_a} → ${ferry.port_b}, ~${pyG(ferry.duration_h)}h crossing`);
+  const freq = ferry.frequency_per_day;
+  if (freq) {
+    bits.push(`~${pyG(freq)} sailings/day` + (ferry.seasonal ? ", seasonal service" : ""));
+  } else if (ferry.seasonal) {
+    bits.push("seasonal service");
+  }
+  if (ferry.access_cost != null) {
+    bits.push(`+ ~$${pyG(ferry.access_cost)} airport–port transfer estimate`);
+  }
+  return bits.join("; ");
+}
+
+export function groundProvenance(gw, roadKm) {
+  let base;
+  if (gw.ferry) {
+    base = ferryProvenance(gw.ferry);
+  } else if (gw.source === "curated") {
+    const note = gw.notes;
+    base = `curated gateway estimate${note ? " — " + note : ""}`;
+  } else {
+    const km = roadKm != null ? `~${Math.trunc(roadKm)}km` : "distance-based";
+    base = `ground estimate (${km} road/rail distance, regional rate table)`;
+  }
+  const tr = gw.transit;
+  if (tr && tr.line) base = `${base}; ${tr.line}`;
+  return base;
 }
 
 // --------------------------------------------------------------------------- timeline builder

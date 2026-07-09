@@ -52,7 +52,7 @@ def run_plan_case(case: dict) -> dict:
         travelers=p.get("travelers", 1),
         ret=p.get("ret"),
         transfer_buffer=p.get("transfer_buffer", 1.0),
-        allow_live=False,
+        allow_live=False, allow_transit=False,
     )
 
 

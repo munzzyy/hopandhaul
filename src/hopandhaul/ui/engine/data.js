@@ -12,6 +12,10 @@
 let _airports = null;
 let _gatewaysDb = null;
 let _byIata = null;
+let _ferries = null;
+let _landgrid = null;
+let _anchors = null;
+let _anchorsAsof = "";
 let _loadPromise = null;
 
 async function defaultLoader(filename) {
@@ -29,12 +33,24 @@ async function defaultLoader(filename) {
 export function loadData(loader = defaultLoader) {
   if (_loadPromise) return _loadPromise;
   _loadPromise = (async () => {
-    const [airportsDoc, gatewaysDoc] = await Promise.all([
+    const [airportsDoc, gatewaysDoc, ferriesDoc, landgridDoc, anchorsDoc] = await Promise.all([
       loader("airports.json"),
       loader("gateways.json"),
+      loader("ferries.json"),
+      loader("landgrid.json"),
+      loader("fareanchors.json"),
     ]);
     _airports = airportsDoc.airports;
     _gatewaysDb = gatewaysDoc;
+    _ferries = ferriesDoc.corridors;
+    // packed land/water bitmap: base64 -> bytes. atob exists in every modern browser AND
+    // Node 16+ (the parity harness), so one decode path serves both.
+    const bin = atob(landgridDoc.b64);
+    const bits = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bits[i] = bin.charCodeAt(i);
+    _landgrid = { bits, w: landgridDoc.w, h: landgridDoc.h, res: landgridDoc.res_deg };
+    _anchors = anchorsDoc.anchors;
+    _anchorsAsof = anchorsDoc.asof || "";
     _byIata = new Map();
     for (const a of _airports) _byIata.set(a.iata, a);
     return { airports: _airports, gatewaysDb: _gatewaysDb };
@@ -68,4 +84,27 @@ export function gatewaysDb() {
 export function byIata(code) {
   ensureLoaded();
   return _byIata.get(String(code || "").toUpperCase()) ?? null;
+}
+
+/** Real ferry corridors, in file order — mirrors geo.ferry_corridors(). */
+export function ferryCorridors() {
+  ensureLoaded();
+  return _ferries;
+}
+
+/** Packed land/water bitmap — mirrors geo._landgrid(). */
+export function landgrid() {
+  ensureLoaded();
+  return _landgrid;
+}
+
+/** REAL BTS city-pair fare anchors, in file order — mirrors geo.fare_anchors(). */
+export function fareAnchors() {
+  ensureLoaded();
+  return _anchors;
+}
+
+export function fareAnchorsAsof() {
+  ensureLoaded();
+  return _anchorsAsof;
 }

@@ -16,6 +16,7 @@ import { loadData } from "./engine/data.js";
 import { nearestAirport } from "./engine/geo.js";
 import { searchAirports } from "./engine/search.js";
 import { parsePlanParams, parseNearestParams, ValidationError } from "./engine/validate.js";
+import { groundOptions as transitGroundOptions } from "./transit.js";
 
 const SERVER_PROBE_TIMEOUT_MS = 1500;
 
@@ -101,7 +102,39 @@ export async function fetchGeocode(query, signal) {
   } catch {
     return err("internal_error", "could not load the airport database");
   }
-  return { ok: true, results: searchAirports(query, 6) };
+  const local = searchAirports(query, 6);
+  // A code or a known airport city resolves locally — keep that instant and offline. For
+  // anything the airport DB can't answer (an address, a village, a landmark), Photon
+  // (photon.komoot.io — keyless, CORS-open, OSM data) turns the static build's search box
+  // into a real geocoder. Best-effort: any failure falls back to the local matches.
+  if (!local.length && String(query || "").trim().length >= 3) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2500);
+      if (signal) signal.addEventListener("abort", () => controller.abort(), { once: true });
+      const res = await fetch(
+        `https://photon.komoot.io/api/?${new URLSearchParams({ q: query, limit: "6" })}`,
+        { signal: controller.signal },
+      );
+      clearTimeout(timer);
+      if (res.ok) {
+        const out = await res.json();
+        const results = (out.features || []).map((f) => {
+          const c = (f.geometry || {}).coordinates || [];
+          const pr = f.properties || {};
+          if (c.length < 2 || !pr.name) return null;
+          const bits = [pr.name, pr.city !== pr.name ? pr.city : null, pr.state, pr.country]
+            .filter(Boolean);
+          return { lat: c[1], lng: c[0], label: bits.join(", "), city: pr.city || pr.name,
+                   country: pr.country || null };
+        }).filter(Boolean);
+        if (results.length) return { ok: true, results };
+      }
+    } catch {
+      // offline, blocked, or slow — the local airport search below still answers
+    }
+  }
+  return { ok: true, results: local };
 }
 
 export async function fetchNearest(lat, lng, signal) {
@@ -178,7 +211,7 @@ export async function fetchPlan(params) {
     return err("internal_error", "could not parse those trip settings");
   }
   try {
-    const out = enginePlan({
+    const engineParams = {
       destLat: parsed.dest_lat,
       destLng: parsed.dest_lng,
       originIata: parsed.origin_iata,
@@ -190,10 +223,35 @@ export async function fetchPlan(params) {
       travelers: parsed.travelers,
       ret: parsed.ret,
       transferBuffer: parsed.transfer_buffer,
-    });
+    };
+    let out = enginePlan(engineParams);
     if (!out.ok) return err(out.code || "plan_failed", out.error || "could not plan that route");
+
+    // Live-schedule upgrade (browser twin of the server's Transitous enrichment): fetch real
+    // timetables for the transit-able gateway legs the offline plan found, then re-run the
+    // engine with the real door-to-door times injected so the ranking uses them too.
+    const lookups = out.gateways.filter((g) => ["train", "bus", "ferry"].includes(g.ground_mode));
+    if (lookups.length) {
+      const settled = await Promise.allSettled(lookups.map((g) => transitGroundOptions(
+        g.lat, g.lng, parsed.dest_lat, parsed.dest_lng, parsed.date, g.ground_mode,
+      )));
+      if (myToken !== _planToken) {
+        const abort = new Error("superseded by a newer plan request");
+        abort.name = "AbortError";
+        throw abort;
+      }
+      const transitByIata = {};
+      settled.forEach((s, i) => {
+        if (s.status === "fulfilled" && s.value) transitByIata[lookups[i].iata] = s.value;
+      });
+      if (Object.keys(transitByIata).length) {
+        out = enginePlan({ ...engineParams, transitByIata });
+        if (!out.ok) return err(out.code || "plan_failed", out.error || "could not plan that route");
+      }
+    }
     return out;
   } catch (e) {
+    if (e?.name === "AbortError") throw e; // superseded by a newer click — propagate
     // Mirrors server.py's _handle_plan: never leak internals to the UI, log for debugging.
     console.error("[hopandhaul] plan() failed:", e);
     return err("internal_error", "internal error planning that route");

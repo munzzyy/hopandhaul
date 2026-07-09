@@ -13,11 +13,11 @@ import sys
 _SUBCOMMANDS = {
     "plan": "trip",       # trip.py owns the CLI historically named "plan a trip"
     "trip": "trip",
+    "go": "go",           # one-shot zero-key trip plan: `hopandhaul go JFK TLL`
     "serve": "server",
-    "geocode": "geoapify",
+    "geocode": "places",
     "weather": "weather",
     "duffel": "duffel",
-    "providers": "providers",
 }
 
 
@@ -41,21 +41,21 @@ def main(argv=None) -> int:
     if module_name == "trip":
         from . import trip
         return trip.main(rest)
+    if module_name == "go":
+        from . import go
+        return go.main(rest)
     if module_name == "server":
         from . import server
         return server.main(rest)
-    if module_name == "geoapify":
-        from . import geoapify
-        return geoapify.main(rest)
+    if module_name == "places":
+        from . import places
+        return places.main(rest)
     if module_name == "weather":
         from . import weather
         return weather.main(rest)
     if module_name == "duffel":
         from . import duffel
         return duffel.main(rest)
-    if module_name == "providers":
-        from . import providers
-        return providers.main(rest)
     return 2  # unreachable — every _SUBCOMMANDS value is handled above
 
 

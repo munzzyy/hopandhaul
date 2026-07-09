@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
 """
-weather.py — destination weather for travel-scout via the OpenWeather API (free tier).
+weather.py — destination weather via Open-Meteo (open-meteo.com). KEYLESS.
 
-Adds "what's it like there" to a plan: current conditions at the destination, plus a near-term
-forecast for the travel date when it falls inside OpenWeather's free 5-day window. Non-blocking
-by design — if the key is missing/not-yet-active or the call fails, callers get None and the
-trip still plans.
+This used to be an OpenWeather integration behind an optional API key, which meant weather
+was off for everyone who hadn't signed up for one. Open-Meteo serves the same "what's it like
+there" need with no key at all (free for non-commercial use, CC-BY 4.0 — attribution lives in
+the README), a 16-day daily forecast horizon instead of 5, and open CORS. Non-blocking by
+design — if the call fails, callers get None and the trip still plans.
 
-Key: OPENWEATHER_API_KEY (env or secrets.local.json). Stdlib urllib only.
-Note: a brand-new OpenWeather key can take up to ~2h to activate (401 until then).
-
-Endpoints used (both on the free plan):
-  /data/2.5/weather   — current conditions
-  /data/2.5/forecast  — 5-day / 3-hour forecast
+Data: current temperature/feels-like/humidity/wind + WMO weather code, and a daily forecast
+row for the travel date when it's within the 16-day window. Same output shape the UI already
+renders (temp/feels/desc/emoji/units/forecast) so nothing downstream changed.
 
 Examples:
   python -m hopandhaul.weather 39.19 -106.82
-  python -m hopandhaul.weather 39.19 -106.82 --date 2026-07-05
-  python -m hopandhaul.weather --selftest
+  python -m hopandhaul.weather 39.19 -106.82 --date 2026-07-16
+  python -m hopandhaul.weather --selftest     (offline, no network)
 """
 from __future__ import annotations
 
@@ -25,121 +23,141 @@ import argparse
 import json
 import sys
 import urllib.parse
-from datetime import datetime, timedelta, timezone
 
-from . import _secrets
+from . import __version__
 from .integrations import net
 
-BASE = "https://api.openweathermap.org/data/2.5"
+BASE = "https://api.open-meteo.com/v1/forecast"
+UA = f"hopandhaul/{__version__} (https://github.com/munzzyy/hopandhaul)"
+FORECAST_DAYS = 16
 
 # 10-minute TTL: weather doesn't change fast enough to justify a live call per gateway click
-# within one planning session, and the free tier's quota is the tightest of the four providers.
+# within one planning session.
 _WEATHER_CACHE = net.TTLCache(ttl_seconds=600, max_size=256)
 
-
-def have_keys() -> bool:
-    return _secrets.has("OPENWEATHER_API_KEY")
-
-
-def _emoji(weather_id: int, icon: str = "") -> str:
-    """Map an OpenWeather condition id (+ day/night icon suffix) to an emoji."""
-    night = icon.endswith("n")
-    if 200 <= weather_id < 300:
-        return "⛈️"
-    if 300 <= weather_id < 400:
-        return "🌦️"
-    if 500 <= weather_id < 600:
-        return "🌧️"
-    if 600 <= weather_id < 700:
-        return "🌨️"
-    if 700 <= weather_id < 800:
-        return "🌫️"
-    if weather_id == 800:
-        return "🌙" if night else "☀️"
-    if weather_id == 801:
-        return "🌤️"
-    if 802 <= weather_id < 900:
-        return "☁️"
-    return "🌡️"
+# WMO weather interpretation codes (the standard Open-Meteo returns) -> label + glyph.
+_WMO = {
+    0: ("clear sky", "☀️"), 1: ("mainly clear", "🌤️"), 2: ("partly cloudy", "⛅"),
+    3: ("overcast", "☁️"), 45: ("fog", "🌫️"), 48: ("depositing rime fog", "🌫️"),
+    51: ("light drizzle", "🌦️"), 53: ("drizzle", "🌦️"), 55: ("dense drizzle", "🌧️"),
+    56: ("freezing drizzle", "🌧️"), 57: ("dense freezing drizzle", "🌧️"),
+    61: ("light rain", "🌦️"), 63: ("rain", "🌧️"), 65: ("heavy rain", "🌧️"),
+    66: ("freezing rain", "🌧️"), 67: ("heavy freezing rain", "🌧️"),
+    71: ("light snow", "🌨️"), 73: ("snow", "🌨️"), 75: ("heavy snow", "❄️"),
+    77: ("snow grains", "🌨️"), 80: ("light showers", "🌦️"), 81: ("showers", "🌧️"),
+    82: ("violent showers", "⛈️"), 85: ("snow showers", "🌨️"), 86: ("heavy snow showers", "❄️"),
+    95: ("thunderstorm", "⛈️"), 96: ("thunderstorm with hail", "⛈️"),
+    99: ("thunderstorm with heavy hail", "⛈️"),
+}
 
 
-def _http_json(url: str, timeout: int = 12) -> dict:
-    return net.fetch_json(url, headers={"Accept": "application/json"}, timeout=timeout)
+def available() -> bool:
+    """Weather is always available now — Open-Meteo needs no key."""
+    return True
+
+
+def have_keys() -> bool:  # back-compat name; weather no longer needs a key at all
+    return True
+
+
+def _wmo(code) -> tuple[str, str]:
+    try:
+        return _WMO.get(int(code), ("", "🌡️"))
+    except (TypeError, ValueError):
+        return ("", "🌡️")
 
 
 def _units_symbol(units: str) -> str:
-    return {"imperial": "°F", "metric": "°C"}.get(units, "K")
+    return {"imperial": "°F", "metric": "°C"}.get(units, "°")
+
+
+def _http_json(url: str, timeout: int = 12) -> dict:
+    return net.fetch_json(url, headers={"User-Agent": UA, "Accept": "application/json"},
+                          timeout=timeout)
 
 
 def current(lat: float, lng: float, units: str = "imperial", timeout: int = 12) -> dict | None:
     """Current conditions at a point, or None if unavailable."""
-    if not have_keys():
-        return None
     cache_key = ("cur", round(lat, 3), round(lng, 3), units)
     cached = _WEATHER_CACHE.get(cache_key)
     if cached is not None:
         return cached
-    params = {"lat": f"{lat}", "lon": f"{lng}", "units": units,
-              "appid": _secrets.get("OPENWEATHER_API_KEY")}
-    out = _http_json(f"{BASE}/weather?" + urllib.parse.urlencode(params), timeout=timeout)
-    w = (out.get("weather") or [{}])[0]
-    main = out.get("main") or {}
-    wid = int(w.get("id", 0) or 0)
+    params = {
+        "latitude": f"{lat}", "longitude": f"{lng}",
+        "current": "temperature_2m,apparent_temperature,relative_humidity_2m,"
+                   "weather_code,wind_speed_10m",
+        "timezone": "auto",
+    }
+    if units == "imperial":
+        params["temperature_unit"] = "fahrenheit"
+        params["wind_speed_unit"] = "mph"
+    out = _http_json(BASE + "?" + urllib.parse.urlencode(params), timeout=timeout)
+    cur = out.get("current") or {}
+    desc, emoji = _wmo(cur.get("weather_code"))
     result = {
-        "temp": round(main.get("temp")) if main.get("temp") is not None else None,
-        "feels": round(main.get("feels_like")) if main.get("feels_like") is not None else None,
-        "humidity": main.get("humidity"),
-        "desc": (w.get("description") or "").strip(),
-        "emoji": _emoji(wid, w.get("icon", "")),
-        "wind_mph": round(out.get("wind", {}).get("speed", 0)) if units == "imperial" else None,
+        "temp": round(cur["temperature_2m"]) if cur.get("temperature_2m") is not None else None,
+        "feels": (round(cur["apparent_temperature"])
+                  if cur.get("apparent_temperature") is not None else None),
+        "humidity": cur.get("relative_humidity_2m"),
+        "desc": desc,
+        "emoji": emoji,
+        "wind_mph": (round(cur["wind_speed_10m"])
+                     if units == "imperial" and cur.get("wind_speed_10m") is not None else None),
         "units": _units_symbol(units),
-        "place": out.get("name") or None,
-        "source": "openweather",
+        "place": None,                  # Open-Meteo is coordinates-in, conditions-out
+        "source": "open-meteo",
     }
     _WEATHER_CACHE.set(cache_key, result)
     return result
 
 
-def _local_dt(unix_utc: int, tz_offset_s: int):
-    """UTC unix timestamp + a UTC-offset in seconds -> local datetime at the destination.
-    dt_txt in OpenWeather's forecast rows is UTC text, not local time; string-slicing it
-    directly (the previous approach) silently mispicks the day near midnight for any
-    destination whose UTC offset crosses a date boundary from the query time."""
-    return datetime.fromtimestamp(unix_utc, tz=timezone.utc) + timedelta(seconds=tz_offset_s)
-
-
 def _forecast_for_date(lat: float, lng: float, date: str, units: str = "imperial",
                        timeout: int = 12) -> dict | None:
-    """Nearest 3-hour forecast slot to <date> 12:00 **local time at the destination**, if
-    within the 5-day window."""
-    params = {"lat": f"{lat}", "lon": f"{lng}", "units": units,
-              "appid": _secrets.get("OPENWEATHER_API_KEY")}
-    out = _http_json(f"{BASE}/forecast?" + urllib.parse.urlencode(params), timeout=timeout)
-    rows = out.get("list") or []
-    tz_offset = int((out.get("city") or {}).get("timezone", 0) or 0)
-    dated = []
-    for r in rows:
-        dt = r.get("dt")
-        if dt is None:
-            continue
-        local = _local_dt(int(dt), tz_offset)
-        if local.strftime("%Y-%m-%d") == date:
-            dated.append((r, local))
-    if not dated:
-        return None  # date is outside the 5-day forecast horizon
-    # pick the slot closest to local midday (12:00) for a representative daytime read
-    r, local = min(dated, key=lambda pair: abs(pair[1].hour - 12))
-    w = (r.get("weather") or [{}])[0]
-    main = r.get("main") or {}
-    wid = int(w.get("id", 0) or 0)
-    return {
-        "date": date,
-        "temp": round(main.get("temp")) if main.get("temp") is not None else None,
-        "desc": (w.get("description") or "").strip(),
-        "emoji": _emoji(wid, w.get("icon", "")),
-        "units": _units_symbol(units),
-        "at": local.strftime("%Y-%m-%d %H:%M:%S") + " local",
+    """Daily forecast row for a specific date, or None when outside the 16-day horizon."""
+    cache_key = ("fc", round(lat, 3), round(lng, 3), date, units)
+    cached = _WEATHER_CACHE.get(cache_key)
+    if cached is not None:
+        return cached or None
+    params = {
+        "latitude": f"{lat}", "longitude": f"{lng}",
+        "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
+                 "precipitation_probability_max",
+        "start_date": date, "end_date": date,
+        "timezone": "auto",
     }
+    if units == "imperial":
+        params["temperature_unit"] = "fahrenheit"
+    try:
+        out = _http_json(BASE + "?" + urllib.parse.urlencode(params), timeout=timeout)
+    except net.FetchError as e:
+        # Open-Meteo answers a date beyond its horizon with a 400, not an empty row —
+        # that's "no forecast yet", not an outage.
+        if e.status == 400:
+            _WEATHER_CACHE.set(cache_key, {})
+            return None
+        raise
+    daily = out.get("daily") or {}
+    times = daily.get("time") or []
+    if not times:
+        _WEATHER_CACHE.set(cache_key, {})
+        return None
+    hi = (daily.get("temperature_2m_max") or [None])[0]
+    lo = (daily.get("temperature_2m_min") or [None])[0]
+    desc, emoji = _wmo((daily.get("weather_code") or [None])[0])
+    precip = (daily.get("precipitation_probability_max") or [None])[0]
+    if precip is not None:
+        desc = f"{desc}, {precip}% precip" if desc else f"{precip}% precip"
+    result = {
+        "date": times[0],
+        "temp": round(hi) if hi is not None else None,
+        "temp_lo": round(lo) if lo is not None else None,
+        "desc": desc,
+        "emoji": emoji,
+        "units": _units_symbol(units),
+        "at": f"{times[0]} daily",
+    }
+    _WEATHER_CACHE.set(cache_key, result)
+    return result
 
 
 def for_point(lat: float, lng: float, date: str | None = None, units: str = "imperial",
@@ -159,7 +177,8 @@ def for_point(lat: float, lng: float, date: str | None = None, units: str = "imp
             fc = None
         out["forecast"] = fc
         if fc is None:
-            out["forecast_note"] = "Beyond the 5-day forecast — showing current conditions."
+            out["forecast_note"] = (f"Beyond the {FORECAST_DAYS}-day forecast — "
+                                    "showing current conditions.")
     return out
 
 
@@ -169,46 +188,39 @@ def main(argv=None):
         sys.stdout.reconfigure(encoding="utf-8")
     except (AttributeError, ValueError):
         pass
-    p = argparse.ArgumentParser(description="OpenWeather conditions for travel-scout.")
-    p.add_argument("lat", nargs="?", type=float)
-    p.add_argument("lng", nargs="?", type=float)
-    p.add_argument("--date", help="travel date YYYY-MM-DD (adds a forecast if within 5 days)")
-    p.add_argument("--units", default="imperial", choices=["imperial", "metric"])
+    p = argparse.ArgumentParser(description="Destination weather via Open-Meteo (keyless).")
+    p.add_argument("coords", nargs="*", help="LAT LNG")
+    p.add_argument("--date", default=None, help="travel date YYYY-MM-DD")
+    p.add_argument("--metric", action="store_true")
     p.add_argument("--json", action="store_true")
     p.add_argument("--selftest", action="store_true")
     args = p.parse_args(argv)
 
     if args.selftest:
         return selftest()
-    if not have_keys():
-        print("OPENWEATHER_API_KEY not set (env or secrets.local.json). Weather unavailable.")
-        return 2
-    if args.lat is None or args.lng is None:
+    if len(args.coords) != 2:
         p.error("give LAT LNG")
-
-    res = for_point(args.lat, args.lng, date=args.date, units=args.units)
-    if res is None:
-        print("Weather unavailable (key inactive or no data).")
+    units = "metric" if args.metric else "imperial"
+    wx = for_point(float(args.coords[0]), float(args.coords[1]), date=args.date, units=units)
+    if not wx:
+        print("weather unavailable")
         return 1
     if args.json:
-        print(json.dumps(res, indent=2))
+        print(json.dumps(wx, indent=2, ensure_ascii=False))
     else:
-        print(f"  {res['emoji']} {res['temp']}{res['units']} (feels {res['feels']}{res['units']}) "
-              f"· {res['desc']} · humidity {res.get('humidity')}%")
-        fc = res.get("forecast")
+        print(f"{wx['emoji']}  {wx['temp']}{wx['units']} (feels {wx['feels']}{wx['units']}) "
+              f"— {wx['desc']}")
+        fc = wx.get("forecast")
         if fc:
-            print(f"  forecast {fc['date']}: {fc['emoji']} {fc['temp']}{fc['units']} · {fc['desc']}")
-        elif res.get("forecast_note"):
-            print(f"  {res['forecast_note']}")
+            lo = f"/{fc['temp_lo']}{fc['units']}" if fc.get("temp_lo") is not None else ""
+            print(f"{fc['emoji']}  {fc['date']}: {fc['temp']}{fc['units']}{lo} — {fc['desc']}")
+        elif wx.get("forecast_note"):
+            print(wx["forecast_note"])
     return 0
 
 
 # --------------------------------------------------------------------------- self-test (offline)
 def selftest():
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, ValueError):
-        pass
     fails = []
 
     def check(name, cond):
@@ -216,29 +228,15 @@ def selftest():
         if not cond:
             fails.append(name)
 
-    check("clear-day -> sun emoji", _emoji(800, "01d") == "☀️")
-    check("clear-night -> moon emoji", _emoji(800, "01n") == "🌙")
-    check("rain -> rain emoji", _emoji(500, "10d") == "🌧️")
-    check("snow -> snow emoji", _emoji(600, "13d") == "🌨️")
-    check("thunder -> storm emoji", _emoji(211, "11d") == "⛈️")
-    check("units symbol F/C", _units_symbol("imperial") == "°F" and _units_symbol("metric") == "°C")
-    check("have_keys() is a bool", isinstance(have_keys(), bool))
-
-    # local-noon timezone fix: a UTC timestamp just after local midnight in a UTC+13 zone
-    # (e.g. Auckland) must resolve to the NEXT calendar day locally, not the UTC day.
-    # 2026-07-05 23:00 UTC + 13h offset = 2026-07-06 12:00 local.
-    utc_ts = int(datetime(2026, 7, 5, 23, 0, 0, tzinfo=timezone.utc).timestamp())
-    local = _local_dt(utc_ts, 13 * 3600)
-    check("local_dt rolls the date forward across a UTC+13 offset",
-          local.strftime("%Y-%m-%d") == "2026-07-06" and local.hour == 12)
-    local_neg = _local_dt(utc_ts, -8 * 3600)
-    check("local_dt rolls the date backward across a negative offset",
-          local_neg.strftime("%Y-%m-%d") == "2026-07-05")
-
-    _WEATHER_CACHE.set(("cur", 39.19, -106.82, "imperial"), {"temp": 70})
-    check("weather cache stores under the (kind, lat, lng, units) key",
-          _WEATHER_CACHE.get(("cur", 39.19, -106.82, "imperial")) == {"temp": 70})
-    check("net.TTLCache is the backing cache type", isinstance(_WEATHER_CACHE, net.TTLCache))
+    check("weather is keyless now — available()/have_keys() are True with no env at all",
+          available() is True and have_keys() is True)
+    check("WMO code map: clear/overcast/rain/snow/thunder all resolve",
+          _wmo(0)[0] == "clear sky" and _wmo(3)[0] == "overcast"
+          and "rain" in _wmo(63)[0] and "snow" in _wmo(73)[0] and "thunder" in _wmo(95)[0])
+    check("unknown/None WMO codes degrade to a neutral glyph, not a crash",
+          _wmo(42)[1] == "🌡️" and _wmo(None)[1] == "🌡️" and _wmo("x")[1] == "🌡️")
+    check("units symbol", _units_symbol("imperial") == "°F" and _units_symbol("metric") == "°C")
+    check("UA identifies the project", "hopandhaul" in UA)
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (offline checks)")
     return 1 if fails else 0

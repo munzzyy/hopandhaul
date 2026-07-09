@@ -1,0 +1,2520 @@
+{
+ "_README": "Real passenger-ferry corridors. The engine only ever offers a ferry leg that appears here — no formula-invented boats. port_a/port_b are actual ferry terminals (lat/lng ~1km); duration_h = typical published crossing; frequency_per_day = typical departures in normal season (0.5 = every other day); price_usd_lo/hi = adult one-way foot-passenger fare band in USD; seasonal = service much thinner or absent off-season. Every entry carries operators + a price_source checked on price_asof. Compiled from operator/aggregator pages 2026-07; regenerate/extend by research, not by formula.",
+ "asof": "2026-07",
+ "corridors": [
+  {
+   "id": "algeciras-ceuta",
+   "name": "Algeciras – Ceuta",
+   "port_a": {
+    "name": "Algeciras",
+    "country": "ES",
+    "lat": 36.133,
+    "lng": -5.441
+   },
+   "port_b": {
+    "name": "Ceuta",
+    "country": "ES",
+    "lat": 35.89,
+    "lng": -5.316
+   },
+   "operators": [
+    "Balearia",
+    "FRS",
+    "Naviera Armas"
+   ],
+   "duration_h": 1,
+   "frequency_per_day": 17,
+   "seasonal": false,
+   "price_usd_lo": 23,
+   "price_usd_hi": 60,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://armastrasmediterranea.com/en/routes-timetables/ferry-algeciras-ceuta",
+   "price_asof": "2026-07",
+   "notes": "60 min fast ferry / 90 min conventional. Three operators combine for ~112 weekly sailing options."
+  },
+  {
+   "id": "algeciras-tanger-med",
+   "name": "Algeciras – Tanger Med",
+   "port_a": {
+    "name": "Algeciras",
+    "country": "ES",
+    "lat": 36.133,
+    "lng": -5.441
+   },
+   "port_b": {
+    "name": "Tanger Med",
+    "country": "MA",
+    "lat": 35.883,
+    "lng": -5.5
+   },
+   "operators": [
+    "FRS",
+    "Balearia",
+    "Naviera Armas",
+    "AML"
+   ],
+   "duration_h": 1.25,
+   "frequency_per_day": 8,
+   "seasonal": false,
+   "price_usd_lo": 31,
+   "price_usd_hi": 50,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.frs.es/en/plan-your-trip/our-routes/algeciras-tangier-med",
+   "price_asof": "2026-07",
+   "notes": "Busiest Strait of Gibraltar crossing; up to 53 sailings/week from FRS alone."
+  },
+  {
+   "id": "ancona-igoumenitsa",
+   "name": "Ancona – Igoumenitsa",
+   "port_a": {
+    "name": "Ancona",
+    "country": "IT",
+    "lat": 43.617,
+    "lng": 13.512
+   },
+   "port_b": {
+    "name": "Igoumenitsa",
+    "country": "GR",
+    "lat": 39.503,
+    "lng": 20.224
+   },
+   "operators": [
+    "Anek Superfast",
+    "Grimaldi Lines"
+   ],
+   "duration_h": 16.5,
+   "frequency_per_day": 2,
+   "seasonal": false,
+   "price_usd_lo": 88,
+   "price_usd_hi": 150,
+   "price_basis": "adult foot passenger one-way, reclining seat",
+   "vehicle": true,
+   "price_source": "https://www.ferries.gr/en/ferry-companies/anek-superfast/route/ancona-corfu-igoumenitsa-patras/",
+   "price_asof": "2026-07",
+   "notes": "Overnight Adriatic crossing, often continuing to Patras (21-25h total). Cabins cost substantially more (avg cabin price cited near $800+)."
+  },
+  {
+   "id": "aomori-hakodate",
+   "name": "Aomori – Hakodate",
+   "port_a": {
+    "name": "Aomori",
+    "country": "JP",
+    "lat": 40.829,
+    "lng": 140.735
+   },
+   "port_b": {
+    "name": "Hakodate",
+    "country": "JP",
+    "lat": 41.773,
+    "lng": 140.723
+   },
+   "operators": [
+    "Tsugaru Kaikyo Ferry",
+    "Seikan Ferry (Blue Merge)"
+   ],
+   "duration_h": 3.67,
+   "frequency_per_day": 7,
+   "seasonal": false,
+   "price_usd_lo": 27,
+   "price_usd_hi": 34,
+   "price_basis": "adult 2nd class one-way",
+   "vehicle": true,
+   "price_source": "https://www.tsugarukaikyo.co.jp/global/en/hakodate-aomori/",
+   "price_asof": "2026-07",
+   "notes": "Shortest Honshu-Hokkaido sea crossing, budget alternative to the Shinkansen. Two operators combine for 14 daily round trips."
+  },
+  {
+   "id": "auckland-waiheke",
+   "name": "Auckland – Waiheke Island",
+   "port_a": {
+    "name": "Auckland",
+    "country": "NZ",
+    "lat": -36.844,
+    "lng": 174.766
+   },
+   "port_b": {
+    "name": "Waiheke Island (Matiatia)",
+    "country": "NZ",
+    "lat": -36.795,
+    "lng": 175.048
+   },
+   "operators": [
+    "Fullers360"
+   ],
+   "duration_h": 0.67,
+   "frequency_per_day": 20,
+   "seasonal": false,
+   "price_usd_lo": 19,
+   "price_usd_hi": 25,
+   "price_basis": "adult one-way",
+   "vehicle": false,
+   "price_source": "https://www.fullers.co.nz/travel-information/understanding-our-waiheke-ferry-fares/",
+   "price_asof": "2026-07",
+   "notes": "Passenger-only (vehicles go via a separate barge operator, SeaLink). Sailings from NZD31 one-way quoted directly; up to 22 sailings/day in peak season."
+  },
+  {
+   "id": "bar-harbor-yarmouth",
+   "name": "Bar Harbor – Yarmouth (Nova Scotia)",
+   "port_a": {
+    "name": "Bar Harbor",
+    "country": "US",
+    "lat": 44.393,
+    "lng": -68.203
+   },
+   "port_b": {
+    "name": "Yarmouth",
+    "country": "CA",
+    "lat": 43.836,
+    "lng": -66.117
+   },
+   "operators": [
+    "Bay Ferries (The CAT)"
+   ],
+   "duration_h": 3.5,
+   "frequency_per_day": 1,
+   "seasonal": true,
+   "price_usd_lo": 110,
+   "price_usd_hi": 115,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.ferries.ca/thecat/fares",
+   "price_asof": "2026-07",
+   "notes": "Seasonal (roughly May/June-Oct only). Adult US$115, senior (60+) US$110, quoted directly by operator."
+  },
+  {
+   "id": "barcelona-palma",
+   "name": "Barcelona – Palma de Mallorca",
+   "port_a": {
+    "name": "Barcelona",
+    "country": "ES",
+    "lat": 41.353,
+    "lng": 2.166
+   },
+   "port_b": {
+    "name": "Palma de Mallorca",
+    "country": "ES",
+    "lat": 39.556,
+    "lng": 2.625
+   },
+   "operators": [
+    "Balearia",
+    "Trasmed (Trasmediterranea)",
+    "GNV"
+   ],
+   "duration_h": 7.25,
+   "frequency_per_day": 3,
+   "seasonal": false,
+   "price_usd_lo": 16,
+   "price_usd_hi": 70,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.balearia.com/en/routes-timetables/ferry-barcelona-mallorca",
+   "price_asof": "2026-07",
+   "notes": "Three operators, mostly overnight sailings. Cheapest advance fares from EUR14-15."
+  },
+  {
+   "id": "bari-durres",
+   "name": "Bari – Durrës",
+   "port_a": {
+    "name": "Bari",
+    "country": "IT",
+    "lat": 41.139,
+    "lng": 16.869
+   },
+   "port_b": {
+    "name": "Durrës",
+    "country": "AL",
+    "lat": 41.318,
+    "lng": 19.45
+   },
+   "operators": [
+    "Adria Ferries"
+   ],
+   "duration_h": 8,
+   "frequency_per_day": 1,
+   "seasonal": false,
+   "price_usd_lo": 50,
+   "price_usd_hi": 180,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.adriaferries.com/en/lines/bari-durres-line.html",
+   "price_asof": "2026-07",
+   "notes": "Daily year-round sailing; deck fare from EUR45, early-booking discounts up to 50%."
+  },
+  {
+   "id": "buenos-aires-colonia",
+   "name": "Buenos Aires – Colonia del Sacramento",
+   "port_a": {
+    "name": "Buenos Aires",
+    "country": "AR",
+    "lat": -34.596,
+    "lng": -58.365
+   },
+   "port_b": {
+    "name": "Colonia del Sacramento",
+    "country": "UY",
+    "lat": -34.462,
+    "lng": -57.845
+   },
+   "operators": [
+    "Buquebus",
+    "Colonia Express"
+   ],
+   "duration_h": 1.15,
+   "frequency_per_day": 8,
+   "seasonal": false,
+   "price_usd_lo": 35,
+   "price_usd_hi": 90,
+   "price_basis": "adult passenger one-way",
+   "vehicle": false,
+   "price_source": "https://www.coloniaexpress.com/",
+   "price_asof": "2026-07",
+   "notes": "Two competing operators; Colonia Express generally undercuts Buquebus. No vehicles carried on passenger fast ferries."
+  },
+  {
+   "id": "buenos-aires-montevideo",
+   "name": "Buenos Aires – Montevideo",
+   "port_a": {
+    "name": "Buenos Aires",
+    "country": "AR",
+    "lat": -34.596,
+    "lng": -58.365
+   },
+   "port_b": {
+    "name": "Montevideo",
+    "country": "UY",
+    "lat": -34.905,
+    "lng": -56.211
+   },
+   "operators": [
+    "Buquebus"
+   ],
+   "duration_h": 2.5,
+   "frequency_per_day": 5,
+   "seasonal": false,
+   "price_usd_lo": 77,
+   "price_usd_hi": 180,
+   "price_basis": "adult passenger one-way",
+   "vehicle": false,
+   "price_source": "https://www.buquebus.com/",
+   "price_asof": "2026-07",
+   "notes": "5 fare classes from High Speed economy to First Class. Fastest crossing 2.5h, conventional up to 4h. No vehicles carried."
+  },
+  {
+   "id": "busan-fukuoka",
+   "name": "Busan – Fukuoka (Hakata)",
+   "port_a": {
+    "name": "Busan",
+    "country": "KR",
+    "lat": 35.101,
+    "lng": 129.041
+   },
+   "port_b": {
+    "name": "Hakata (Fukuoka)",
+    "country": "JP",
+    "lat": 33.606,
+    "lng": 130.403
+   },
+   "operators": [
+    "Camellia Line"
+   ],
+   "duration_h": 9,
+   "frequency_per_day": 1,
+   "seasonal": false,
+   "price_usd_lo": 70,
+   "price_usd_hi": 180,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.directferries.com/busan_hakata_fukuoka_ferry.htm",
+   "price_asof": "2026-07",
+   "notes": "IMPORTANT: the JR Kyushu Beetle jetfoil (the ~3h high-speed option) was PERMANENTLY DISCONTINUED in Dec 2024 due to hull-crack safety concerns -- do not resurrect it. Camellia Line's overnight ferry (~9h, departs ~22:00) is now the only direct passenger service on this corridor."
+  },
+  {
+   "id": "cadiz-las-palmas",
+   "name": "Cádiz – Las Palmas (Canaries)",
+   "port_a": {
+    "name": "Cádiz",
+    "country": "ES",
+    "lat": 36.531,
+    "lng": -6.286
+   },
+   "port_b": {
+    "name": "Las Palmas de Gran Canaria",
+    "country": "ES",
+    "lat": 28.145,
+    "lng": -15.415
+   },
+   "operators": [
+    "Naviera Armas"
+   ],
+   "duration_h": 38,
+   "frequency_per_day": 0.4,
+   "seasonal": false,
+   "price_usd_lo": 99,
+   "price_usd_hi": 200,
+   "price_basis": "adult foot passenger one-way, reclining seat",
+   "vehicle": true,
+   "price_source": "https://armastrasmediterranea.com/en/routes-timetables/ferry-from-canary-islands",
+   "price_asof": "2026-07",
+   "notes": "LOWER CONFIDENCE: multi-day mainland-to-Canaries crossing, 2-3x/week, priced only in EUR90-120 'from' terms; a private cabin costs substantially more (family-of-4-with-car packages cited at EUR400-600)."
+  },
+  {
+   "id": "cape-may-lewes",
+   "name": "Cape May – Lewes",
+   "port_a": {
+    "name": "Cape May",
+    "country": "US",
+    "lat": 38.965,
+    "lng": -74.964
+   },
+   "port_b": {
+    "name": "Lewes",
+    "country": "US",
+    "lat": 38.782,
+    "lng": -75.12
+   },
+   "operators": [
+    "Cape May-Lewes Ferry"
+   ],
+   "duration_h": 1.42,
+   "frequency_per_day": 8,
+   "seasonal": false,
+   "price_usd_lo": 8,
+   "price_usd_hi": 10,
+   "price_basis": "adult (14-61) passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.cmlf.com/schedules-fares/",
+   "price_asof": "2026-07",
+   "notes": "Confirmed directly by operator: $8 off-season / $10 in-season one-way; seniors 62+ pay less. Delaware Bay crossing."
+  },
+  {
+   "id": "cebu-tagbilaran",
+   "name": "Cebu – Tagbilaran (Bohol)",
+   "port_a": {
+    "name": "Cebu City",
+    "country": "PH",
+    "lat": 10.297,
+    "lng": 123.906
+   },
+   "port_b": {
+    "name": "Tagbilaran",
+    "country": "PH",
+    "lat": 9.663,
+    "lng": 123.856
+   },
+   "operators": [
+    "OceanJet"
+   ],
+   "duration_h": 2,
+   "frequency_per_day": 16,
+   "seasonal": false,
+   "price_usd_lo": 9,
+   "price_usd_hi": 17,
+   "price_basis": "adult one-way, economy/tourist class",
+   "vehicle": false,
+   "price_source": "https://www.oceanjet.net/",
+   "price_asof": "2026-07",
+   "notes": "High-speed passenger-only fastcraft, PHP500 (open-air/tourist) to PHP1000 (business). 16 daily trips each way."
+  },
+  {
+   "id": "civitavecchia-olbia",
+   "name": "Civitavecchia (Rome) – Olbia",
+   "port_a": {
+    "name": "Porto di Civitavecchia",
+    "country": "IT",
+    "lat": 42.094,
+    "lng": 11.789
+   },
+   "port_b": {
+    "name": "Porto di Olbia (Isola Bianca)",
+    "country": "IT",
+    "lat": 40.923,
+    "lng": 9.517
+   },
+   "operators": [
+    "Tirrenia",
+    "GNV",
+    "Moby"
+   ],
+   "duration_h": 7.75,
+   "frequency_per_day": 2,
+   "seasonal": false,
+   "price_usd_lo": 28,
+   "price_usd_hi": 95,
+   "price_basis": "adult seat one-way",
+   "vehicle": true,
+   "price_source": "https://en.tirrenia.it/ferry-sardinia/civitavecchia-olbia/",
+   "price_asof": "2026-07",
+   "notes": "Day crossings ~7h50-9h, night ~9h; fares from ~EUR 23. Daily-sailing count across Tirrenia/Grimaldi/Moby unverified; 2/day is an in-season estimate."
+  },
+  {
+   "id": "copenhagen-oslo",
+   "name": "Copenhagen – Oslo",
+   "port_a": {
+    "name": "Copenhagen",
+    "country": "DK",
+    "lat": 55.694,
+    "lng": 12.605
+   },
+   "port_b": {
+    "name": "Oslo",
+    "country": "NO",
+    "lat": 59.908,
+    "lng": 10.728
+   },
+   "operators": [
+    "DFDS"
+   ],
+   "duration_h": 17.5,
+   "frequency_per_day": 1,
+   "seasonal": false,
+   "price_usd_lo": 45,
+   "price_usd_hi": 220,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.dfds.com/en/passenger-ferries/ferry-crossings/ferries-to-norway/copenhagen-oslo",
+   "price_asof": "2026-07",
+   "notes": "Classic overnight cruise-ferry, cabin effectively mandatory. One round-trip sailing per day."
+  },
+  {
+   "id": "dakar-ziguinchor",
+   "name": "Dakar – Ziguinchor",
+   "port_a": {
+    "name": "Dakar",
+    "country": "SN",
+    "lat": 14.669,
+    "lng": -17.428
+   },
+   "port_b": {
+    "name": "Ziguinchor",
+    "country": "SN",
+    "lat": 12.583,
+    "lng": -16.278
+   },
+   "operators": [
+    "COSAMA"
+   ],
+   "duration_h": 14,
+   "frequency_per_day": 0.29,
+   "seasonal": false,
+   "price_usd_lo": 27,
+   "price_usd_hi": 59,
+   "price_basis": "non-resident economy seat one-way (cabin extra)",
+   "vehicle": true,
+   "price_source": "https://www.cap-skirring.voyage/tarifs-horaires-bateaux-dakar-ziguinchor.html",
+   "price_asof": "2026-07",
+   "notes": "Overnight Casamance run, only 2 sailings/week (Tue/Fri from Dakar). Resident fare from XOF5,000, non-resident from XOF15,900, private cabins from XOF35,000."
+  },
+  {
+   "id": "dar-es-salaam-zanzibar",
+   "name": "Dar es Salaam – Zanzibar",
+   "port_a": {
+    "name": "Dar es Salaam",
+    "country": "TZ",
+    "lat": -6.816,
+    "lng": 39.293
+   },
+   "port_b": {
+    "name": "Zanzibar (Stone Town)",
+    "country": "TZ",
+    "lat": -6.163,
+    "lng": 39.187
+   },
+   "operators": [
+    "Azam Marine",
+    "Kilimanjaro Fast Ferries"
+   ],
+   "duration_h": 1.75,
+   "frequency_per_day": 6,
+   "seasonal": false,
+   "price_usd_lo": 35,
+   "price_usd_hi": 100,
+   "price_basis": "adult (non-resident) one-way",
+   "vehicle": false,
+   "price_source": "https://azammarine.com/rates/",
+   "price_asof": "2026-07",
+   "notes": "Non-resident USD pricing quoted by operator directly (residents pay far less in TZS). Four classes: Economy/Tourist/Business/Royal/VIP."
+  },
+  {
+   "id": "donsak-kohsamui",
+   "name": "Don Sak – Koh Samui",
+   "port_a": {
+    "name": "Don Sak",
+    "country": "TH",
+    "lat": 9.317,
+    "lng": 99.687
+   },
+   "port_b": {
+    "name": "Koh Samui (Lipa Noi/Nathon)",
+    "country": "TH",
+    "lat": 9.459,
+    "lng": 99.888
+   },
+   "operators": [
+    "Raja Ferry",
+    "Seatran Ferry"
+   ],
+   "duration_h": 1.5,
+   "frequency_per_day": 12,
+   "seasonal": false,
+   "price_usd_lo": 5,
+   "price_usd_hi": 8,
+   "price_basis": "adult one-way",
+   "vehicle": true,
+   "price_source": "https://www.rajaferryport.com/",
+   "price_asof": "2026-07",
+   "notes": "THB180 base fare, hourly departures 5am-7pm. Very cheap per-km for a vehicle-capable RoRo ferry -- useful low-price-band anchor for the Thai Gulf."
+  },
+  {
+   "id": "dover-calais",
+   "name": "Dover – Calais",
+   "port_a": {
+    "name": "Dover",
+    "country": "GB",
+    "lat": 51.127,
+    "lng": 1.327
+   },
+   "port_b": {
+    "name": "Calais",
+    "country": "FR",
+    "lat": 50.966,
+    "lng": 1.862
+   },
+   "operators": [
+    "P&O Ferries",
+    "DFDS",
+    "Irish Ferries"
+   ],
+   "duration_h": 1.5,
+   "frequency_per_day": 20,
+   "seasonal": false,
+   "price_usd_lo": 40,
+   "price_usd_hi": 95,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.poferries.com/en/routes/dover-to-calais",
+   "price_asof": "2026-07",
+   "notes": "GBP32-134 range across operators/dates per Direct Ferries/AFerry; used typical (not extreme-peak) band. Busiest short-strait corridor in Europe."
+  },
+  {
+   "id": "dubrovnik-korcula",
+   "name": "Dubrovnik – Korčula",
+   "port_a": {
+    "name": "Dubrovnik (Gruž)",
+    "country": "HR",
+    "lat": 42.657,
+    "lng": 18.087
+   },
+   "port_b": {
+    "name": "Korčula",
+    "country": "HR",
+    "lat": 42.96,
+    "lng": 17.135
+   },
+   "operators": [
+    "Jadrolinija",
+    "Krilo",
+    "GV Line"
+   ],
+   "duration_h": 2.25,
+   "frequency_per_day": 3,
+   "seasonal": true,
+   "price_usd_lo": 11,
+   "price_usd_hi": 33,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.jadrolinija.hr/en",
+   "price_asof": "2026-07",
+   "notes": "Multiple catamaran/ferry operators; frequency drops off-season. Fare EUR9.82-30 depending on operator/vessel type."
+  },
+  {
+   "id": "fishguard-rosslare",
+   "name": "Fishguard – Rosslare",
+   "port_a": {
+    "name": "Fishguard",
+    "country": "GB",
+    "lat": 52.013,
+    "lng": -4.983
+   },
+   "port_b": {
+    "name": "Rosslare",
+    "country": "IE",
+    "lat": 52.253,
+    "lng": -6.337
+   },
+   "operators": [
+    "Stena Line"
+   ],
+   "duration_h": 3.5,
+   "frequency_per_day": 2,
+   "seasonal": false,
+   "price_usd_lo": 48,
+   "price_usd_hi": 109,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.stenaline.co.uk/routes/fishguard-rosslare",
+   "price_asof": "2026-07",
+   "notes": "13 sailings/week. Pembroke Dock-Rosslare (Irish Ferries) is a nearby alternative not separately priced here."
+  },
+  {
+   "id": "frederikshavn-gothenburg",
+   "name": "Frederikshavn – Gothenburg",
+   "port_a": {
+    "name": "Frederikshavn",
+    "country": "DK",
+    "lat": 57.436,
+    "lng": 10.546
+   },
+   "port_b": {
+    "name": "Gothenburg",
+    "country": "SE",
+    "lat": 57.696,
+    "lng": 11.933
+   },
+   "operators": [
+    "Stena Line"
+   ],
+   "duration_h": 3.75,
+   "frequency_per_day": 4,
+   "seasonal": false,
+   "price_usd_lo": 20,
+   "price_usd_hi": 60,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.stenalinetravel.com/routes/frederikshavn-gothenburg",
+   "price_asof": "2026-07",
+   "notes": "26 sailings/week. Cheap advance fares from ~EUR21."
+  },
+  {
+   "id": "galveston-bolivar",
+   "name": "Galveston – Port Bolivar",
+   "port_a": {
+    "name": "Galveston",
+    "country": "US",
+    "lat": 29.321,
+    "lng": -94.792
+   },
+   "port_b": {
+    "name": "Port Bolivar",
+    "country": "US",
+    "lat": 29.367,
+    "lng": -94.772
+   },
+   "operators": [
+    "Texas DOT"
+   ],
+   "duration_h": 0.3,
+   "frequency_per_day": 60,
+   "seasonal": false,
+   "price_usd_lo": 0,
+   "price_usd_hi": 0,
+   "price_basis": "free public highway ferry",
+   "vehicle": true,
+   "price_source": "https://www.txdot.gov/discover/ferry-boat-schedules/galveston-port-bolivar-ferry.html",
+   "price_asof": "2026-07",
+   "notes": "Free 24/7 TxDOT highway ferry (part of Highway 87), no fare of any kind. ~18-min crossing, up to 7 boats running at peak."
+  },
+  {
+   "id": "genoa-olbia",
+   "name": "Genoa – Olbia",
+   "port_a": {
+    "name": "Genoa",
+    "country": "IT",
+    "lat": 44.405,
+    "lng": 8.907
+   },
+   "port_b": {
+    "name": "Olbia",
+    "country": "IT",
+    "lat": 40.923,
+    "lng": 9.516
+   },
+   "operators": [
+    "GNV",
+    "Moby Lines"
+   ],
+   "duration_h": 10.5,
+   "frequency_per_day": 1,
+   "seasonal": false,
+   "price_usd_lo": 44,
+   "price_usd_hi": 110,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.gnv.it/en/ferries-destinations/sardinia/genoa-olbia",
+   "price_asof": "2026-07",
+   "notes": "Overnight Sardinia mainland link; cheapest deck fares from ~EUR40."
+  },
+  {
+   "id": "harwich-hook-of-holland",
+   "name": "Harwich – Hook of Holland",
+   "port_a": {
+    "name": "Harwich",
+    "country": "GB",
+    "lat": 51.949,
+    "lng": 1.255
+   },
+   "port_b": {
+    "name": "Hoek van Holland",
+    "country": "NL",
+    "lat": 51.978,
+    "lng": 4.132
+   },
+   "operators": [
+    "Stena Line"
+   ],
+   "duration_h": 9.5,
+   "frequency_per_day": 2,
+   "seasonal": false,
+   "price_usd_lo": 65,
+   "price_usd_hi": 230,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.stenaline.co.uk/routes/harwich-hook-of-holland",
+   "price_asof": "2026-07",
+   "notes": "Overnight route; Stena requires foot passengers to book a cabin (no seat-only fare), which pushes the effective floor higher than pure deck-fare routes."
+  },
+  {
+   "id": "helsinki-stockholm",
+   "name": "Helsinki – Stockholm",
+   "port_a": {
+    "name": "Helsinki",
+    "country": "FI",
+    "lat": 60.168,
+    "lng": 24.958
+   },
+   "port_b": {
+    "name": "Stockholm",
+    "country": "SE",
+    "lat": 59.32,
+    "lng": 18.115
+   },
+   "operators": [
+    "Tallink Silja",
+    "Viking Line"
+   ],
+   "duration_h": 18,
+   "frequency_per_day": 2,
+   "seasonal": false,
+   "price_usd_lo": 50,
+   "price_usd_hi": 220,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.vikingline.com/",
+   "price_asof": "2026-07",
+   "notes": "Overnight cruise-ferry via the Aland archipelago; a reclining seat or cabin is effectively required. Cheapest online fares from ~EUR47-60."
+  },
+  {
+   "id": "helsinki-tallinn",
+   "name": "Helsinki – Tallinn",
+   "port_a": {
+    "name": "Helsinki",
+    "country": "FI",
+    "lat": 60.168,
+    "lng": 24.958
+   },
+   "port_b": {
+    "name": "Tallinn",
+    "country": "EE",
+    "lat": 59.444,
+    "lng": 24.754
+   },
+   "operators": [
+    "Tallink Silja",
+    "Viking Line"
+   ],
+   "duration_h": 2.5,
+   "frequency_per_day": 8,
+   "seasonal": false,
+   "price_usd_lo": 14,
+   "price_usd_hi": 60,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.tallink.com/travelling/one-way/helsinki-tallinn-ferry",
+   "price_asof": "2026-07",
+   "notes": "Busiest international ferry corridor in the world by some counts; 53+ sailings/week combined. Fastest crossing ~2h."
+  },
+  {
+   "id": "heraklion-santorini",
+   "name": "Heraklion – Santorini",
+   "port_a": {
+    "name": "Heraklion",
+    "country": "GR",
+    "lat": 35.345,
+    "lng": 25.146
+   },
+   "port_b": {
+    "name": "Athinios (Santorini)",
+    "country": "GR",
+    "lat": 36.385,
+    "lng": 25.429
+   },
+   "operators": [
+    "SeaJets",
+    "Minoan Lines"
+   ],
+   "duration_h": 1.75,
+   "frequency_per_day": 2.5,
+   "seasonal": false,
+   "price_usd_lo": 55,
+   "price_usd_hi": 140,
+   "price_basis": "adult economy one-way, fast catamaran",
+   "vehicle": false,
+   "price_source": "https://santorini.seajets.com/booking-and-pricing/",
+   "price_asof": "2026-07",
+   "notes": "Fast catamaran 1h35-2h; conventional up to 4.5h. Runs year-round; typical economy EUR 110-130 in season, promos lower."
+  },
+  {
+   "id": "hirtshals-kristiansand",
+   "name": "Hirtshals – Kristiansand",
+   "port_a": {
+    "name": "Hirtshals",
+    "country": "DK",
+    "lat": 57.589,
+    "lng": 9.964
+   },
+   "port_b": {
+    "name": "Kristiansand",
+    "country": "NO",
+    "lat": 58.146,
+    "lng": 8.005
+   },
+   "operators": [
+    "Fjord Line",
+    "Color Line"
+   ],
+   "duration_h": 3.4,
+   "frequency_per_day": 4,
+   "seasonal": false,
+   "price_usd_lo": 25,
+   "price_usd_hi": 70,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://fjordline.com/en/p/our-ferry-routes/hirtshals-stavanger-bergen",
+   "price_asof": "2026-07",
+   "notes": "LOWER CONFIDENCE: aggregator 'average ferry price' figures (~$250-330) appeared to be vehicle-inclusive; foot-passenger-only fares should be well under that, estimated here."
+  },
+  {
+   "id": "holyhead-dublin",
+   "name": "Holyhead – Dublin",
+   "port_a": {
+    "name": "Holyhead",
+    "country": "GB",
+    "lat": 53.309,
+    "lng": -4.633
+   },
+   "port_b": {
+    "name": "Dublin",
+    "country": "IE",
+    "lat": 53.347,
+    "lng": -6.219
+   },
+   "operators": [
+    "Stena Line",
+    "Irish Ferries"
+   ],
+   "duration_h": 3.25,
+   "frequency_per_day": 9,
+   "seasonal": false,
+   "price_usd_lo": 40,
+   "price_usd_hi": 95,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.stenaline.co.uk/routes/holyhead-dublin",
+   "price_asof": "2026-07",
+   "notes": "Two operators, up to 8 Stena sailings/day alone. Cheapest summer one-way seat quoted ~EUR42."
+  },
+  {
+   "id": "hongkong-macau",
+   "name": "Hong Kong – Macau",
+   "port_a": {
+    "name": "Hong Kong (Sheung Wan)",
+    "country": "HK",
+    "lat": 22.288,
+    "lng": 114.152
+   },
+   "port_b": {
+    "name": "Macau (Outer Harbour)",
+    "country": "MO",
+    "lat": 22.193,
+    "lng": 113.556
+   },
+   "operators": [
+    "TurboJET",
+    "Cotai Water Jet"
+   ],
+   "duration_h": 1,
+   "frequency_per_day": 60,
+   "seasonal": false,
+   "price_usd_lo": 22,
+   "price_usd_hi": 28,
+   "price_basis": "adult economy one-way, daytime weekday",
+   "vehicle": false,
+   "price_source": "https://www2.turbojet.com.hk/travel-with-us-sea-ferry/",
+   "price_asof": "2026-07",
+   "notes": "High-speed catamarans only, no vehicles. Weekend/night fares run higher (~HK$220 night, ~HK$310+ 'super/first' class). One of the world's busiest passenger-only ferry corridors."
+  },
+  {
+   "id": "horseshoe-bay-nanaimo",
+   "name": "Vancouver (Horseshoe Bay) – Nanaimo (Departure Bay)",
+   "port_a": {
+    "name": "Horseshoe Bay",
+    "country": "CA",
+    "lat": 49.376,
+    "lng": -123.271
+   },
+   "port_b": {
+    "name": "Nanaimo (Departure Bay)",
+    "country": "CA",
+    "lat": 49.196,
+    "lng": -123.956
+   },
+   "operators": [
+    "BC Ferries"
+   ],
+   "duration_h": 1.67,
+   "frequency_per_day": 8,
+   "seasonal": false,
+   "price_usd_lo": 14,
+   "price_usd_hi": 15,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.bcferries.com/routes-fares/schedules/daily/HSB-NAN",
+   "price_asof": "2026-07",
+   "notes": "Adult fare CAD20 converted at CAD=0.72. Vehicle reservations now mandatory (drive-up no longer available) as of Oct 2025."
+  },
+  {
+   "id": "hull-rotterdam",
+   "name": "Hull – Rotterdam",
+   "port_a": {
+    "name": "Hull",
+    "country": "GB",
+    "lat": 53.74,
+    "lng": -0.335
+   },
+   "port_b": {
+    "name": "Rotterdam (Europoort)",
+    "country": "NL",
+    "lat": 51.947,
+    "lng": 4.136
+   },
+   "operators": [
+    "P&O Ferries"
+   ],
+   "duration_h": 11.5,
+   "frequency_per_day": 1,
+   "seasonal": false,
+   "price_usd_lo": 21,
+   "price_usd_hi": 116,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.poferries.com/en/routes/hull-to-rotterdam",
+   "price_asof": "2026-07",
+   "notes": "Overnight; deck fares from EUR14-19, but cabin-inclusive fares (effectively required for an overnight sailing) run GBP136-260 (~$175-335). Lo/hi here is deck-only; add ~$100+ for a cabin."
+  },
+  {
+   "id": "hyannis-nantucket",
+   "name": "Hyannis – Nantucket",
+   "port_a": {
+    "name": "Hyannis",
+    "country": "US",
+    "lat": 41.652,
+    "lng": -70.28
+   },
+   "port_b": {
+    "name": "Nantucket",
+    "country": "US",
+    "lat": 41.286,
+    "lng": -70.096
+   },
+   "operators": [
+    "Steamship Authority",
+    "Hy-Line Cruises"
+   ],
+   "duration_h": 1,
+   "frequency_per_day": 7,
+   "seasonal": false,
+   "price_usd_lo": 21.5,
+   "price_usd_hi": 55,
+   "price_basis": "adult passenger one-way (Steamship Authority traditional ferry lo, Hy-Line high-speed catamaran hi)",
+   "vehicle": false,
+   "price_source": "https://www.steamshipauthority.com/reservations/fares",
+   "price_asof": "2026-07",
+   "notes": "CORRECTED 2026-07: original entry only priced Hy-Line's high-speed catamaran ($49-55, ~1h). Steamship Authority's own fare page confirms a cheaper traditional (non-high-speed) walk-on ferry at $21.50 one-way / $43 round-trip, 2h15m crossing, no reservation needed for foot passengers. duration_h=1 reflects the faster/more commonly chosen Hy-Line option; the $21.50 low end is on the slower 2.25h Steamship Authority boat, not the 1h boat -- this corridor genuinely has two different speed/price tiers, single duration_h field can't capture both."
+  },
+  {
+   "id": "ibiza-formentera",
+   "name": "Ibiza – Formentera",
+   "port_a": {
+    "name": "Ibiza",
+    "country": "ES",
+    "lat": 38.907,
+    "lng": 1.436
+   },
+   "port_b": {
+    "name": "Formentera (La Savina)",
+    "country": "ES",
+    "lat": 38.735,
+    "lng": 1.407
+   },
+   "operators": [
+    "Balearia",
+    "Trasmapi",
+    "Aquabus"
+   ],
+   "duration_h": 0.5,
+   "frequency_per_day": 20,
+   "seasonal": false,
+   "price_usd_lo": 32,
+   "price_usd_hi": 48,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.balearia.com/en/routes-timetables/ferry-ibiza-formentera",
+   "price_asof": "2026-07",
+   "notes": "One of the shortest, most frequent Med crossings -- departures roughly every 45 min in season. Relatively expensive per-km given tourist demand."
+  },
+  {
+   "id": "incheon-weihai",
+   "name": "Incheon – Weihai",
+   "port_a": {
+    "name": "Incheon",
+    "country": "KR",
+    "lat": 37.398,
+    "lng": 126.616
+   },
+   "port_b": {
+    "name": "Weihai",
+    "country": "CN",
+    "lat": 37.503,
+    "lng": 122.119
+   },
+   "operators": [
+    "Weidong Ferry"
+   ],
+   "duration_h": 14,
+   "frequency_per_day": 0.43,
+   "seasonal": false,
+   "price_usd_lo": 73,
+   "price_usd_hi": 105,
+   "price_basis": "adult one-way, economy class",
+   "vehicle": true,
+   "price_source": "http://www.ferryto.com/weidong.html",
+   "price_asof": "2026-07",
+   "notes": "3 sailings/week (New Golden Bridge VII), overnight. One of several China-Korea Yellow Sea ferry links; Weidong also runs Qingdao-Incheon."
+  },
+  {
+   "id": "kagoshima-yakushima",
+   "name": "Kagoshima – Yakushima",
+   "port_a": {
+    "name": "Kagoshima",
+    "country": "JP",
+    "lat": 31.596,
+    "lng": 130.558
+   },
+   "port_b": {
+    "name": "Yakushima (Miyanoura)",
+    "country": "JP",
+    "lat": 30.424,
+    "lng": 130.558
+   },
+   "operators": [
+    "Tane Yaku Jetfoil (Toppy/Rocket)"
+   ],
+   "duration_h": 2,
+   "frequency_per_day": 5,
+   "seasonal": false,
+   "price_usd_lo": 80,
+   "price_usd_hi": 90,
+   "price_basis": "adult one-way, jetfoil",
+   "vehicle": false,
+   "price_source": "https://www.jocjapantravel.com/kyushu-kagoshima-yakushima-toppy-rocket-terminal/",
+   "price_asof": "2026-07",
+   "notes": "JPY12,700 one-way (2025 published fare, includes fuel adjustment). A slower, cheaper conventional car ferry ('Ferry Yakushima2') also exists on this route but isn't priced here."
+  },
+  {
+   "id": "ketapang-gilimanuk",
+   "name": "Ketapang – Gilimanuk (Java–Bali Strait)",
+   "port_a": {
+    "name": "Ketapang (Banyuwangi)",
+    "country": "ID",
+    "lat": -8.139,
+    "lng": 114.395
+   },
+   "port_b": {
+    "name": "Gilimanuk",
+    "country": "ID",
+    "lat": -8.183,
+    "lng": 114.437
+   },
+   "operators": [
+    "ASDP Indonesia Ferry"
+   ],
+   "duration_h": 0.5,
+   "frequency_per_day": 48,
+   "seasonal": false,
+   "price_usd_lo": 0.5,
+   "price_usd_hi": 1,
+   "price_basis": "adult one-way",
+   "vehicle": true,
+   "price_source": "https://www.tiket.com/en-us/explore/ferry-rute-ketapang-ke-gilimanuk",
+   "price_asof": "2026-07",
+   "notes": "State-subsidized 24-hour RoRo strait shuttle, IDR8,000 (~$0.50) adult fare -- by far the cheapest per-km corridor in this dataset, useful as a lower-bound anchor."
+  },
+  {
+   "id": "kiel-oslo",
+   "name": "Kiel – Oslo",
+   "port_a": {
+    "name": "Kiel",
+    "country": "DE",
+    "lat": 54.324,
+    "lng": 10.132
+   },
+   "port_b": {
+    "name": "Oslo",
+    "country": "NO",
+    "lat": 59.908,
+    "lng": 10.728
+   },
+   "operators": [
+    "Color Line"
+   ],
+   "duration_h": 20,
+   "frequency_per_day": 1,
+   "seasonal": false,
+   "price_usd_lo": 170,
+   "price_usd_hi": 330,
+   "price_basis": "adult foot passenger one-way, cabin berth required",
+   "vehicle": true,
+   "price_source": "https://www.colorline.com/kiel-oslo/ferry-germany-norway",
+   "price_asof": "2026-07",
+   "notes": "Color Line states fares start from EUR155/person -- no seat-only option on this ~20h crossing, so this is priced as a shared cabin berth, not a deck fare. Aggregator per-passenger averages ($1000+) appear to conflate car+cabin bundles and were discarded as unreliable."
+  },
+  {
+   "id": "kos-bodrum",
+   "name": "Kos – Bodrum",
+   "port_a": {
+    "name": "Kos",
+    "country": "GR",
+    "lat": 36.893,
+    "lng": 27.288
+   },
+   "port_b": {
+    "name": "Bodrum",
+    "country": "TR",
+    "lat": 37.034,
+    "lng": 27.43
+   },
+   "operators": [
+    "Bodrum Express Lines",
+    "Turyol",
+    "Dentur Avrasya"
+   ],
+   "duration_h": 0.5,
+   "frequency_per_day": 5,
+   "seasonal": true,
+   "price_usd_lo": 17,
+   "price_usd_hi": 45,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": false,
+   "price_source": "https://www.bodrumexpresslines.com/en",
+   "price_asof": "2026-07",
+   "notes": "30-min Aegean strait hop, 6 operators, strongly seasonal (much reduced Nov-Mar)."
+  },
+  {
+   "id": "la-paz-mazatlan",
+   "name": "La Paz – Mazatlán",
+   "port_a": {
+    "name": "La Paz (Pichilingue)",
+    "country": "MX",
+    "lat": 24.273,
+    "lng": -110.316
+   },
+   "port_b": {
+    "name": "Mazatlán",
+    "country": "MX",
+    "lat": 23.222,
+    "lng": -106.417
+   },
+   "operators": [
+    "Baja Ferries"
+   ],
+   "duration_h": 12,
+   "frequency_per_day": 0.7,
+   "seasonal": false,
+   "price_usd_lo": 95,
+   "price_usd_hi": 147,
+   "price_basis": "adult seat (no cabin) one-way",
+   "vehicle": true,
+   "price_source": "https://www.bajaferries.com/",
+   "price_asof": "2026-07",
+   "notes": "Overnight Sea of Cortez crossing. Baja Ferries also runs the shorter, more frequent La Paz-Topolobampo route (~132 MXN-equivalent seat fare, not separately listed here)."
+  },
+  {
+   "id": "las-palmas-tenerife",
+   "name": "Las Palmas – Santa Cruz de Tenerife",
+   "port_a": {
+    "name": "Las Palmas de Gran Canaria",
+    "country": "ES",
+    "lat": 28.145,
+    "lng": -15.415
+   },
+   "port_b": {
+    "name": "Santa Cruz de Tenerife",
+    "country": "ES",
+    "lat": 28.468,
+    "lng": -16.245
+   },
+   "operators": [
+    "Naviera Armas",
+    "Fred. Olsen Express"
+   ],
+   "duration_h": 1.47,
+   "frequency_per_day": 11,
+   "seasonal": false,
+   "price_usd_lo": 35,
+   "price_usd_hi": 50,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.fredolsen.es/en/",
+   "price_asof": "2026-07",
+   "notes": "Busiest inter-island Canaries corridor, ~11 sailings/day combined."
+  },
+  {
+   "id": "liverpool-belfast",
+   "name": "Liverpool – Belfast",
+   "port_a": {
+    "name": "Liverpool (Birkenhead)",
+    "country": "GB",
+    "lat": 53.398,
+    "lng": -3.021
+   },
+   "port_b": {
+    "name": "Belfast",
+    "country": "GB",
+    "lat": 54.615,
+    "lng": -5.888
+   },
+   "operators": [
+    "Stena Line"
+   ],
+   "duration_h": 8,
+   "frequency_per_day": 4,
+   "seasonal": false,
+   "price_usd_lo": 24,
+   "price_usd_hi": 77,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.stenaline.co.uk/routes/liverpool-belfast",
+   "price_asof": "2026-07",
+   "notes": "Day and night crossings both ~8h. Promotional foot-passenger sales have dipped as low as GBP19."
+  },
+  {
+   "id": "livorno-bastia",
+   "name": "Livorno – Bastia",
+   "port_a": {
+    "name": "Livorno",
+    "country": "IT",
+    "lat": 43.55,
+    "lng": 10.298
+   },
+   "port_b": {
+    "name": "Bastia",
+    "country": "FR",
+    "lat": 42.703,
+    "lng": 9.451
+   },
+   "operators": [
+    "Corsica Ferries",
+    "Moby Lines"
+   ],
+   "duration_h": 4.5,
+   "frequency_per_day": 1,
+   "seasonal": true,
+   "price_usd_lo": 29,
+   "price_usd_hi": 85,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.corsica-ferries.co.uk/",
+   "price_asof": "2026-07",
+   "notes": "Heavily seasonal, thin winter schedule. Cheapest advance fares from ~EUR23-26."
+  },
+  {
+   "id": "malaga-melilla",
+   "name": "Málaga – Melilla",
+   "port_a": {
+    "name": "Málaga",
+    "country": "ES",
+    "lat": 36.712,
+    "lng": -4.419
+   },
+   "port_b": {
+    "name": "Melilla",
+    "country": "ES",
+    "lat": 35.293,
+    "lng": -2.938
+   },
+   "operators": [
+    "Trasmediterranea",
+    "Balearia"
+   ],
+   "duration_h": 6.5,
+   "frequency_per_day": 0.7,
+   "seasonal": false,
+   "price_usd_lo": 33,
+   "price_usd_hi": 90,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.balearia.com/en/rutas-horarios/ferry-melilla-malaga",
+   "price_asof": "2026-07",
+   "notes": "Round-trip-no-vehicle average ~EUR114 cited by Balearia; halved and converted for a one-way estimate."
+  },
+  {
+   "id": "manila-cebu",
+   "name": "Manila – Cebu",
+   "port_a": {
+    "name": "Manila",
+    "country": "PH",
+    "lat": 14.596,
+    "lng": 120.966
+   },
+   "port_b": {
+    "name": "Cebu City",
+    "country": "PH",
+    "lat": 10.297,
+    "lng": 123.906
+   },
+   "operators": [
+    "2GO Travel"
+   ],
+   "duration_h": 22,
+   "frequency_per_day": 0.5,
+   "seasonal": false,
+   "price_usd_lo": 29,
+   "price_usd_hi": 140,
+   "price_basis": "adult one-way, dorm bed to private cabin",
+   "vehicle": true,
+   "price_source": "https://travel.2go.com.ph/",
+   "price_asof": "2026-07",
+   "notes": "LOWER CONFIDENCE on both duration and frequency: sources described this as a ~22-24h overnight liner passage with 'weekly trips', which is ambiguous (could mean several sailings spread through the week, not literally once/week) -- check 2GO's live schedule before relying on this. Meals included in fare."
+  },
+  {
+   "id": "melbourne-devonport",
+   "name": "Melbourne (Geelong) – Devonport",
+   "port_a": {
+    "name": "Geelong",
+    "country": "AU",
+    "lat": -38.13,
+    "lng": 144.351
+   },
+   "port_b": {
+    "name": "Devonport",
+    "country": "AU",
+    "lat": -41.18,
+    "lng": 146.361
+   },
+   "operators": [
+    "Spirit of Tasmania (TT-Line)"
+   ],
+   "duration_h": 10,
+   "frequency_per_day": 2,
+   "seasonal": false,
+   "price_usd_lo": 124,
+   "price_usd_hi": 215,
+   "price_basis": "adult walk-on one-way (return fare halved)",
+   "vehicle": true,
+   "price_source": "https://www.spiritoftasmania.com.au/pricing-offers/",
+   "price_asof": "2026-07",
+   "notes": "IMPORTANT: terminal moved from central Melbourne to the Port of Geelong (~1h from Melbourne CBD). Fares only sold as return (AUD380 winter / AUD660 summer); halved here to approximate one-way. Overnight Bass Strait crossing."
+  },
+  {
+   "id": "mokpo-jeju",
+   "name": "Mokpo – Jeju",
+   "port_a": {
+    "name": "Mokpo Passenger Terminal",
+    "country": "KR",
+    "lat": 34.779,
+    "lng": 126.383
+   },
+   "port_b": {
+    "name": "Jeju Ferry Terminal",
+    "country": "KR",
+    "lat": 33.52,
+    "lng": 126.543
+   },
+   "operators": [
+    "Seaworld Express Ferry"
+   ],
+   "duration_h": 4.5,
+   "frequency_per_day": 0.71,
+   "seasonal": false,
+   "price_usd_lo": 23,
+   "price_usd_hi": 60,
+   "price_basis": "adult economy one-way",
+   "vehicle": true,
+   "price_source": "https://www.directferries.com/mokpo_jeju_ferry.htm",
+   "price_asof": "2026-07",
+   "notes": "~5 sailings/week; cheapest ~$23, average ~$50."
+  },
+  {
+   "id": "naples-palermo",
+   "name": "Naples – Palermo",
+   "port_a": {
+    "name": "Naples",
+    "country": "IT",
+    "lat": 40.838,
+    "lng": 14.253
+   },
+   "port_b": {
+    "name": "Palermo",
+    "country": "IT",
+    "lat": 38.128,
+    "lng": 13.363
+   },
+   "operators": [
+    "GNV",
+    "Tirrenia"
+   ],
+   "duration_h": 10.5,
+   "frequency_per_day": 1,
+   "seasonal": false,
+   "price_usd_lo": 31,
+   "price_usd_hi": 70,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://en.tirrenia.it/ferry-sicily/naples-palermo/",
+   "price_asof": "2026-07",
+   "notes": "Overnight; deck/numbered-seat fares from ~EUR28-45, cabins extra."
+  },
+  {
+   "id": "newhaven-dieppe",
+   "name": "Newhaven – Dieppe",
+   "port_a": {
+    "name": "Newhaven",
+    "country": "GB",
+    "lat": 50.783,
+    "lng": 0.056
+   },
+   "port_b": {
+    "name": "Dieppe",
+    "country": "FR",
+    "lat": 49.927,
+    "lng": 1.083
+   },
+   "operators": [
+    "DFDS"
+   ],
+   "duration_h": 4,
+   "frequency_per_day": 2.5,
+   "seasonal": false,
+   "price_usd_lo": 40,
+   "price_usd_hi": 100,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.dfds.com/en-gb/passenger-ferries/ferry-crossings/ferries-to-france/newhaven-dieppe",
+   "price_asof": "2026-07",
+   "notes": "DFDS-only route since Transmanche closure years ago. 2-3 sailings/day rising to 4 in summer."
+  },
+  {
+   "id": "nice-bastia",
+   "name": "Nice – Bastia (Corsica)",
+   "port_a": {
+    "name": "Port de Nice",
+    "country": "FR",
+    "lat": 43.694,
+    "lng": 7.285
+   },
+   "port_b": {
+    "name": "Port de Bastia",
+    "country": "FR",
+    "lat": 42.64,
+    "lng": 9.452
+   },
+   "operators": [
+    "Corsica Ferries"
+   ],
+   "duration_h": 6.5,
+   "frequency_per_day": 0.29,
+   "seasonal": true,
+   "price_usd_lo": 25,
+   "price_usd_hi": 67,
+   "price_basis": "adult seat one-way",
+   "vehicle": true,
+   "price_source": "https://www.directferries.com/nice_bastia_ferry.htm",
+   "price_asof": "2026-07",
+   "notes": "~2 sailings/WEEK (seasonal) — too thin to treat as a dependable gateway; Toulon-Corsica runs year-round with more sailings."
+  },
+  {
+   "id": "north-sydney-port-aux-basques",
+   "name": "North Sydney – Port aux Basques",
+   "port_a": {
+    "name": "North Sydney",
+    "country": "CA",
+    "lat": 46.212,
+    "lng": -60.251
+   },
+   "port_b": {
+    "name": "Port aux Basques",
+    "country": "CA",
+    "lat": 47.573,
+    "lng": -59.139
+   },
+   "operators": [
+    "Marine Atlantic"
+   ],
+   "duration_h": 7,
+   "frequency_per_day": 2,
+   "seasonal": false,
+   "price_usd_lo": 14,
+   "price_usd_hi": 44,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.marineatlantic.ca/sailing-information/ferry-rates/port-aux-basques-nl-north-sydney-ns",
+   "price_asof": "2026-07",
+   "notes": "LOWER CONFIDENCE: the Canadian federal government cut Marine Atlantic fares 50% effective Aug 1 2025; sources disagree on whether cited figures (CAD43.78 vs a $13-81 range) are pre- or post-cut. Wide range reflects that uncertainty -- check marineatlantic.ca directly before use."
+  },
+  {
+   "id": "osaka-busan",
+   "name": "Osaka – Busan",
+   "port_a": {
+    "name": "Osaka",
+    "country": "JP",
+    "lat": 34.622,
+    "lng": 135.41
+   },
+   "port_b": {
+    "name": "Busan",
+    "country": "KR",
+    "lat": 35.101,
+    "lng": 129.041
+   },
+   "operators": [
+    "Panstar Cruise"
+   ],
+   "duration_h": 17,
+   "frequency_per_day": 0.5,
+   "seasonal": false,
+   "price_usd_lo": 135,
+   "price_usd_hi": 310,
+   "price_basis": "adult one-way, cabin berth required",
+   "vehicle": true,
+   "price_source": "https://www.panstar.co.kr/en/business/cruise/busan_osaka",
+   "price_asof": "2026-07",
+   "notes": "No seat-only option -- lowest fare is a shared inside-cabin bed (~KRW200,000), suites run to KRW750,000+ (~$465+). Roughly 3-4 sailings/week, not daily."
+  },
+  {
+   "id": "phuket-phiphi",
+   "name": "Phuket – Phi Phi",
+   "port_a": {
+    "name": "Phuket (Rassada)",
+    "country": "TH",
+    "lat": 7.905,
+    "lng": 98.395
+   },
+   "port_b": {
+    "name": "Phi Phi (Tonsai)",
+    "country": "TH",
+    "lat": 7.741,
+    "lng": 98.774
+   },
+   "operators": [
+    "Various (Phi Phi Cruiser, Chao Koh, Bangrong etc)"
+   ],
+   "duration_h": 1.5,
+   "frequency_per_day": 4,
+   "seasonal": false,
+   "price_usd_lo": 13,
+   "price_usd_hi": 45,
+   "price_basis": "adult one-way",
+   "vehicle": false,
+   "price_source": "https://www.phuketferry.com/route-phuket-koh-phi-phi.html",
+   "price_asof": "2026-07",
+   "notes": "THB450 base fare cited; excludes THB400 Phi Phi National Park entry fee charged on arrival. High aggregator averages ($81+) look inflated by bundled tour packages, not a plain ferry ticket."
+  },
+  {
+   "id": "piombino-portoferraio",
+   "name": "Piombino – Portoferraio (Elba)",
+   "port_a": {
+    "name": "Piombino",
+    "country": "IT",
+    "lat": 42.929,
+    "lng": 10.526
+   },
+   "port_b": {
+    "name": "Portoferraio",
+    "country": "IT",
+    "lat": 42.809,
+    "lng": 10.328
+   },
+   "operators": [
+    "Toremar",
+    "Moby Lines"
+   ],
+   "duration_h": 1,
+   "frequency_per_day": 12,
+   "seasonal": false,
+   "price_usd_lo": 14,
+   "price_usd_hi": 20,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.mobylines.com/routes/ferries-elba/piombino-portoferraio-piombino/",
+   "price_asof": "2026-07",
+   "notes": "Toremar quotes EUR12.32; Moby EUR17.70 for a single adult deck ticket -- among the cleanest confirmed fares in this dataset."
+  },
+  {
+   "id": "piraeus-heraklion",
+   "name": "Piraeus – Heraklion (Crete)",
+   "port_a": {
+    "name": "Piraeus",
+    "country": "GR",
+    "lat": 37.943,
+    "lng": 23.637
+   },
+   "port_b": {
+    "name": "Heraklion",
+    "country": "GR",
+    "lat": 35.343,
+    "lng": 25.146
+   },
+   "operators": [
+    "Minoan Lines",
+    "Blue Star Ferries"
+   ],
+   "duration_h": 9,
+   "frequency_per_day": 5,
+   "seasonal": false,
+   "price_usd_lo": 25,
+   "price_usd_hi": 45,
+   "price_basis": "adult economy seat one-way",
+   "vehicle": true,
+   "price_source": "https://www.ferries.gr/bluestarferries/crete/piraeus-heraklion-ferries/",
+   "price_asof": "2026-07",
+   "notes": "Year-round overnight workhorse route; fastest sailing 7h15m, conventional ~9h. Cabins from ~EUR60 extra."
+  },
+  {
+   "id": "piraeus-mykonos",
+   "name": "Piraeus – Mykonos",
+   "port_a": {
+    "name": "Piraeus",
+    "country": "GR",
+    "lat": 37.943,
+    "lng": 23.637
+   },
+   "port_b": {
+    "name": "Mykonos",
+    "country": "GR",
+    "lat": 37.445,
+    "lng": 25.328
+   },
+   "operators": [
+    "Blue Star Ferries",
+    "SeaJets"
+   ],
+   "duration_h": 4.5,
+   "frequency_per_day": 4,
+   "seasonal": true,
+   "price_usd_lo": 57,
+   "price_usd_hi": 65,
+   "price_basis": "adult economy seat one-way",
+   "vehicle": true,
+   "price_source": "https://www.go-ferry.com/carriers/blue-star-ferries",
+   "price_asof": "2026-07",
+   "notes": "Conventional ferries 4h40-5h50; fastest catamarans 2h40. Economy numbered seat EUR52-53."
+  },
+  {
+   "id": "piraeus-rhodes",
+   "name": "Piraeus – Rhodes",
+   "port_a": {
+    "name": "Piraeus",
+    "country": "GR",
+    "lat": 37.943,
+    "lng": 23.637
+   },
+   "port_b": {
+    "name": "Rhodes",
+    "country": "GR",
+    "lat": 36.446,
+    "lng": 28.225
+   },
+   "operators": [
+    "Blue Star Ferries"
+   ],
+   "duration_h": 14,
+   "frequency_per_day": 2,
+   "seasonal": false,
+   "price_usd_lo": 51,
+   "price_usd_hi": 83,
+   "price_basis": "adult economy seat one-way",
+   "vehicle": true,
+   "price_source": "https://booktickets.gr/en/routes/ferry-routes-and-tickets-piraeus-rodos",
+   "price_asof": "2026-07",
+   "notes": "Long Dodecanese overnight run (10h40 fastest to 17h43 slowest). A limited 'super economy' promo fare of EUR20 is sometimes available."
+  },
+  {
+   "id": "piraeus-santorini",
+   "name": "Piraeus – Santorini",
+   "port_a": {
+    "name": "Piraeus",
+    "country": "GR",
+    "lat": 37.943,
+    "lng": 23.637
+   },
+   "port_b": {
+    "name": "Santorini (Athinios)",
+    "country": "GR",
+    "lat": 36.386,
+    "lng": 25.437
+   },
+   "operators": [
+    "Blue Star Ferries",
+    "SeaJets"
+   ],
+   "duration_h": 7,
+   "frequency_per_day": 4,
+   "seasonal": true,
+   "price_usd_lo": 51,
+   "price_usd_hi": 95,
+   "price_basis": "adult economy seat one-way",
+   "vehicle": true,
+   "price_source": "https://santorinidave.com/athens-to-santorini",
+   "price_asof": "2026-07",
+   "notes": "Frequency drops sharply Nov-Mar. Conventional Blue Star ~EUR60 vs high-speed SeaJets catamaran EUR75-110+."
+  },
+  {
+   "id": "playa-del-carmen-cozumel",
+   "name": "Playa del Carmen – Cozumel",
+   "port_a": {
+    "name": "Playa del Carmen",
+    "country": "MX",
+    "lat": 20.629,
+    "lng": -87.073
+   },
+   "port_b": {
+    "name": "Cozumel",
+    "country": "MX",
+    "lat": 20.504,
+    "lng": -86.955
+   },
+   "operators": [
+    "Ultramar",
+    "Winjet"
+   ],
+   "duration_h": 0.58,
+   "frequency_per_day": 25,
+   "seasonal": false,
+   "price_usd_lo": 12,
+   "price_usd_hi": 20,
+   "price_basis": "adult one-way",
+   "vehicle": false,
+   "price_source": "https://www.ultramarferry.com/en/fares",
+   "price_asof": "2026-07",
+   "notes": "Two competing passenger-only operators, departures roughly every 30 min. Winjet ~$14, Ultramar ~$17-20."
+  },
+  {
+   "id": "plymouth-roscoff",
+   "name": "Plymouth – Roscoff",
+   "port_a": {
+    "name": "Plymouth",
+    "country": "GB",
+    "lat": 50.361,
+    "lng": -4.147
+   },
+   "port_b": {
+    "name": "Roscoff",
+    "country": "FR",
+    "lat": 48.726,
+    "lng": -4.0
+   },
+   "operators": [
+    "Brittany Ferries"
+   ],
+   "duration_h": 6,
+   "frequency_per_day": 1,
+   "seasonal": false,
+   "price_usd_lo": 48,
+   "price_usd_hi": 180,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.brittany-ferries.co.uk/ferry-routes/ferries-france/plymouth-roscoff/crossings",
+   "price_asof": "2026-07",
+   "notes": "5.5-8h daytime, 9-13h overnight sailings on same route. Up to 7 sailings/week (not daily)."
+  },
+  {
+   "id": "port-angeles-victoria",
+   "name": "Port Angeles – Victoria",
+   "port_a": {
+    "name": "Port Angeles",
+    "country": "US",
+    "lat": 48.118,
+    "lng": -123.431
+   },
+   "port_b": {
+    "name": "Victoria",
+    "country": "CA",
+    "lat": 48.425,
+    "lng": -123.371
+   },
+   "operators": [
+    "Black Ball Ferry Line (MV Coho)"
+   ],
+   "duration_h": 1.5,
+   "frequency_per_day": 2,
+   "seasonal": false,
+   "price_usd_lo": 25,
+   "price_usd_hi": 27,
+   "price_basis": "adult walk-on one-way",
+   "vehicle": true,
+   "price_source": "https://www.cohoferry.com/schedule-fares",
+   "price_asof": "2026-07 (confirmed live)",
+   "notes": "VERIFIED via direct fetch: adult walk-on fare is $25.00 USD (fuel surcharge included). Runs year-round with more sailings in summer than winter."
+  },
+  {
+   "id": "portsmouth-caen",
+   "name": "Portsmouth – Caen (Ouistreham)",
+   "port_a": {
+    "name": "Portsmouth",
+    "country": "GB",
+    "lat": 50.811,
+    "lng": -1.09
+   },
+   "port_b": {
+    "name": "Ouistreham",
+    "country": "FR",
+    "lat": 49.28,
+    "lng": -0.248
+   },
+   "operators": [
+    "Brittany Ferries"
+   ],
+   "duration_h": 6,
+   "frequency_per_day": 3,
+   "seasonal": false,
+   "price_usd_lo": 35,
+   "price_usd_hi": 140,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.brittany-ferries.co.uk/ferry-routes/ferries-france/portsmouth-caen/crossings",
+   "price_asof": "2026-07",
+   "notes": "Duration 4.5-7.5h depending on sailing (day vs overnight). Aggregator quoted range up to $350 for peak/cabin bookings, trimmed here."
+  },
+  {
+   "id": "portsmouth-santander",
+   "name": "Portsmouth – Santander",
+   "port_a": {
+    "name": "Portsmouth",
+    "country": "GB",
+    "lat": 50.811,
+    "lng": -1.09
+   },
+   "port_b": {
+    "name": "Santander",
+    "country": "ES",
+    "lat": 43.462,
+    "lng": -3.809
+   },
+   "operators": [
+    "Brittany Ferries"
+   ],
+   "duration_h": 32.5,
+   "frequency_per_day": 0.29,
+   "seasonal": false,
+   "price_usd_lo": 70,
+   "price_usd_hi": 280,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.brittany-ferries.co.uk/ferry-routes/ferries-spain/portsmouth-santander/crossings",
+   "price_asof": "2026-07",
+   "notes": "MODERATE CONFIDENCE on duration: two independent aggregator snippets and the Brittany Ferries crossings-page title both said 32-33.5h, which is long for the distance -- kept as sourced but flagged. Only 2 sailings/week. Foot passengers on this multi-day overnight crossing effectively need a cabin; fare reflects that."
+  },
+  {
+   "id": "portsmouth-st-malo",
+   "name": "Portsmouth – St Malo",
+   "port_a": {
+    "name": "Portsmouth",
+    "country": "GB",
+    "lat": 50.811,
+    "lng": -1.09
+   },
+   "port_b": {
+    "name": "St Malo",
+    "country": "FR",
+    "lat": 48.649,
+    "lng": -2.026
+   },
+   "operators": [
+    "Brittany Ferries"
+   ],
+   "duration_h": 11.5,
+   "frequency_per_day": 0.5,
+   "seasonal": false,
+   "price_usd_lo": 63,
+   "price_usd_hi": 220,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.brittany-ferries.co.uk/ferry-routes/ferries-france/portsmouth-st-malo/about",
+   "price_asof": "2026-07",
+   "notes": "Long crossing (~11.5h), often overnight; foot passenger fares from GBP49 cited, average nearer GBP169-239 once cabin included. Not daily."
+  },
+  {
+   "id": "puttgarden-rodby",
+   "name": "Puttgarden – Rødby",
+   "port_a": {
+    "name": "Puttgarden",
+    "country": "DE",
+    "lat": 54.502,
+    "lng": 11.222
+   },
+   "port_b": {
+    "name": "Rødby",
+    "country": "DK",
+    "lat": 54.656,
+    "lng": 11.351
+   },
+   "operators": [
+    "Scandlines"
+   ],
+   "duration_h": 0.75,
+   "frequency_per_day": 48,
+   "seasonal": false,
+   "price_usd_lo": 10,
+   "price_usd_hi": 13,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.scandlines.com/tickets/puttgarden-rodby/",
+   "price_asof": "2026-07",
+   "notes": "Turn-up-and-go shuttle every 30 min, 24/7/365. Foot-passenger tickets are terminal-only, not sold online. Being partly superseded by the Fehmarnbelt tunnel (under construction)."
+  },
+  {
+   "id": "rhodes-marmaris",
+   "name": "Rhodes – Marmaris",
+   "port_a": {
+    "name": "Rhodes",
+    "country": "GR",
+    "lat": 36.446,
+    "lng": 28.225
+   },
+   "port_b": {
+    "name": "Marmaris",
+    "country": "TR",
+    "lat": 36.855,
+    "lng": 28.274
+   },
+   "operators": [
+    "Yesil Marmaris Lines",
+    "Sea Dreams",
+    "Marmaris Lines"
+   ],
+   "duration_h": 1,
+   "frequency_per_day": 1.5,
+   "seasonal": true,
+   "price_usd_lo": 63,
+   "price_usd_hi": 80,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": false,
+   "price_source": "https://www.marmarisferry.com/en/marmaris-rhodes-ticket-prices",
+   "price_asof": "2026-07",
+   "notes": "Fast catamaran, seasonal (roughly Apr-Oct). Several small Turkish operators, prices similar across them."
+  },
+  {
+   "id": "rosslare-cherbourg",
+   "name": "Rosslare – Cherbourg",
+   "port_a": {
+    "name": "Rosslare",
+    "country": "IE",
+    "lat": 52.253,
+    "lng": -6.337
+   },
+   "port_b": {
+    "name": "Cherbourg",
+    "country": "FR",
+    "lat": 49.646,
+    "lng": -1.616
+   },
+   "operators": [
+    "Brittany Ferries",
+    "Irish Ferries"
+   ],
+   "duration_h": 19,
+   "frequency_per_day": 0.57,
+   "seasonal": false,
+   "price_usd_lo": 99,
+   "price_usd_hi": 275,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.brittany-ferries.ie/ferry-routes/ireland-france-ferries/rosslare-cherbourg/about",
+   "price_asof": "2026-07",
+   "notes": "Direct Ireland-France route bypassing the UK land-bridge; ~19h overnight, cabin typically needed, only 4 sailings/week."
+  },
+  {
+   "id": "rostock-gedser",
+   "name": "Rostock – Gedser",
+   "port_a": {
+    "name": "Rostock",
+    "country": "DE",
+    "lat": 54.153,
+    "lng": 12.096
+   },
+   "port_b": {
+    "name": "Gedser",
+    "country": "DK",
+    "lat": 54.576,
+    "lng": 11.927
+   },
+   "operators": [
+    "Scandlines"
+   ],
+   "duration_h": 2,
+   "frequency_per_day": 5,
+   "seasonal": false,
+   "price_usd_lo": 15,
+   "price_usd_hi": 31,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.scandlines.com/tickets/rostock-gedser/",
+   "price_asof": "2026-07",
+   "notes": "Pedestrian fare EUR14 low season / EUR28 high season, quoted directly by Scandlines."
+  },
+  {
+   "id": "seattle-bainbridge",
+   "name": "Seattle – Bainbridge Island",
+   "port_a": {
+    "name": "Seattle",
+    "country": "US",
+    "lat": 47.602,
+    "lng": -122.339
+   },
+   "port_b": {
+    "name": "Bainbridge Island",
+    "country": "US",
+    "lat": 47.627,
+    "lng": -122.511
+   },
+   "operators": [
+    "Washington State Ferries"
+   ],
+   "duration_h": 0.6,
+   "frequency_per_day": 13,
+   "seasonal": false,
+   "price_usd_lo": 11,
+   "price_usd_hi": 11,
+   "price_basis": "adult walk-on, WSF's round-trip-equivalent fare (see notes)",
+   "vehicle": true,
+   "price_source": "https://www.wsdot.wa.gov/ferries/fares/faresdetail.aspx?departingterm=7&arrivingterm=3",
+   "price_asof": "2026-07 (confirmed live via WSDOT fare page)",
+   "notes": "VERIFIED via direct fetch of the official WSDOT fare page: adult walk-on is $11.35, but WSF collects it only westbound (Seattle-departing) and the Bainbridge-to-Seattle leg is free -- so a one-way Seattle-to-Bainbridge trip costs $11.35 and the reverse costs $0. Unique to WSF's central-Sound routes."
+  },
+  {
+   "id": "seattle-victoria",
+   "name": "Seattle – Victoria (Clipper)",
+   "port_a": {
+    "name": "Pier 69 (Seattle)",
+    "country": "US",
+    "lat": 47.612,
+    "lng": -122.348
+   },
+   "port_b": {
+    "name": "Victoria Inner Harbour",
+    "country": "CA",
+    "lat": 48.423,
+    "lng": -123.371
+   },
+   "operators": [
+    "FRS Clipper"
+   ],
+   "duration_h": 2.75,
+   "frequency_per_day": 1.5,
+   "seasonal": false,
+   "price_usd_lo": 65,
+   "price_usd_hi": 170,
+   "price_basis": "adult economy one-way, passenger-only fast ferry",
+   "vehicle": false,
+   "price_source": "https://www.clippervacations.com/seattle-victoria-ferry/",
+   "price_asof": "2026-07",
+   "notes": "Passenger-only catamaran, 1-3/day varying by season; highly dynamic pricing (sources conflict $115 RT promo vs $120-200 one-way) — medium confidence band."
+  },
+  {
+   "id": "singapore-batam",
+   "name": "Singapore (HarbourFront) – Batam",
+   "port_a": {
+    "name": "Singapore (HarbourFront)",
+    "country": "SG",
+    "lat": 1.265,
+    "lng": 103.822
+   },
+   "port_b": {
+    "name": "Batam Centre",
+    "country": "ID",
+    "lat": 1.144,
+    "lng": 104.034
+   },
+   "operators": [
+    "Sindo Ferry",
+    "Batam Fast Ferry"
+   ],
+   "duration_h": 0.75,
+   "frequency_per_day": 16,
+   "seasonal": false,
+   "price_usd_lo": 28,
+   "price_usd_hi": 32,
+   "price_basis": "adult one-way",
+   "vehicle": false,
+   "price_source": "https://www.sindoferry.com.sg/ticket-fares",
+   "price_asof": "2026-07",
+   "notes": "Ticket price EXCLUDES a S$10 Singapore departure fee and an Rp100,000 (~$10) Batam terminal fee charged separately at each end -- true door-to-door cost is roughly double the base fare."
+  },
+  {
+   "id": "split-ancona",
+   "name": "Split – Ancona",
+   "port_a": {
+    "name": "Split",
+    "country": "HR",
+    "lat": 43.508,
+    "lng": 16.437
+   },
+   "port_b": {
+    "name": "Ancona",
+    "country": "IT",
+    "lat": 43.617,
+    "lng": 13.512
+   },
+   "operators": [
+    "Jadrolinija",
+    "SNAV"
+   ],
+   "duration_h": 11.25,
+   "frequency_per_day": 0.5,
+   "seasonal": true,
+   "price_usd_lo": 62,
+   "price_usd_hi": 90,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.putovnica.net/en/transport/passenger-vehicle-car-ferry-split-ancona-jadrolinija",
+   "price_asof": "2026-07",
+   "notes": "Overnight; schedule thins sharply outside summer season. Deck fare EUR56-82 cited."
+  },
+  {
+   "id": "st-maarten-anguilla",
+   "name": "St Martin (Marigot) – Anguilla (Blowing Point)",
+   "port_a": {
+    "name": "Marigot",
+    "country": "MF",
+    "lat": 18.068,
+    "lng": -63.083
+   },
+   "port_b": {
+    "name": "Blowing Point",
+    "country": "AI",
+    "lat": 18.167,
+    "lng": -63.054
+   },
+   "operators": [
+    "Public ferry (multiple small operators)"
+   ],
+   "duration_h": 0.33,
+   "frequency_per_day": 2.5,
+   "seasonal": false,
+   "price_usd_lo": 30,
+   "price_usd_hi": 35,
+   "price_basis": "adult one-way (cash, on the boat)",
+   "vehicle": false,
+   "price_source": "https://www.anguilla-beaches.com/anguilla-ferry-system.html",
+   "price_asof": "2026-07",
+   "notes": "$30/EUR30 fare does NOT include a EUR7 passenger head-fee at the Marigot ticket office or Anguilla port taxes (US$11-28 depending on stay length) -- those are add-ons, not part of the ferry ticket itself."
+  },
+  {
+   "id": "tallinn-stockholm",
+   "name": "Tallinn – Stockholm",
+   "port_a": {
+    "name": "Tallinn",
+    "country": "EE",
+    "lat": 59.444,
+    "lng": 24.754
+   },
+   "port_b": {
+    "name": "Stockholm",
+    "country": "SE",
+    "lat": 59.32,
+    "lng": 18.115
+   },
+   "operators": [
+    "Tallink Silja"
+   ],
+   "duration_h": 17.5,
+   "frequency_per_day": 0.6,
+   "seasonal": false,
+   "price_usd_lo": 60,
+   "price_usd_hi": 280,
+   "price_basis": "adult foot passenger one-way (seat/cabin)",
+   "vehicle": true,
+   "price_source": "https://www.tallink.com/timetables",
+   "price_asof": "2026-07",
+   "notes": "Cruise ferry (Baltic Queen), sails every other evening from Tallinn year-round with extra summer departures on Romantika."
+  },
+  {
+   "id": "tarifa-tangerville",
+   "name": "Tarifa – Tanger Ville",
+   "port_a": {
+    "name": "Puerto de Tarifa",
+    "country": "ES",
+    "lat": 36.008,
+    "lng": -5.603
+   },
+   "port_b": {
+    "name": "Tanger Ville",
+    "country": "MA",
+    "lat": 35.785,
+    "lng": -5.805
+   },
+   "operators": [
+    "Balearia",
+    "AML (Africa Morocco Link)"
+   ],
+   "duration_h": 1.0,
+   "frequency_per_day": 15,
+   "seasonal": false,
+   "price_usd_lo": 40,
+   "price_usd_hi": 90,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.balearia.com/en/routes-timetables/ferry-tarifa-tanger-ville",
+   "price_asof": "2026-07",
+   "notes": "Balearia took over the FRS concession May 2025; ~15 daily sailings combined with AML. Fast ferry into central Tangier."
+  },
+  {
+   "id": "trinidad-tobago",
+   "name": "Trinidad – Tobago",
+   "port_a": {
+    "name": "Port of Spain",
+    "country": "TT",
+    "lat": 10.652,
+    "lng": -61.517
+   },
+   "port_b": {
+    "name": "Scarborough",
+    "country": "TT",
+    "lat": 11.181,
+    "lng": -60.733
+   },
+   "operators": [
+    "TTIT (Trinidad and Tobago Inter-Island Transportation Co.)"
+   ],
+   "duration_h": 3,
+   "frequency_per_day": 2,
+   "seasonal": false,
+   "price_usd_lo": 11,
+   "price_usd_hi": 11,
+   "price_basis": "adult economy one-way",
+   "vehicle": true,
+   "price_source": "https://www.ttitferry.com/fares/",
+   "price_asof": "2026-07",
+   "notes": "State-run fast ferry, TT$75 economy one-way (~$11 at TTD=6.75/USD peg). Crossing 2.5-5h depending on vessel."
+  },
+  {
+   "id": "tsawwassen-swartz-bay",
+   "name": "Vancouver (Tsawwassen) – Victoria (Swartz Bay)",
+   "port_a": {
+    "name": "Tsawwassen",
+    "country": "CA",
+    "lat": 49.006,
+    "lng": -123.132
+   },
+   "port_b": {
+    "name": "Swartz Bay",
+    "country": "CA",
+    "lat": 48.688,
+    "lng": -123.41
+   },
+   "operators": [
+    "BC Ferries"
+   ],
+   "duration_h": 1.58,
+   "frequency_per_day": 12,
+   "seasonal": false,
+   "price_usd_lo": 13,
+   "price_usd_hi": 14,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.bcferries.com/routes-fares/ferry-fares",
+   "price_asof": "2026-07",
+   "notes": "Adult fare CAD18.50-20 converted at CAD=0.72 USD. BC seniors ride free Mon-Thu."
+  },
+  {
+   "id": "turku-stockholm",
+   "name": "Turku – Stockholm",
+   "port_a": {
+    "name": "Turku",
+    "country": "FI",
+    "lat": 60.435,
+    "lng": 22.211
+   },
+   "port_b": {
+    "name": "Stockholm",
+    "country": "SE",
+    "lat": 59.32,
+    "lng": 18.115
+   },
+   "operators": [
+    "Viking Line",
+    "Tallink Silja"
+   ],
+   "duration_h": 11,
+   "frequency_per_day": 2,
+   "seasonal": false,
+   "price_usd_lo": 35,
+   "price_usd_hi": 115,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.vikingline.com/",
+   "price_asof": "2026-07",
+   "notes": "Overnight via Aland. Cheap cabin berths from EUR37.50 (Viking) seen in low season."
+  },
+  {
+   "id": "valencia-ibiza",
+   "name": "Valencia – Ibiza",
+   "port_a": {
+    "name": "Valencia",
+    "country": "ES",
+    "lat": 39.442,
+    "lng": -0.313
+   },
+   "port_b": {
+    "name": "Ibiza",
+    "country": "ES",
+    "lat": 38.907,
+    "lng": 1.436
+   },
+   "operators": [
+    "Balearia",
+    "GNV",
+    "Trasmed"
+   ],
+   "duration_h": 5.17,
+   "frequency_per_day": 1,
+   "seasonal": false,
+   "price_usd_lo": 14,
+   "price_usd_hi": 95,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.balearia.com/en/routes-timetables/ferry-valencia-ibiza",
+   "price_asof": "2026-07",
+   "notes": "Fast-craft option ~5h10m with Balearia; slower conventional sailings also exist."
+  },
+  {
+   "id": "villa-san-giovanni-messina",
+   "name": "Villa San Giovanni – Messina",
+   "port_a": {
+    "name": "Villa San Giovanni",
+    "country": "IT",
+    "lat": 38.217,
+    "lng": 15.635
+   },
+   "port_b": {
+    "name": "Messina",
+    "country": "IT",
+    "lat": 38.191,
+    "lng": 15.556
+   },
+   "operators": [
+    "Caronte & Tourist"
+   ],
+   "duration_h": 0.33,
+   "frequency_per_day": 30,
+   "seasonal": false,
+   "price_usd_lo": 3,
+   "price_usd_hi": 9,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://carontetourist.it/en/caronte/messina-villa-san-giovanni-ferry",
+   "price_asof": "2026-07",
+   "notes": "Pedestrian ticket EUR2.50 quoted directly by the operator; a 20-minute strait shuttle running ~30x/day. Very cheap per-km -- a useful floor datapoint."
+  },
+  {
+   "id": "wellington-picton",
+   "name": "Wellington – Picton",
+   "port_a": {
+    "name": "Wellington",
+    "country": "NZ",
+    "lat": -41.284,
+    "lng": 174.782
+   },
+   "port_b": {
+    "name": "Picton",
+    "country": "NZ",
+    "lat": -41.291,
+    "lng": 174.0
+   },
+   "operators": [
+    "Interislander",
+    "Bluebridge"
+   ],
+   "duration_h": 3.5,
+   "frequency_per_day": 6,
+   "seasonal": false,
+   "price_usd_lo": 37,
+   "price_usd_hi": 42,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.interislander.co.nz/",
+   "price_asof": "2026-07",
+   "notes": "Cook Strait crossing; two competing operators (NZD60 Interislander, NZD68 Bluebridge cheapest foot-passenger fares)."
+  },
+  {
+   "id": "woods-hole-marthas-vineyard",
+   "name": "Woods Hole – Martha's Vineyard",
+   "port_a": {
+    "name": "Woods Hole",
+    "country": "US",
+    "lat": 41.524,
+    "lng": -70.673
+   },
+   "port_b": {
+    "name": "Vineyard Haven",
+    "country": "US",
+    "lat": 41.454,
+    "lng": -70.6
+   },
+   "operators": [
+    "Steamship Authority"
+   ],
+   "duration_h": 0.75,
+   "frequency_per_day": 20,
+   "seasonal": false,
+   "price_usd_lo": 11,
+   "price_usd_hi": 11,
+   "price_basis": "adult passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.steamshipauthority.com/reservations/fares",
+   "price_asof": "2026-07",
+   "notes": "Confirmed directly by operator: $11 one-way / $22 round-trip. No vehicle reservation required for foot passengers; very high frequency in season."
+  },
+  {
+   "id": "ystad-ronne",
+   "name": "Ystad – Rønne (Bornholm)",
+   "port_a": {
+    "name": "Ystad",
+    "country": "SE",
+    "lat": 55.428,
+    "lng": 13.821
+   },
+   "port_b": {
+    "name": "Rønne",
+    "country": "DK",
+    "lat": 55.1,
+    "lng": 14.706
+   },
+   "operators": [
+    "Bornholmslinjen"
+   ],
+   "duration_h": 1.33,
+   "frequency_per_day": 5,
+   "seasonal": false,
+   "price_usd_lo": 20,
+   "price_usd_hi": 70,
+   "price_basis": "adult foot passenger one-way",
+   "vehicle": true,
+   "price_source": "https://www.bornholmslinjen.com/prices",
+   "price_asof": "2026-07",
+   "notes": "Standard adult ticket from DKK99. Wide aggregator range ($16-423) trimmed to a typical band."
+  }
+ ]
+}

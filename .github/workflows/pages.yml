@@ -41,7 +41,9 @@ jobs:
         # truth stays src/hopandhaul/data/). This is a plain file copy, not a build step.
         run: |
           mkdir -p src/hopandhaul/ui/data
-          cp src/hopandhaul/data/airports.json src/hopandhaul/data/gateways.json src/hopandhaul/ui/data/
+          cp src/hopandhaul/data/airports.json src/hopandhaul/data/gateways.json \
+             src/hopandhaul/data/ferries.json src/hopandhaul/data/landgrid.json \
+             src/hopandhaul/data/fareanchors.json src/hopandhaul/ui/data/
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

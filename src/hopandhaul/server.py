@@ -34,17 +34,21 @@ from urllib.parse import urlparse, parse_qs
 from . import __version__, emissions, geo, itinerary, trip
 from .integrations import net
 try:
-    from . import flights     # provider-agnostic live pricing (Duffel preferred, Amadeus fallback)
+    from . import flights     # live flight pricing (Duffel, optional key)
 except Exception:  # pragma: no cover
     flights = None
 try:
-    from . import geoapify     # geocoding: type-a-place search
+    from . import places      # geocoding: Photon keyless, Geoapify when keyed
 except Exception:  # pragma: no cover
-    geoapify = None
+    places = None
 try:
-    from . import weather      # destination conditions (OpenWeather)
+    from . import weather      # destination conditions (Open-Meteo, keyless)
 except Exception:  # pragma: no cover
     weather = None
+try:
+    from . import transit      # real ground schedules (Transitous, keyless)
+except Exception:  # pragma: no cover
+    transit = None
 
 # UI root resolved via importlib.resources so this works from a repo checkout AND a
 # real (non-editable) pip install alike — never trust a path built from request input.
@@ -411,7 +415,7 @@ def _ground_leg_spec(g, dest, cost, road_km):
 
 def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=200.0,
          max_ground_h=6.0, roundtrip=False, fetch_weather=True, travelers=1,
-         ret=None, transfer_buffer=1.0, allow_live=True):
+         ret=None, transfer_buffer=1.0, allow_live=True, allow_transit=True):
     origin = geo.by_iata(origin_iata)
     if not origin:
         return {"ok": False, "error": f"unknown origin airport '{origin_iata}'", "code": "unknown_origin"}
@@ -435,6 +439,35 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     rt_mult = 2 if roundtrip else 1          # ground legs ride both ways on a round-trip
 
     gws = geo.discover_gateways(dest, origin=origin, max_ground_h=max_ground_h)
+
+    # REAL ground schedules (Transitous, keyless): look up each transit-able gateway leg's
+    # actual timetable to the clicked point, concurrently, under a short budget. A hit
+    # replaces the leg's formula duration with the real door-to-door time and carries the
+    # real operators into provenance. Fares on those legs remain estimates — GTFS has none.
+    if allow_transit and transit and gws:
+        lookups = [g for g in gws if g["ground_mode"] in ("train", "bus", "ferry")]
+        if lookups:
+            # 2 workers max — Transitous is a shared community instance and asks callers to
+            # keep request volume low. The wait ceiling sits ABOVE the per-call timeout (8s
+            # in transit.ground_options), so a slow-but-successful lookup is never discarded
+            # by its own coordinator.
+            ex_t = concurrent.futures.ThreadPoolExecutor(max_workers=min(2, len(lookups)))
+            futs = {ex_t.submit(transit.ground_options, g["lat"], g["lng"],
+                                dest_lat, dest_lng, date, g["ground_mode"]): g
+                    for g in lookups}
+            done_t, _ = concurrent.futures.wait(list(futs), timeout=9.0)
+            for f in done_t:
+                g = futs[f]
+                try:
+                    tr = f.result()
+                except Exception:
+                    tr = None
+                if tr:
+                    tr = dict(tr)
+                    tr["line"] = transit.describe(tr)
+                    g["transit"] = tr
+                    g["ground_hours"] = tr["duration_h"]   # a real timetable beats a formula
+            ex_t.shutdown(wait=False, cancel_futures=True)
 
     ctx = {"live_used": False, "est_used": False, "live_error": False}
     session = None
@@ -526,7 +559,12 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         # ground distance: same road-winding factor geo.py's own estimator uses, so a curated
         # gateway (which only ships a ground_time_h/ground_cost_usd, no distance) gets an
         # emissions figure consistent with an auto-discovered one built from estimate_ground.
-        ground_km = geo.haversine_km(g["lat"], g["lng"], dest["lat"], dest["lng"]) * geo.ROAD_WINDING * rt_mult
+        # A real-corridor ferry leg uses the actual port-to-port crossing distance instead —
+        # boats sail the strait, they don't follow a winding road.
+        if g.get("ferry"):
+            ground_km = g["ferry"]["crossing_km"] * rt_mult
+        else:
+            ground_km = geo.haversine_km(g["lat"], g["lng"], dest["lat"], dest["lng"]) * geo.ROAD_WINDING * rt_mult
         emissions_legs_by_name[name] = [
             {"mode": "fly", "distance_km": fly_km},
             {"mode": g["ground_mode"], "road_km": ground_km},
@@ -586,6 +624,14 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         else:
             notes.append("Round-trip: fares shown are ~2× one-way; add a return date for real "
                          "RT pricing. Times are for the outbound leg.")
+    if any(g.get("ferry") for g in gws):
+        notes.append("Ferry legs are REAL corridors (bundled research, operators + typical "
+                     "fares + sailings/day as of the data's date) — schedules vary by day and "
+                     "season, so check the operator before relying on a connection.")
+    if any(g.get("transit") for g in gws):
+        notes.append("Ground legs marked 'live schedule' use real timetables via Transitous "
+                     "(transitous.org — community GTFS/OSM data): real operators, departures "
+                     "and door-to-door times. Fares on those legs are still estimates.")
     if dest.get("dist_km", 0) > 120:
         notes.append(f"Nearest airport {dest['iata']} is ~{int(dest['dist_km'])} km from the "
                      f"clicked point — the last mile to your exact spot isn't included.")
@@ -629,11 +675,16 @@ def _pt(a, full=False):
 
 
 def _gw(g):
-    return {"iata": g["iata"], "name": g["name"], "city": g.get("city"),
-            "lat": g["lat"], "lng": g["lng"],
-            "hub": g["hub"], "ground_mode": g["ground_mode"], "ground_hours": g["ground_hours"],
-            "ground_cost": g["ground_cost"], "source": g["source"], "notes": g.get("notes", ""),
-            "fly": g.get("fly")}
+    out = {"iata": g["iata"], "name": g["name"], "city": g.get("city"),
+           "lat": g["lat"], "lng": g["lng"],
+           "hub": g["hub"], "ground_mode": g["ground_mode"], "ground_hours": g["ground_hours"],
+           "ground_cost": g["ground_cost"], "source": g["source"], "notes": g.get("notes", ""),
+           "fly": g.get("fly")}
+    if g.get("ferry"):
+        out["ferry"] = g["ferry"]
+    if g.get("transit"):
+        out["transit"] = g["transit"]
+    return out
 
 
 # --------------------------------------------------------------------------- http
@@ -721,9 +772,11 @@ class Handler(BaseHTTPRequestHandler):
         fp = flights.provider_name() if flights else None
         return self._send_ok({
             "has_live_keys": fp is not None,
-            "flights_provider": fp,                       # "duffel" | "amadeus" | None
-            "has_geocode": bool(geoapify and geoapify.have_keys()),
-            "has_weather": bool(weather and weather.have_keys()),
+            "flights_provider": fp,                       # "duffel" | None
+            "has_geocode": places is not None,            # Photon keyless; Geoapify when keyed
+            "geocode_provider": places.provider() if places else None,
+            "has_weather": weather is not None,           # Open-Meteo, keyless
+            "has_transit": transit is not None,           # Transitous, keyless
             "default_origin": os.environ.get("TRAVEL_ORIGIN", "JFK"),
             "default_threshold": trip.DEFAULT_THRESHOLD,
             "default_travelers": 1,
@@ -735,10 +788,10 @@ class Handler(BaseHTTPRequestHandler):
             params = parse_geocode_params(q)
         except ValidationError as e:
             return self._send_err(400, "invalid_param", e.message)
-        if not (geoapify and geoapify.have_keys()):
+        if not places:
             return self._send_err(200, "geocoding_not_configured", "geocoding not configured")
         try:
-            results = geoapify.geocode(params["text"], limit=params["limit"])
+            results = places.geocode(params["text"], limit=params["limit"])
         except (net.FetchError, urllib.error.HTTPError, urllib.error.URLError,
                 ValueError, KeyError) as e:
             _log_exc("/api/geocode", e)
@@ -794,10 +847,12 @@ def serve(port=DEFAULT_PORT):
     trip._force_utf8()
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     fp = flights.provider_name() if flights else None
-    live = f"LIVE flights ({fp})" if fp else "ESTIMATE flights"
-    geoc = "geocode ON" if (geoapify and geoapify.have_keys()) else "geocode off"
-    wx = "weather ON" if (weather and weather.have_keys()) else "weather off"
-    print(f"hopandhaul map UI  ->  http://127.0.0.1:{port}   [{live} · {geoc} · {wx}]")
+    live = f"LIVE flights ({fp})" if fp else "ESTIMATE flights (set DUFFEL_API_KEY for live)"
+    geoc = f"geocode ON ({places.provider()})" if places else "geocode off"
+    wx = "weather ON (open-meteo)" if weather else "weather off"
+    tr = "transit ON (transitous)" if transit else "transit off"
+    print(f"hopandhaul map UI  ->  http://127.0.0.1:{port}")
+    print(f"  [{live} · {geoc} · {wx} · {tr}]")
     print("Ctrl+C to stop.")
     try:
         httpd.serve_forever()
@@ -826,8 +881,8 @@ def selftest():
     check("refuses unknown extension", _resolve_ui_asset("/secrets.env") is None)
 
     # end-to-end plan for a click on Aspen, origin JFK — estimate mode, no network.
-    # (allow_live=False -> no provider session; fetch_weather=False -> no OpenWeather call)
-    out = plan(39.19, -106.82, origin_iata="JFK", vot=30, fetch_weather=False, allow_live=False)
+    # (allow_live+allow_transit False -> no provider or Transitous calls; fetch_weather=False -> offline)
+    out = plan(39.19, -106.82, origin_iata="JFK", vot=30, fetch_weather=False, allow_live=False, allow_transit=False)
     check("plan ok", out.get("ok") is True)
     check("dest resolved to ASE", out["dest"]["iata"] == "ASE")
     check("pricing source is estimate (no date)", out["pricing_source"] == "estimate")
@@ -837,7 +892,7 @@ def selftest():
           out["result"]["recommended"] == "Fly direct to ASE")
     # drop the rule under the saving and the DEN split should now win.
     out_lo = plan(39.19, -106.82, origin_iata="JFK", threshold=50, fetch_weather=False,
-                  allow_live=False)
+                  allow_live=False, allow_transit=False)
     reclo = out_lo["result"]["recommended"]
     check(f"with a $50 rule the DEN split wins (got {reclo})", reclo.startswith("DEN"))
     recopt = next(o for o in out_lo["result"]["options"] if o["name"] == reclo)
@@ -884,37 +939,37 @@ def selftest():
           any("co2e_kg" in n and "ESTIMATE" in n for n in out["notes"]))
 
     # click on a major hub (Denver) — should be fine flying direct, no split needed.
-    out2 = plan(39.74, -104.99, origin_iata="JFK", fetch_weather=False, allow_live=False)
+    out2 = plan(39.74, -104.99, origin_iata="JFK", fetch_weather=False, allow_live=False, allow_transit=False)
     check("Denver click recommends flying direct", out2["result"]["recommended"].startswith("Fly direct"))
 
     # a click in Manhattan must resolve to a real airline-served NYC airport, not the closest
     # point on the map (New York Skyports Inc Seaplane Base sits right off the FDR Drive).
-    nyc = plan(40.71, -74.0, origin_iata="BOS", fetch_weather=False, allow_live=False)
+    nyc = plan(40.71, -74.0, origin_iata="BOS", fetch_weather=False, allow_live=False, allow_transit=False)
     check(f"Manhattan click resolves to a real NYC airport (got {nyc['dest']['iata']})",
           nyc["dest"]["iata"] in {"JFK", "LGA", "EWR"})
 
     # a click in central Paris must resolve to CDG/ORY, not LBG (Le Bourget — business
     # aviation, no scheduled airline service).
-    paris = plan(48.86, 2.35, origin_iata="JFK", fetch_weather=False, allow_live=False)
+    paris = plan(48.86, 2.35, origin_iata="JFK", fetch_weather=False, allow_live=False, allow_transit=False)
     check(f"Central Paris click resolves to CDG/ORY, not Le Bourget (got {paris['dest']['iata']})",
           paris["dest"]["iata"] in {"CDG", "ORY"})
 
     # a mid-ocean click has no airport within the max-km cap, so it's refused cleanly
     # instead of routing to an airport a thousand+ km away.
-    out3 = plan(30.0, -40.0, origin_iata="JFK", fetch_weather=False, allow_live=False)
+    out3 = plan(30.0, -40.0, origin_iata="JFK", fetch_weather=False, allow_live=False, allow_transit=False)
     check("ocean click with no airport in range is refused cleanly",
           (not out3["ok"]) and out3.get("code") == "no_airport_near_point")
 
     # clicking on your own origin airport must be refused, not priced as a real "direct
     # flight" to itself off the NA short-hop floor.
-    same_origin = plan(40.64, -73.78, origin_iata="JFK", fetch_weather=False, allow_live=False)
+    same_origin = plan(40.64, -73.78, origin_iata="JFK", fetch_weather=False, allow_live=False, allow_transit=False)
     check("clicking your own origin airport is refused, not priced as a same-airport flight",
           (not same_origin["ok"]) and same_origin.get("code") == "origin_is_destination")
 
     # travelers: 4 people scale flights & buses ×4, but a rental/drive leg stays per-vehicle,
     # so the group total is strictly less than 4× the solo total whenever a drive leg exists.
-    solo = plan(39.19, -106.82, origin_iata="JFK", fetch_weather=False, allow_live=False)
-    grp = plan(39.19, -106.82, origin_iata="JFK", fetch_weather=False, allow_live=False,
+    solo = plan(39.19, -106.82, origin_iata="JFK", fetch_weather=False, allow_live=False, allow_transit=False)
+    grp = plan(39.19, -106.82, origin_iata="JFK", fetch_weather=False, allow_live=False, allow_transit=False,
                travelers=4)
     s_dir = next(o for o in solo["result"]["options"] if o["name"].startswith("Fly direct"))
     g_dir = next(o for o in grp["result"]["options"] if o["name"].startswith("Fly direct"))
@@ -929,9 +984,9 @@ def selftest():
 
     # round-trip with a return date (estimate mode): flight cost ≈ out + back, ground ×2.
     ow = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15", fetch_weather=False,
-              allow_live=False)
+              allow_live=False, allow_transit=False)
     rt = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15", ret="2026-08-22",
-              fetch_weather=False, allow_live=False)
+              fetch_weather=False, allow_live=False, allow_transit=False)
     ow_dir = next(o for o in ow["result"]["options"] if o["name"].startswith("Fly direct"))
     rt_dir = next(o for o in rt["result"]["options"] if o["name"].startswith("Fly direct"))
     check("RT direct cost > one-way and < 2.6× (separate date multipliers)",
@@ -956,7 +1011,7 @@ def selftest():
          _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
          _mock.patch.object(flights, "search_cheapest", side_effect=_raise_fetch_error):
         out_fallback = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15",
-                            fetch_weather=False, allow_live=True)
+                            fetch_weather=False, allow_live=True, allow_transit=False)
     check("a FetchError from the live provider still returns ok:True",
           out_fallback.get("ok") is True)
     check("pricing degrades to estimate on a live-provider FetchError",
@@ -987,7 +1042,7 @@ def selftest():
          _mock.patch.object(flights, "search_cheapest", side_effect=_slow_search_cheapest), \
          _mock.patch.object(_this_module, "PLAN_TIME_BUDGET_S", 1.0):
         out_budget = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15",
-                          fetch_weather=False, allow_live=True)
+                          fetch_weather=False, allow_live=True, allow_transit=False)
     budget_elapsed = _time.monotonic() - budget_start
     check(f"plan() returns near the 1s budget, not the 3s provider hang (took {budget_elapsed:.2f}s)",
           budget_elapsed < 2.0)
@@ -1012,7 +1067,7 @@ def selftest():
          _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
          _mock.patch.object(flights, "search_cheapest", side_effect=_fake_live_search):
         out_live = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15",
-                        fetch_weather=False, allow_live=True)
+                        fetch_weather=False, allow_live=True, allow_transit=False)
     check("a successful live search prices the plan live", out_live.get("pricing_source") != "estimate")
     live_direct = next(o for o in out_live["result"]["options"] if o["name"].startswith("Fly direct"))
     live_leg0 = live_direct["itinerary"]["legs"][0]

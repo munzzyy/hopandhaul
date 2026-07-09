@@ -15,8 +15,9 @@ real airport names, an example (or, once live, real) clock schedule, per-leg pri
 and a verify link — printed as plain text by format_itineraries().
 
 Currency: Duffel returns each offer in the airline's filing currency. To keep the money math
-honest (flight + ground summed in one currency) we convert to USD with a labelled approximate
-FX table; the native amount + currency are preserved and any conversion is flagged.
+honest (flight + ground summed in one currency) we convert to USD — with today's real ECB
+rate via frankfurter.dev (keyless) when the network allows, else a labelled approximate
+bundled table; the native amount + currency are preserved and any conversion is flagged.
 
 Examples:
   hopandhaul duffel --from JFK --to ASE --date 2026-08-15 --auto-gateways --vot 30
@@ -85,6 +86,36 @@ FX_USD = {
 }
 
 
+# Live daily rates from frankfurter.dev (keyless, no quota, ECB-sourced) upgrade the static
+# table above whenever the network allows: one call, cached for the session, ~30 majors. The
+# static table stays as the offline fallback and for the long tail of currencies the ECB set
+# doesn't carry. to_usd() reports which source priced a conversion so provenance can say so.
+_FX_LIVE = {"rates": None, "tried": False}
+_FRANKFURTER = "https://api.frankfurter.dev/v1/latest?base=USD"
+
+
+def _live_rates() -> dict | None:
+    """{currency: usd_per_unit} from today's ECB fix, or None. One attempt per process."""
+    if not _FX_LIVE["tried"]:
+        _FX_LIVE["tried"] = True
+        try:
+            out = net.fetch_json(_FRANKFURTER, headers={"Accept": "application/json"},
+                                 timeout=6, max_retries=0)
+            rates = out.get("rates") or {}
+            # frankfurter answers units-per-USD; invert to USD-per-unit like FX_USD
+            _FX_LIVE["rates"] = {c: 1.0 / r for c, r in rates.items() if r}
+            _FX_LIVE["date"] = out.get("date")
+        except (net.FetchError, OSError, ValueError, ZeroDivisionError):
+            _FX_LIVE["rates"] = None
+    return _FX_LIVE["rates"]
+
+
+def fx_source() -> str:
+    if _FX_LIVE.get("rates"):
+        return f"ECB daily rates via frankfurter.dev ({_FX_LIVE.get('date', 'today')})"
+    return f"approximate table (as of {FX_AS_OF})"
+
+
 # --------------------------------------------------------------------------- helpers
 def have_keys() -> bool:
     return _secrets.has("DUFFEL_API_KEY")
@@ -95,11 +126,14 @@ def is_live_key() -> bool:
 
 
 def to_usd(amount: float, currency: str) -> tuple[float, bool]:
-    """(usd_amount, converted?). converted is False when currency is USD or unknown."""
+    """(usd_amount, converted?). converted is False when currency is USD or unknown.
+    Prefers today's real ECB rate (frankfurter.dev, keyless) and falls back to the bundled
+    approximate table offline."""
     cur = (currency or "USD").upper()
     if cur == "USD":
         return round(amount, 2), False
-    rate = FX_USD.get(cur)
+    live = _live_rates()
+    rate = (live or {}).get(cur) or FX_USD.get(cur)
     if not rate:
         return round(amount, 2), False  # unknown currency: pass through native, flag upstream
     return round(amount * rate, 2), True
@@ -236,7 +270,7 @@ def _parse_offer(o: dict) -> dict:
         "native_price": round(native, 2),
         "currency": cur,
         "converted": converted,
-        "fx_ok": cur == "USD" or cur in FX_USD,
+        "fx_ok": cur == "USD" or converted,   # a rate existed (live ECB or bundled table)
         "hours": iso8601_to_hours(first.get("duration", "")),  # OUTBOUND journey time
         "stops": max(0, len(segs) - 1),
         "carrier": owner,
@@ -602,12 +636,21 @@ def selftest():
     check("ISO8601 PT45M -> 0.75", iso8601_to_hours("PT45M") == 0.75)
     check("ISO8601 P1DT2H -> 26.0", iso8601_to_hours("P1DT2H") == 26.0)
 
+    # keep the selftest genuinely offline: pin the one-shot live-FX lookup to "already tried,
+    # nothing came back" so to_usd() exercises the bundled fallback table deterministically.
+    _FX_LIVE["tried"], _FX_LIVE["rates"] = True, None
     usd, conv = to_usd(100.0, "USD")
     check("USD passthrough (no conversion flag)", usd == 100.0 and conv is False)
     gbp, conv2 = to_usd(100.0, "GBP")
     check("GBP converts to USD (>100, flagged)", gbp > 100 and conv2 is True)
     unk, conv3 = to_usd(100.0, "ZZZ")
     check("unknown currency passes through, unconverted", unk == 100.0 and conv3 is False)
+    check("offline FX source names the bundled table + its as-of date",
+          "approximate table" in fx_source() and FX_AS_OF in fx_source())
+    _FX_LIVE["rates"] = {"GBP": 1.30}
+    check("a live ECB rate takes precedence over the bundled table when present",
+          to_usd(100.0, "GBP") == (130.0, True) and "frankfurter" in fx_source())
+    _FX_LIVE["rates"] = None
 
     o = _parse_offer({"total_amount": "241.50", "total_currency": "USD",
                       "owner": {"iata_code": "AA"},

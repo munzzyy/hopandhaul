@@ -19,11 +19,14 @@ function pt(a, full = false) {
 }
 
 function gw(g) {
-  return {
+  const out = {
     iata: g.iata, name: g.name, city: g.city ?? null, lat: g.lat, lng: g.lng, hub: g.hub,
     ground_mode: g.ground_mode, ground_hours: g.ground_hours, ground_cost: g.ground_cost,
     source: g.source, notes: g.notes || "", fly: g.fly ?? null,
   };
+  if (g.ferry) out.ferry = g.ferry;
+  if (g.transit) out.transit = g.transit;
+  return out;
 }
 
 /** Estimate-only flight leg pricing — mirrors server.py's _price_flight() with `session=None`
@@ -83,6 +86,7 @@ function groundLegSpec(g, dest, cost, roadKm) {
 export function plan({
   destLat, destLng, originIata = "JFK", date = null, vot = null, threshold = 200.0,
   maxGroundH = 6.0, roundtrip = false, travelers = 1, ret = null, transferBuffer = 1.0,
+  transitByIata = null,
 }) {
   const origin = byIata(originIata);
   if (!origin) {
@@ -105,6 +109,20 @@ export function plan({
   const rtMult = roundtrip ? 2 : 1;
 
   const gws = geo.discoverGateways(dest, origin, { maxGroundH });
+
+  // Live-schedule injection (browser twin of server.py's Transitous enrichment): api.js runs
+  // this plan once offline, fetches real timetables for the gateway legs it found, then runs
+  // it again with the results — a real door-to-door time replaces the leg's formula duration
+  // before ranking. Never set by the parity harness, so the offline contract is untouched.
+  if (transitByIata) {
+    for (const g of gws) {
+      const tr = transitByIata[g.iata];
+      if (tr) {
+        g.transit = tr;
+        g.ground_hours = tr.duration_h;
+      }
+    }
+  }
 
   const flightTargets = [dest, ...gws];
   const priced = flightTargets.map((t) => priceFlightEstimate(origin, t, date, ret, travelers));
@@ -144,7 +162,11 @@ export function plan({
       { type: "ground", mode: g.ground_mode, from: pt(g), to: pt(dest) },
     ];
     const flyKm = geo.haversineKm(origin.lat, origin.lng, g.lat, g.lng) * rtMult;
-    const groundKm = geo.haversineKm(g.lat, g.lng, dest.lat, dest.lng) * geo.ROAD_WINDING * rtMult;
+    // A real-corridor ferry leg uses the actual port-to-port crossing distance — boats sail
+    // the strait, they don't follow a winding road. Mirrors server.py's plan().
+    const groundKm = g.ferry
+      ? g.ferry.crossing_km * rtMult
+      : geo.haversineKm(g.lat, g.lng, dest.lat, dest.lng) * geo.ROAD_WINDING * rtMult;
     emissionsLegsByName[name] = [
       { mode: "fly", distance_km: flyKm },
       { mode: g.ground_mode, road_km: groundKm },
@@ -193,6 +215,16 @@ export function plan({
       notes.push("Round-trip: fares shown are ~2× one-way; add a return date for real "
         + "RT pricing. Times are for the outbound leg.");
     }
+  }
+  if (gws.some((g) => g.ferry)) {
+    notes.push("Ferry legs are REAL corridors (bundled research, operators + typical "
+      + "fares + sailings/day as of the data's date) — schedules vary by day and "
+      + "season, so check the operator before relying on a connection.");
+  }
+  if (gws.some((g) => g.transit)) {
+    notes.push("Ground legs marked 'live schedule' use real timetables via Transitous "
+      + "(transitous.org — community GTFS/OSM data): real operators, departures "
+      + "and door-to-door times. Fares on those legs are still estimates.");
   }
   if ((dest.dist_km || 0) > 120) {
     notes.push(`Nearest airport ${dest.iata} is ~${Math.trunc(dest.dist_km)} km from the `

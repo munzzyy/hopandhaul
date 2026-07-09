@@ -61,7 +61,9 @@ Tells the frontend what's configured, with no secrets attached.
   "has_live_keys": true,
   "flights_provider": "duffel",
   "has_geocode": true,
-  "has_weather": false,
+  "geocode_provider": "photon",
+  "has_weather": true,
+  "has_transit": true,
   "default_origin": "JFK",
   "default_threshold": 200.0,
   "default_travelers": 1,
@@ -69,16 +71,17 @@ Tells the frontend what's configured, with no secrets attached.
 }
 ```
 
-- `flights_provider`: `"duffel"`, `"amadeus"`, or `null` if no flight-pricing key is set.
-- `has_geocode` / `has_weather`: whether Geoapify / OpenWeather keys are configured.
+- `flights_provider`: `"duffel"` or `null` if no flight-pricing key is set.
+- `has_geocode` is always true (Photon needs no key); `geocode_provider` says which backend
+  answers — `"geoapify"` when that key is configured, else `"photon"`.
+- `has_weather` (Open-Meteo) and `has_transit` (Transitous) are keyless and normally true.
 
 ## `GET /api/geocode?q=<text>&limit=<n>`
 
-Type-ahead place search (Geoapify). Requires `q`; `limit` defaults to 6, clamped to 1-10.
+Type-ahead place search — Photon by default, Geoapify when keyed. Requires `q`; `limit`
+defaults to 6, clamped to 1-10.
 
 - If `q` is missing or empty: `400 {"ok": false, "error": "q is required", "code": "invalid_param"}`.
-- If no Geoapify key is configured:
-  `200 {"ok": false, "error": "geocoding not configured", "code": "geocoding_not_configured"}`.
 - On a provider error:
   `200 {"ok": false, "error": "geocoding lookup failed", "code": "geocode_lookup_failed"}`
   (the real exception is logged server-side, not returned).
@@ -139,7 +142,7 @@ applies the $200 rule to recommend one.
   ```json
   {
     "ok": true,
-    "pricing_source": "estimate | mixed | duffel-live | amadeus-live",
+    "pricing_source": "estimate | mixed | duffel-live",
     "date": "2026-08-15", "return_date": null, "roundtrip": false,
     "travelers": 1, "threshold": 200.0, "vot": null,
     "origin": {"iata": "JFK", "lat": ..., "lng": ..., "name": "...", "city": "...", "hub": 1},
@@ -165,6 +168,22 @@ applies the $200 rule to recommend one.
 - `notes` is a plain-English list explaining anything a user should know about how the numbers
   were produced (estimate mode, FX conversion, group totals, round-trip approximation, a
   distant nearest-airport match, etc). Read it before trusting the number.
+
+### Gateway extras: `gateways[].ferry` and `gateways[].transit`
+
+A ferry gateway carries a `ferry` object — the REAL corridor behind the leg: `name`,
+`operators`, the actual `port_a`/`port_b` terminal names, `duration_h` (published crossing
+time), `frequency_per_day`, `seasonal`, the sourced fare band `price_usd_lo`/`price_usd_hi`
+with `price_asof`, the `fare_usd` used in the leg's cost, `fare_is_real`, `crossing_km`, and
+the airport-to-port transfer estimate (`access_cost`/`access_hours`). The engine never
+invents a boat: no matching corridor in `data/ferries.json` means no ferry leg.
+
+Any train/bus/ferry gateway may additionally carry `transit` — a REAL timetable from
+Transitous: `duration_h` (real door-to-door, which replaces the formula duration in the leg
+and the ranking), `legs` (each with `mode`, `agency`, `route`, `depart` clock), `depart`,
+`transfers`, `n_options`, `date`, and a ready-made provenance sentence in `line`. Present
+only when Transitous covered the route at planning time; fares on those legs remain
+estimates either way.
 
 ### Emissions: `co2e_kg` and `greenest` (cheapest vs greenest)
 

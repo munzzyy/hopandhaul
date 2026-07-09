@@ -12,7 +12,7 @@
 // generic fetch handler below on first successful load, so whichever language a visitor
 // actually chooses works offline from then on, and they're dropped on every version bump
 // along with the rest of the runtime cache.
-const CACHE_VERSION = "hopandhaul-shell-v7";
+const CACHE_VERSION = "hopandhaul-shell-v8";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -54,7 +54,10 @@ const SHELL_FILES = [
 // python -m hopandhaul.server run directly against source, or a plain static server pointed
 // at the checkout). Cached individually, best-effort, so a missing data file there doesn't
 // fail cache.addAll's all-or-nothing install for the (always-present) files above it.
-const OPTIONAL_DATA_FILES = ["./data/airports.json", "./data/gateways.json"];
+const OPTIONAL_DATA_FILES = [
+  "./data/airports.json", "./data/gateways.json",
+  "./data/ferries.json", "./data/landgrid.json", "./data/fareanchors.json",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

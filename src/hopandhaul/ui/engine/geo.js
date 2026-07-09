@@ -8,9 +8,17 @@
 // Pure ESM, no dependencies beyond ./data.js (airport/gateway lookups) and ./pyround.js
 // (Python round() semantics).
 import { pyRound } from "./pyround.js";
-import { airports, gatewaysDb, byIata } from "./data.js";
+import {
+  airports, gatewaysDb, byIata, ferryCorridors, landgrid, fareAnchors, fareAnchorsAsof,
+} from "./data.js";
 
 export { byIata };
+
+/** Python "%g" formatting for the numbers this engine narrates (fares, hours, sailing
+ * frequencies): 6 significant digits, trailing zeros stripped — matches f"{x:g}". */
+export function pyG(x) {
+  return String(Number(Number(x).toPrecision(6)));
+}
 
 // ---- fare model (ESTIMATE) -------------------------------------------------------------
 export const FLIGHT_CURVE = [30.0, 1.8, 0.012]; // (base, per_sqrt_km, per_km)
@@ -247,6 +255,29 @@ export function fareDateMultiplier(dateStr, today = null) {
 }
 void pad2; // reserved for future date formatting; keeps lint quiet if unused in a given build
 
+// US fare anchoring — mirrors geo.py: the anchor BOUNDS the curve using the real BTS band
+// and rides along in the output for provenance.
+export const ANCHOR_MATCH_KM = 60.0;
+export const ANCHOR_LO_FRAC = 0.45;
+export const ANCHOR_HI_FRAC = 1.00;
+
+/** The busiest real BTS city-pair market covering these two airports, or null —
+ * mirrors geo.fare_anchor_for, including its "first orientation match, then break" scan
+ * and its strictly-greater pax_day tie-break (ties keep the earlier anchor). */
+export function fareAnchorFor(orig, dest) {
+  let best = null;
+  for (const an of fareAnchors()) {
+    for (const [p, q] of [[an.a, an.b], [an.b, an.a]]) {
+      if (haversineKm(orig.lat, orig.lng, p[0], p[1]) <= ANCHOR_MATCH_KM
+          && haversineKm(dest.lat, dest.lng, q[0], q[1]) <= ANCHOR_MATCH_KM) {
+        if (best === null || an.pax_day > best.pax_day) best = an;
+        break;
+      }
+    }
+  }
+  return best;
+}
+
 export function estimateFlight(orig, dest, date = null, today = null) {
   const d = haversineKm(orig.lat, orig.lng, dest.lat, dest.lng);
   const [base, perSqrt, perKm] = FLIGHT_CURVE;
@@ -258,6 +289,20 @@ export function estimateFlight(orig, dest, date = null, today = null) {
   const rD = regionOf(dest.lat, dest.lng);
   const rm = _routeMult(rO, rD);
   fare *= rm;
+
+  let anchor = null;
+  let anchorAdjusted = false;
+  if (rO === "NA" && rD === "NA") {
+    anchor = fareAnchorFor(orig, dest);
+    if (anchor) {
+      const lo = ANCHOR_LO_FRAC * anchor.fare_low;
+      const hi = ANCHOR_HI_FRAC * anchor.fare_low;
+      const clamped = Math.max(lo, Math.min(hi, fare));
+      anchorAdjusted = Math.abs(clamped - fare) >= 0.5;
+      fare = clamped;
+    }
+  }
+
   const dm = fareDateMultiplier(date, today);
   fare *= dm;
   const floor = (rO === rD && rO === "NA" && d < 400) ? NA_SHORT_FLOOR : FLIGHT_FLOOR;
@@ -274,6 +319,12 @@ export function estimateFlight(orig, dest, date = null, today = null) {
     regions: `${rO}-${rD}`,
     likely_connection: connects,
   };
+  if (anchor) {
+    out.anchor = {
+      fare_avg: anchor.fare_avg, fare_low: anchor.fare_low,
+      pax_day: anchor.pax_day, asof: fareAnchorsAsof(), adjusted: anchorAdjusted,
+    };
+  }
   if (dm !== 1.0) out.date_mult = dm;
   if (isPastDate(date, today)) out.past_date = true;
   return out;
@@ -323,8 +374,9 @@ export function estimateGround(distKm, mode, region = "OTHER") {
 const ISLAND_LANDMASS = {
   // Mediterranean
   JTR: "santorini", JMK: "mykonos", PAS: "paros", CFU: "corfu", ZTH: "zakynthos",
-  EFL: "kefalonia", JSI: "skiathos", HER: "crete", CHQ: "crete", RHO: "rhodes",
-  KGS: "kos", MLA: "malta", LCA: "cyprus", PFO: "cyprus",
+  EFL: "kefalonia", JSI: "skiathos", HER: "crete", CHQ: "crete", JSH: "crete",
+  RHO: "rhodes", KGS: "kos", MJT: "lesbos", SMI: "samos", JNX: "naxos",
+  MLA: "malta", LCA: "cyprus", PFO: "cyprus",
   PMO: "sicily", CTA: "sicily", TPS: "sicily",
   CAG: "sardinia", OLB: "sardinia", AHO: "sardinia", AJA: "corsica", BIA: "corsica",
   PMI: "mallorca", IBZ: "ibiza", MAH: "menorca",
@@ -334,6 +386,9 @@ const ISLAND_LANDMASS = {
   KEF: "iceland", FAE: "faroe", SID: "capeverde",
   DUB: "ireland", ORK: "ireland", SNN: "ireland", NOC: "ireland",
   BFS: "ireland", BHD: "ireland",
+  JER: "jersey", GCI: "guernsey", IOM: "isleofman",
+  LSI: "shetland", KOI: "orkney",
+  MHQ: "aland", VBY: "gotland", RNN: "bornholm",
   YYT: "newfoundland",
   // Caribbean + nearby
   HAV: "cuba", VRA: "cuba", PUJ: "hispaniola", SDQ: "hispaniola",
@@ -360,8 +415,11 @@ const ISLAND_LANDMASS = {
   TAG: "bohol", PPS: "palawan",
   HNL: "oahu", OGG: "maui", KOA: "hawaiibig", ITO: "hawaiibig", LIH: "kauai",
   AKL: "nznorth", WLG: "nznorth", CHC: "nzsouth", ZQN: "nzsouth",
-  HBA: "tasmania", HTI: "whitsundays", YYJ: "vancouverisland",
+  HBA: "tasmania", HTI: "whitsundays",
+  YYJ: "vancouverisland", YWH: "vancouverisland", YCD: "vancouverisland",
+  YQQ: "vancouverisland", FRD: "sanjuan", ESD: "sanjuan",
   NAN: "fiji", PPT: "tahiti", BOB: "borabora", RAR: "rarotonga", GUM: "guam",
+  YGR: "magdalen",
   IPC: "easterisland", ACK: "nantucket", MVY: "marthasvineyard",
   JNU: "juneau", KTN: "ketchikan",
 };
@@ -370,12 +428,215 @@ const _CONTINENT = {
   CN: "eurasia", IN: "eurasia", SEA: "eurasia", KR: "korea",
   JP: "japan", AU: "australia", AF: "africa", ZA: "africa",
 };
-export const FERRY_MAX_KM = 250;
 
 export function landmassOf(a) {
   const lm = ISLAND_LANDMASS[a.iata];
   if (lm && lm !== "mainland") return lm;
   return _CONTINENT[regionOf(a.lat, a.lng)] || "other";
+}
+
+// --------------------------------------------------------------------------- open water
+// Faithful port of geo.py's sea-gap layer: the packed land grid, great-circle sampling,
+// offset-path rescue, and the fixed-links table. Every sampled coordinate is rounded to 4
+// decimals BEFORE the grid lookup on both sides, so trig ULP differences can't flip a cell.
+export const WATER_RUN_MIN_KM = 22.0;
+export const WATER_RESCUE_RUN_KM = 11.0;
+export const WATER_OFFSET_KM = 40.0;
+export const FIXED_LINK_NEAR_KM = 120.0;
+
+export const FIXED_LINKS = [
+  ["Channel Tunnel", 51.01, 1.50],
+  ["Oresund Bridge", 55.57, 12.85],
+  ["Great Belt Bridge", 55.34, 11.03],
+  ["Seikan Tunnel", 41.30, 140.30],
+  ["Osman Gazi Bridge", 40.75, 29.51],
+  ["Canakkale 1915 Bridge", 40.31, 26.45],
+  ["HK-Zhuhai-Macau Bridge", 22.30, 113.75],
+  ["Overseas Highway (Florida Keys)", 24.75, -81.02],
+  ["Chesapeake Bay Bridge-Tunnel", 37.03, -76.08],
+  ["Confederation Bridge (PEI)", 46.22, -63.75],
+  ["King Fahd Causeway", 26.18, 50.26],
+  ["Penang Bridge", 5.35, 100.35],
+  ["Seto-Ohashi Bridge", 34.40, 133.81],
+  ["Akashi Kaikyo Bridge", 34.62, 135.02],
+  ["Rio-Niteroi Bridge", -22.87, -43.16],
+];
+
+export function isLand(lat, lng) {
+  const g = landgrid();
+  const row = Math.min(g.h - 1, Math.max(0, Math.floor((90.0 - lat) / g.res)));
+  const col = Math.min(g.w - 1, Math.max(0, Math.floor((lng + 180.0) / g.res)));
+  const i = row * g.w + col;
+  return (g.bits[i >> 3] & (0x80 >> (i & 7))) !== 0;
+}
+
+function _pathPoints(lat1, lng1, lat2, lng2, n) {
+  const phi1 = lat1 * DEG2RAD, lam1 = lng1 * DEG2RAD;
+  const phi2 = lat2 * DEG2RAD, lam2 = lng2 * DEG2RAD;
+  const v1 = [Math.cos(phi1) * Math.cos(lam1), Math.cos(phi1) * Math.sin(lam1), Math.sin(phi1)];
+  const v2 = [Math.cos(phi2) * Math.cos(lam2), Math.cos(phi2) * Math.sin(lam2), Math.sin(phi2)];
+  const dot = Math.max(-1.0, Math.min(1.0, v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2]));
+  const om = Math.acos(dot);
+  const pts = [];
+  for (let k = 0; k <= n; k++) {
+    const t = k / n;
+    let a, b;
+    if (om < 1e-9) { a = 1 - t; b = t; } else {
+      a = Math.sin((1 - t) * om) / Math.sin(om);
+      b = Math.sin(t * om) / Math.sin(om);
+    }
+    const x = a * v1[0] + b * v2[0], y = a * v1[1] + b * v2[1], z = a * v1[2] + b * v2[2];
+    pts.push([
+      pyRound(Math.atan2(z, Math.sqrt(x * x + y * y)) / DEG2RAD, 4),
+      pyRound(Math.atan2(y, x) / DEG2RAD, 4),
+    ]);
+  }
+  return pts;
+}
+
+export function waterPathStats(lat1, lng1, lat2, lng2) {
+  const d = haversineKm(lat1, lng1, lat2, lng2);
+  const n = Math.max(8, Math.min(96, Math.floor(d / 12) + 1));
+  const pts = _pathPoints(lat1, lng1, lat2, lng2, n);
+  const step = d / n;
+  let fracN = 0;
+  let run = 0.0, best = 0.0;
+  let runStart = null;
+  let mid = null;
+  for (let i = 0; i < pts.length; i++) {
+    const [la, ln] = pts[i];
+    if (isLand(la, ln)) { run = 0.0; continue; }
+    fracN += 1;
+    if (run === 0.0) runStart = i;
+    run += step;
+    if (run > best) {
+      best = run;
+      mid = pts[Math.floor((runStart + i) / 2)];
+    }
+  }
+  return {
+    water_frac: pyRound(fracN / pts.length, 4),
+    max_run_km: pyRound(best, 1),
+    run_mid: mid,
+    dist_km: d,
+  };
+}
+
+function _bearingRad(lat1, lng1, lat2, lng2) {
+  const p1 = lat1 * DEG2RAD, p2 = lat2 * DEG2RAD;
+  const dl = (lng2 - lng1) * DEG2RAD;
+  return Math.atan2(Math.sin(dl) * Math.cos(p2),
+    Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl));
+}
+
+function _offsetPoint(lat, lng, thetaRad, distKm) {
+  const d = distKm / 6371.0;
+  const p1 = lat * DEG2RAD, l1 = lng * DEG2RAD;
+  const p2 = Math.asin(Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(thetaRad));
+  const l2 = l1 + Math.atan2(Math.sin(thetaRad) * Math.sin(d) * Math.cos(p1),
+    Math.cos(d) - Math.sin(p1) * Math.sin(p2));
+  // Python's % is a true modulo (result sign follows the divisor); JS's is a remainder.
+  // (x % 360 + 360) % 360 reproduces Python's behavior for the wrap below.
+  const lng2 = ((((l2 / DEG2RAD) + 540.0) % 360.0 + 360.0) % 360.0) - 180.0;
+  return [pyRound(p2 / DEG2RAD, 4), pyRound(lng2, 4)];
+}
+
+/** True when open sea genuinely separates two points and no land detour plausibly exists —
+ * mirrors geo.sea_gap: direct-run trigger, tight offset-path rescue, fixed-link rescue. */
+export function seaGap(a, b) {
+  const stats = waterPathStats(a.lat, a.lng, b.lat, b.lng);
+  if (stats.max_run_km < WATER_RUN_MIN_KM) return false;
+  const theta = _bearingRad(a.lat, a.lng, b.lat, b.lng);
+  for (const side of [1.0, -1.0]) {
+    const o1 = _offsetPoint(a.lat, a.lng, theta + side * Math.PI / 2, WATER_OFFSET_KM);
+    const o2 = _offsetPoint(b.lat, b.lng, theta + side * Math.PI / 2, WATER_OFFSET_KM);
+    if (waterPathStats(o1[0], o1[1], o2[0], o2[1]).max_run_km < WATER_RESCUE_RUN_KM) return false;
+  }
+  const mid = stats.run_mid;
+  if (mid) {
+    for (const [, llat, llng] of FIXED_LINKS) {
+      if (haversineKm(mid[0], mid[1], llat, llng) <= FIXED_LINK_NEAR_KM) return false;
+    }
+  }
+  return true;
+}
+
+// --------------------------------------------------------------------------- ferry corridors
+export const PORT_MATCH_KM = 60.0;
+export const CROSSING_DOMINANT = 0.5;
+export const MIN_FERRY_FREQ_PER_DAY = 0.65;
+export const FERRY_BOARDING_H = 0.5;
+export const ACCESS_WATER_RUN_KM = 15.0;
+
+const _portLandmassCache = new Map();
+
+function _portLandmass(port) {
+  const key = `${port.lat},${port.lng}`;
+  let lm = _portLandmassCache.get(key);
+  if (lm === undefined) {
+    const near = nearestAirport(port.lat, port.lng, { maxKm: null });
+    lm = near ? landmassOf(near) : "other";
+    _portLandmassCache.set(key, lm);
+  }
+  return lm;
+}
+
+function _accessOk(airport, port) {
+  if (haversineKm(airport.lat, airport.lng, port.lat, port.lng) < 8) return true;
+  if (_portLandmass(port) !== landmassOf(airport)) return false;
+  const stats = waterPathStats(airport.lat, airport.lng, port.lat, port.lng);
+  return stats.max_run_km < ACCESS_WATER_RUN_KM;
+}
+
+/** Best real ferry corridor connecting the areas around two airports — mirrors
+ * geo.ferry_corridor_for, including its strictly-lower access-score tie-break. */
+export function ferryCorridorFor(a, b, maxPortKm = PORT_MATCH_KM) {
+  let best = null;
+  let bestScore = null;
+  for (const c of ferryCorridors()) {
+    const pa = c.port_a, pb = c.port_b;
+    for (const [aPort, bPort] of [[pa, pb], [pb, pa]]) {
+      const aKm = haversineKm(a.lat, a.lng, aPort.lat, aPort.lng);
+      if (aKm > maxPortKm) continue;
+      const bKm = haversineKm(b.lat, b.lng, bPort.lat, bPort.lng);
+      if (bKm > maxPortKm) continue;
+      if (!(_accessOk(a, aPort) && _accessOk(b, bPort))) continue;
+      const score = aKm + bKm;
+      if (bestScore === null || score < bestScore) {
+        bestScore = score;
+        best = {
+          ...c, a_port: aPort, b_port: bPort,
+          a_access_km: aKm, b_access_km: bKm,
+          crossing_km: haversineKm(aPort.lat, aPort.lng, bPort.lat, bPort.lng),
+        };
+      }
+    }
+  }
+  return best;
+}
+
+export function ferryLegFromCorridor(match, region) {
+  const access = estimateGround(match.a_access_km, "bus", region);
+  const fareLo = match.price_usd_lo;
+  const fare = fareLo != null
+    ? Number(fareLo)
+    : estimateGround(match.crossing_km, "ferry", region).cost;
+  const hours = access.hours + FERRY_BOARDING_H + Number(match.duration_h);
+  return {
+    cost: pyRound(access.cost + fare), hours: pyRound(hours, 1),
+    access_cost: access.cost, access_hours: access.hours,
+    fare_usd: pyRound(fare), fare_is_real: fareLo != null,
+    crossing_km: pyRound(match.crossing_km, 1),
+  };
+}
+
+function _ferryNote(match) {
+  const ops = (match.operators || []).join(", ") || "operator n/a";
+  const freq = match.frequency_per_day;
+  const freqS = freq ? `~${pyG(freq)}/day` : "frequency n/a";
+  const seas = match.seasonal ? ", seasonal" : "";
+  return `real ferry: ${match.a_port.name} → ${match.b_port.name} `
+    + `(${ops}), ~${pyG(match.duration_h)}h crossing, ${freqS}${seas}`;
 }
 
 // --------------------------------------------------------------------------- gateway discovery
@@ -419,13 +680,51 @@ export function discoverGateways(dest, origin = null, { maxGroundH = 6.0, maxGat
     if (a.hub > maxGwHub) continue;
     const d = haversineKm(dest.lat, dest.lng, a.lat, a.lng);
     if (d < 25 || d > maxKm) continue;
-    let mode;
-    if (landmassOf(a) !== lmDest) {
-      if (d > FERRY_MAX_KM) continue;
-      mode = "ferry";
-    } else {
-      mode = pickGroundMode(d, region);
+
+    // Water honesty, three rules — mirrors geo.py's discover_gateways exactly:
+    //   1. a real corridor spanning most of the leg IS the connection;
+    //   2. different landmasses with no corridor -> no leg at all;
+    //   3. same landmass but a sea gap with no land detour -> no leg.
+    let ferry = null;
+    const corridor = ferryCorridorFor(a, dest);
+    const usable = corridor !== null
+      && (corridor.frequency_per_day || 0) >= MIN_FERRY_FREQ_PER_DAY;
+    if (usable && corridor.crossing_km >= CROSSING_DOMINANT * d) {
+      ferry = corridor;
+    } else if (landmassOf(a) !== lmDest) {
+      if (!usable) continue;
+      ferry = corridor;
+    } else if (seaGap(a, dest)) {
+      continue;
     }
+
+    if (ferry) {
+      const leg = ferryLegFromCorridor(ferry, region);
+      if (leg.hours > maxGroundH) continue;
+      cands.push({
+        iata: a.iata, name: a.name, city: a.city ?? null, lat: a.lat, lng: a.lng,
+        hub: a.hub, ground_mode: "ferry", ground_hours: leg.hours,
+        ground_cost: leg.cost, notes: _ferryNote(ferry), source: "auto",
+        ferry: {
+          id: ferry.id, name: ferry.name,
+          operators: ferry.operators || [],
+          duration_h: ferry.duration_h,
+          frequency_per_day: ferry.frequency_per_day ?? null,
+          seasonal: Boolean(ferry.seasonal),
+          price_usd_lo: ferry.price_usd_lo ?? null,
+          price_usd_hi: ferry.price_usd_hi ?? null,
+          price_asof: ferry.price_asof ?? null,
+          port_a: ferry.a_port.name, port_b: ferry.b_port.name,
+          crossing_km: leg.crossing_km, fare_usd: leg.fare_usd,
+          fare_is_real: leg.fare_is_real,
+          access_cost: leg.access_cost, access_hours: leg.access_hours,
+        },
+        _dist: d,
+      });
+      continue;
+    }
+
+    const mode = pickGroundMode(d, region);
     const g = estimateGround(d, mode, region);
     if (g.hours > maxGroundH) continue;
     cands.push({

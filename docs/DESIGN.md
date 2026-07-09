@@ -6,6 +6,13 @@ of decisions. Where the reads/research disagreed, this doc picks a side and says
 here should be re-litigated mid-build — if something turns out to be wrong once we're in the
 code, come back and edit this file, don't quietly drift from it.
 
+> **Since superseded in places (2026-07-09, v0.7.0):** the Amadeus fallback discussed below was
+> removed outright (Amadeus decommissioned its self-service portal July 2026); OpenWeather and
+> Geoapify-as-the-only-geocoder gave way to keyless Open-Meteo and Photon defaults; ground legs
+> gained real ferry corridors (`data/ferries.json`), a land/water grid, BTS fare anchors, and
+> live Transitous schedules. Where this doc and the code disagree, the code and README are
+> current; this file stays as the record of the original build's reasoning.
+
 ---
 
 ## 1. Product vision
