@@ -27,7 +27,9 @@ from . import duffel, geo, server, trip
 def resolve_airport(query: str) -> tuple[dict | None, list[dict]]:
     """(airport, candidates). A 3-letter code resolves exactly; otherwise the bundled DB is
     searched by city/name. One confident hit -> (airport, []); several plausible ones ->
-    (best, others) so the CLI can say what it picked and what else matched."""
+    (best, others) so the CLI can say what it picked and what else matched. A query with a
+    trailing qualifier the DB doesn't carry ("Victoria BC", "Springfield Missouri") retries
+    with trailing words dropped."""
     q = (query or "").strip()
     if not q:
         return None, []
@@ -35,6 +37,15 @@ def resolve_airport(query: str) -> tuple[dict | None, list[dict]]:
         a = geo.by_iata(q)
         if a:
             return a, []
+    best, others = _search_airports(q)
+    words = q.split()
+    while best is None and len(words) > 1:
+        words = words[:-1]
+        best, others = _search_airports(" ".join(words))
+    return best, others
+
+
+def _search_airports(q: str) -> tuple[dict | None, list[dict]]:
     ql = q.lower()
     scored = []
     for a in geo.airports():
@@ -105,15 +116,23 @@ def main(argv=None) -> int:
     # we're online, the town itself is the honest target — plan() resolves its own nearest
     # airport from the point, the last-mile note stays accurate, and live ground schedules
     # can route to somewhere people actually go (transit can't snap a runway coordinate).
+    # When the geocoder flatly disagrees with the airport-DB guess ("Victoria BC" matching
+    # Victoria, Texas), the geocoder wins — the user typed a place name, and plan() will
+    # re-derive the right airport from the right point.
     dest_lat, dest_lng = dest["lat"], dest["lng"]
     if not args.offline and not (len(args.dest.strip()) == 3 and args.dest.strip().isalpha()):
         try:
             from . import places
             hits = places.geocode(args.dest, limit=5)
-            near = [h for h in hits
-                    if geo.haversine_km(h["lat"], h["lng"], dest["lat"], dest["lng"]) <= 200]
-            if near:
-                dest_lat, dest_lng = near[0]["lat"], near[0]["lng"]
+            if hits:
+                near = [h for h in hits
+                        if geo.haversine_km(h["lat"], h["lng"], dest["lat"], dest["lng"]) <= 200]
+                pick = near[0] if near else hits[0]
+                dest_lat, dest_lng = pick["lat"], pick["lng"]
+                if not near:
+                    print(f"note: going by the geocoder's read of {args.dest!r} "
+                          f"({pick.get('label') or pick.get('city')}), not the airport-name "
+                          f"match ({dest['iata']})", file=sys.stderr)
         except Exception:
             pass    # geocoding is a refinement, never a blocker
     for label, picked, others in (("origin", origin, o_others), ("destination", dest, d_others)):
@@ -136,9 +155,11 @@ def main(argv=None) -> int:
         return 0
 
     print(f"(pricing: {out['pricing_source']})")
-    print(trip.format_report(_with_private_rows(out["result"]),
-                             f"{origin['iata']} {origin.get('city') or ''}".strip(),
-                             f"{dest['iata']} {dest.get('city') or ''}".strip()))
+    # labels come from the plan's own resolution — when the geocoder moved the point, the
+    # plan's dest airport is the truth, not the pre-geocode name match
+    o_lbl = f"{out['origin']['iata']} {out['origin'].get('city') or ''}".strip()
+    d_lbl = f"{out['dest']['iata']} {out['dest'].get('city') or ''}".strip()
+    print(trip.format_report(_with_private_rows(out["result"]), o_lbl, d_lbl))
     itin = duffel.format_itineraries(out["result"])
     if itin:
         print()
@@ -177,6 +198,9 @@ def selftest() -> int:
           a4 is not None and len(others4) >= 1)
     a5, _ = resolve_airport("xyzzy-nowhere")
     check("nonsense resolves to nothing, not a guess", a5 is None)
+    a6, _ = resolve_airport("Victoria BC")
+    check("a trailing qualifier the DB doesn't carry is dropped ('Victoria BC' -> Victoria)",
+          a6 is not None and (a6.get("city") or "").lower().startswith("victoria"))
 
     # end-to-end offline: the exact pipeline `hopandhaul go` runs, no network
     out = server.plan(a3["lat"], a3["lng"], origin_iata="LHR", fetch_weather=False,
