@@ -447,6 +447,15 @@ def _fmt_money(x: float) -> str:
     return f"${x:,.0f}" if abs(x - round(x)) < 0.005 else f"${x:,.2f}"
 
 
+def _airport_label(a: dict) -> str:
+    """'ASE (Aspen)' not 'ASE (Aspen, Aspen)' — resort/small airports in airports.json often
+    have name == city, and repeating it reads like a data bug."""
+    city = a.get("city")
+    if city and city != a.get("name"):
+        return f"{a['iata']} ({a['name']}, {city})"
+    return f"{a['iata']} ({a['name']})"
+
+
 def _format_itinerary_block(option: dict) -> str:
     """Human-readable leg-by-leg schedule for one priced option — real airports, an example
     (or, when live, a real) clock schedule, per-leg price provenance, and a verify link. This is
@@ -464,8 +473,7 @@ def _format_itinerary_block(option: dict) -> str:
         carrier = f" — {leg['carrier']}" + (f" {leg['flight_number']}" if leg.get("flight_number") else "") \
             if leg.get("carrier") else ""
         lines.append(
-            f"      {i}. {leg['mode'].upper():<6} {frm['iata']} ({frm['name']}, {frm.get('city') or '?'})"
-            f" -> {to['iata']} ({to['name']}, {to.get('city') or '?'})")
+            f"      {i}. {leg['mode'].upper():<6} {_airport_label(frm)} -> {_airport_label(to)}")
         lines.append(
             f"         {leg['depart_day']} {leg['depart_clock']} -> {leg['arrive_day']} {leg['arrive_clock']}"
             f"  ({leg['duration_h']:g}h)  {tag}{carrier}")

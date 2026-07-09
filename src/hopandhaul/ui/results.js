@@ -126,10 +126,11 @@ function itineraryLegRow(leg) {
     ? " <span class=\"itin-carrier\">" + esc(leg.carrier)
       + (leg.flight_number ? " " + esc(leg.flight_number) : "") + "</span>"
     : "";
-  const fromLabel = esc(leg.from.iata) + " — " + esc(leg.from.name)
-    + (leg.from.city ? ", " + esc(leg.from.city) : "");
-  const toLabel = esc(leg.to.iata) + " — " + esc(leg.to.name)
-    + (leg.to.city ? ", " + esc(leg.to.city) : "");
+  // "ASE — Aspen" not "ASE — Aspen, Aspen": small airports often have name == city.
+  const apLabel = (a) => esc(a.iata) + " — " + esc(a.name)
+    + (a.city && a.city !== a.name ? ", " + esc(a.city) : "");
+  const fromLabel = apLabel(leg.from);
+  const toLabel = apLabel(leg.to);
   const checkin = leg.checkin_by
     ? "<div class=\"itin-checkin\">" + esc(t("itin.checkinBy",
         { day: leg.checkin_by.day, clock: leg.checkin_by.clock })) + "</div>\n"

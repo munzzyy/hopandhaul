@@ -102,7 +102,7 @@ export function flightProvenanceEstimate(detail, date) {
   const bits = [date ? `route-band estimate for ${date}` : "route-band estimate (no date given)"];
   if (detail.regions) bits.push(`${detail.regions} market ×${(detail.route_mult ?? 1.0).toFixed(2)}`);
   if (detail.date_mult) bits.push(`date factor ×${detail.date_mult.toFixed(2)}`);
-  if (detail.likely_connection) bits.push("assumes one connection");
+  if (detail.likely_connection) bits.push("fare priced assuming a connecting flight (small/remote airport)");
   return bits.join("; ");
 }
 
@@ -183,7 +183,7 @@ export function buildTimeline(legs, {
     clockMin = arriveMin;
   });
 
-  return { legs: rows, any_live: anyLive, example_day: !anyLive, depart_local: departLocal };
+  return { legs: rows, any_live: anyLive, example_day: rows.some((r) => !r.is_live), depart_local: departLocal };
 }
 
 function liveSegmentsToRows(leg, segments, date, addCheckin, airportBufferH) {

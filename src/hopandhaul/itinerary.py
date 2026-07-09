@@ -126,7 +126,7 @@ def flight_provenance_estimate(detail: dict | None, date: str | None) -> str:
     if detail.get("date_mult"):
         bits.append(f"date factor ×{detail['date_mult']:.2f}")
     if detail.get("likely_connection"):
-        bits.append("assumes one connection")
+        bits.append("fare priced assuming a connecting flight (small/remote airport)")
     return "; ".join(bits)
 
 
@@ -165,6 +165,9 @@ def build_timeline(legs: list[dict], *, date: str | None = None,
        "carrier": str|None, "flight_number": str|None}
 
     Returns {"legs": [...], "any_live": bool, "example_day": bool, "depart_local": str}.
+    `example_day` stays True while ANY leg is still an estimate — a single live-priced flight
+    next to an estimated ground leg must not let the block claim the whole day is real; the
+    per-leg `is_live` flags say which rows came from a real offer.
 
     Clock math walks forward from `depart_local` at the very first leg's departure (no
     timezone conversion — see the module docstring). Each leg's own `hours` advances the
@@ -220,7 +223,7 @@ def build_timeline(legs: list[dict], *, date: str | None = None,
     return {
         "legs": rows,
         "any_live": any_live,
-        "example_day": not any_live,
+        "example_day": any(not r["is_live"] for r in rows),
         "depart_local": depart_local,
     }
 
@@ -391,8 +394,11 @@ def selftest() -> int:
           live_row["depart_clock"] == "14:05" and live_row["arrive_clock"] == "16:47")
     check("live leg carries the real carrier + flight number", live_row["carrier"] == "United Airlines"
           and live_row["flight_number"] == "UA1234")
-    check("live leg is flagged is_live=True, and the overall timeline is not example_day",
-          live_row["is_live"] is True and tl4["example_day"] is False and tl4["any_live"] is True)
+    check("live leg is flagged is_live=True and any_live is set",
+          live_row["is_live"] is True and tl4["any_live"] is True)
+    check("a mixed live+estimate timeline is STILL example_day — one real fare must not "
+          "let the block claim the whole day is real while the ground leg is an estimate",
+          tl4["example_day"] is True and next_row["is_live"] is False)
     check("the live leg's own checkin_by is ~2h before its REAL departure (12:05), not the synthetic anchor",
           live_row["checkin_by"]["clock"] == "12:05")
     check("the following ground leg re-anchors to the live leg's real arrival + transfer buffer (17:47)",

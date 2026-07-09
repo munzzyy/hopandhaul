@@ -216,9 +216,11 @@ checkable schedule:
 ```
 
 - `from`/`to`: the real airport or station — IATA code, full name, and city — never a bare code.
-- `depart_clock`/`arrive_clock`/`depart_day`/`arrive_day`: a clock schedule. **These are an
-  EXAMPLE day** (`example_day: true`) unless a live Duffel fare priced that specific leg
-  (`is_live: true`), in which case they're the real offer's real departure/arrival times.
+- `depart_clock`/`arrive_clock`/`depart_day`/`arrive_day`: a clock schedule. A leg's times are
+  real offer times only when that leg is `is_live: true` (a live Duffel fare priced it);
+  otherwise they're synthetic. The block-level `example_day` stays `true` as long as ANY leg
+  is still an estimate — it only flips to `false` when every leg came from a live offer, so a
+  mixed itinerary is never presented as a fully real day.
   Synthetic times walk forward from a sane default departure (`depart_local`, `08:00`) with a
   connection buffer between legs (the same `buffer` query param that already lengthens
   `hours_eff` — the itinerary's elapsed time always reconciles with the summary card next to
