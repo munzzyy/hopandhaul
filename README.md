@@ -4,6 +4,7 @@
 train ride from there is worth it.**
 
 [![CI](https://github.com/munzzyy/hopandhaul/actions/workflows/ci.yml/badge.svg)](https://github.com/munzzyy/hopandhaul/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/hopandhaul)](https://pypi.org/project/hopandhaul/)
 [![License: Prosperity 3.0.0](https://img.shields.io/badge/license-Prosperity--3.0.0-blue.svg)](LICENSE)
 ![zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 
@@ -11,8 +12,9 @@ train ride from there is worth it.**
 
 Click anywhere on the map and a recommendation card slides in — cost, time, and a CO2
 estimate for every option side by side. A copy-link button turns the plan into a URL you
-can send someone. That's a live screenshot, not a mockup; run it yourself below with no
-API keys (about 30 seconds), then open
+can send someone. That's a live screenshot, not a mockup:
+**[open the app in your browser](https://munzzyy.github.io/hopandhaul/)** and click a
+destination, or run it locally with no API keys (about 30 seconds, below), then open
 `http://127.0.0.1:8770/?lat=39.1911&lng=-106.8175&place=Aspen,+CO&origin=JFK`
 to reproduce a trip like it.
 
@@ -42,12 +44,17 @@ If a split doesn't clear that bar, it recommends flying direct, even if the spli
 "technically" saved money. Marginal savings for hours of your day isn't a deal, and the tool
 says so instead of just showing you the cheapest number.
 
+## Try it in your browser
+
+**[munzzyy.github.io/hopandhaul](https://munzzyy.github.io/hopandhaul/)** — the whole app,
+running client-side on GitHub Pages. Nothing to install, no keys, no server. It's the same
+estimate engine ported to JS, and CI holds the port to exact numeric agreement with the
+Python one.
+
 ## Quick start
 
 ```
-git clone https://github.com/munzzyy/hopandhaul
-cd hopandhaul
-pip install -e .
+pip install hopandhaul
 hopandhaul-serve
 ```
 
@@ -60,6 +67,17 @@ hopandhaul go JFK "Tallinn" --date 2026-08-15
 No API keys needed for any of that. Weather, place search, real ferry routes, real US fare
 data, and real ground-transport timetables all work out of the box — the free sources below.
 A Duffel key adds live airfares; nothing else needs one.
+
+Hacking on the code instead? Clone and dev-install:
+
+```
+git clone https://github.com/munzzyy/hopandhaul
+cd hopandhaul
+pip install -e .
+```
+
+What changed in each version is in the
+[release notes](https://github.com/munzzyy/hopandhaul/releases).
 
 ## What's real vs estimated
 
