@@ -31,6 +31,13 @@ jobs:
       - name: Lint
         run: ruff check .
 
+      # en.json is the i18n schema; every other catalog must parse, carry exactly its
+      # key set, and keep its {placeholder} tokens — otherwise a broken translation PR
+      # (or a new UI string added to en.json alone) merges green while a locale quietly
+      # falls back to English. See tools/check_i18n.py.
+      - name: i18n catalogs (parse, key parity, placeholders)
+        run: python tools/check_i18n.py
+
       - name: Self-test every module (offline, no keys required)
         run: |
           python -m hopandhaul.trip --selftest
