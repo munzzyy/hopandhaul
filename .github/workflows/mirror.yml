@@ -22,5 +22,5 @@ jobs:
           printf '%s\n' "$KEY" > ~/.ssh/mirror_key
           chmod 600 ~/.ssh/mirror_key
           ssh-keyscan gitlab.com >> ~/.ssh/known_hosts 2>/dev/null
-          git remote add gitlab git@gitlab.com:flight-unreached/hopandhaul.git
+          git remote add gitlab git@gitlab.com:munzzyy/hopandhaul.git
           GIT_SSH_COMMAND='ssh -i ~/.ssh/mirror_key' git push gitlab HEAD:refs/heads/main --tags --force
