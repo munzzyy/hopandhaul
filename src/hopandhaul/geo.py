@@ -254,6 +254,13 @@ def region_of(lat: float, lng: float) -> str:
     Cyprus are EU; Morocco/Egypt AF; Levant/Gulf ME), Korea vs Japan, and Russia/Central
     Asia vs its CN/JP/EU neighbors (Vladivostok, Sakhalin, Kamchatka sit at JP-like
     longitudes but are RU; Mongolia/Kazakhstan sit at CN-like longitudes but aren't CN)."""
+    if 41 <= lat <= 45.6 and 139 <= lng <= 145.3:
+        return "JP"            # Hokkaido carve-out, checked before the RU box below - RU's
+                                # box is wide enough to otherwise swallow all of Hokkaido
+                                # (CTS/HKD/AKJ/WKJ). Upper lat bound stops short of Sakhalin
+                                # (~45.9N); upper lng bound sits between the northernmost real
+                                # Hokkaido field (Nakashibetsu, 144.96E) and the RU-administered
+                                # Kuril Islands (Yuzhno-Kurilsk, 145.69E) so those stay RU
     if 41 <= lat <= 82 and 41 <= lng <= 180:
         return "RU"           # Urals through the Russian Far East (Vladivostok, Sakhalin,
                                # Kamchatka), plus Kazakhstan/Kyrgyzstan/Mongolia/China's far
@@ -1193,6 +1200,14 @@ def selftest():
     check("Vladivostok is RU, not JP; Moscow and Siberia are RU",
           region_of(43.12, 131.9) == "RU" and region_of(55.75, 37.62) == "RU"
           and region_of(55.03, 82.92) == "RU")
+    hokkaido = [by_iata(c) for c in ("CTS", "HKD", "AKJ", "WKJ")]
+    check(f"Hokkaido airports (CTS/HKD/AKJ/WKJ) are JP, not swallowed by the wider RU box "
+          f"(got {[(a['iata'], region_of(a['lat'], a['lng'])) for a in hokkaido]})",
+          all(region_of(a["lat"], a["lng"]) == "JP" for a in hokkaido))
+    check("the Kuril Islands just east of Hokkaido (DEE, ITU - RU-administered, Japan "
+          "disputes them but doesn't run the ferries/fares) stay RU: the Hokkaido carve-out "
+          "must not overreach past the real Hokkaido airports",
+          region_of(43.961, 145.685) == "RU" and region_of(45.256, 147.955) == "RU")
     check("Kazakhstan/Kyrgyzstan/Mongolia are RU, not silently OTHER or mis-tagged CN",
           region_of(43.24, 76.9) == "RU" and region_of(42.87, 74.59) == "RU"
           and region_of(47.9, 106.9) == "RU")

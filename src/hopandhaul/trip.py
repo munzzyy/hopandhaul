@@ -41,7 +41,8 @@ import json
 import sys
 
 DEFAULT_THRESHOLD = 200.0  # Cole's rule: a split must beat direct by >= this to be worth it.
-GROUND_MODES = {"train", "bus", "coach", "drive", "car", "rental", "ferry", "rail", "ground", "shuttle"}
+GROUND_MODES = {"train", "bus", "coach", "drive", "car", "rental", "ferry", "rail", "ground",
+                 "shuttle", "taxi", "uber", "rideshare"}
 FLIGHT_MODES = {"fly", "flight", "plane", "air"}
 KNOWN_MODES = GROUND_MODES | FLIGHT_MODES
 # Modes priced per VEHICLE (one car carries the whole group); everything else is per person.
@@ -265,6 +266,13 @@ def evaluate(options: list[dict], threshold: float = DEFAULT_THRESHOLD,
         if fits:
             time_budget_binding = len(fits) < len(eligible)
             eligible = fits
+        elif any(not r["over_time_budget"] for r in rows):
+            # nothing that clears the $ rule fits the budget, but something in the FULL set
+            # does (e.g. a pricier direct that was never eligible on cost) - a hard time
+            # budget beats the $ rule, so widen the pool instead of recommending an eligible
+            # option that blows the time the user actually asked for.
+            eligible = [r for r in rows if not r["over_time_budget"]]
+            time_budget_binding = True
     if vot:
         recommended = min(eligible, key=lambda r: (r["adjusted_cost"], r["hours_eff"]))
     else:
@@ -635,7 +643,36 @@ def selftest():
     check("direct stays recommended (the $70 saving doesn't clear the $200 rule)",
           r12["recommended"] == "Direct")
 
-    n_cases = 12
+    # Case 13: the time-budget fallback must search every option, not just the pre-filtered
+    # eligible set. Baseline direct $620/20h and a dominant split $285/18h are both over an
+    # 8h budget; a pricier compliant direct $700/5h fits the budget but never clears the
+    # $200 rule vs baseline, so it's excluded from eligible. Before this fix, "nothing fits"
+    # was checked only within eligible (true here), so the budget got ignored entirely and
+    # the 18h split - which blows the user's stated time budget - was recommended anyway.
+    opts13 = [parse_option("Cheap direct | fly 620 20.0"),
+              parse_option("Dominant split | fly 200 12.0 ; train 85 6.0"),
+              parse_option("Compliant direct | fly 700 5.0")]
+    r13 = evaluate(opts13, threshold=200, max_hours=8.0)
+    check("a compliant option outside the pre-filtered eligible set is recommended over an "
+          "eligible one that blows the time budget",
+          r13["recommended"] == "Compliant direct")
+    comp13 = next(o for o in r13["options"] if o["name"] == "Compliant direct")
+    check("the recommended option actually fits the time budget",
+          comp13["over_time_budget"] is False)
+    check("time_budget_binding is reported when the budget had to reach outside eligible",
+          r13["time_budget_binding"] is True)
+
+    # Case 14: taxi/uber/rideshare price correctly (PER_VEHICLE_MODES) but were missing from
+    # GROUND_MODES, so parse_leg flagged them mode_unknown and the CLI warned about a
+    # perfectly normal leg mode.
+    o14 = parse_option("Airport taxi | taxi 40 0.5")
+    check("taxi is a known ground mode, not flagged mode_unknown",
+          o14["legs"][0]["mode_unknown"] is False)
+    o14b = parse_option("Ride | uber 25 0.3 ; rideshare 18 0.4")
+    check("uber/rideshare are known ground modes too",
+          not any(leg["mode_unknown"] for leg in o14b["legs"]))
+
+    n_cases = 14
     print(f"\n{'ALL PASS' if not failures else str(len(failures)) + ' FAILED'} "
           f"({n_cases} cases)")
     return 1 if failures else 0
