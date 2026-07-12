@@ -14,6 +14,7 @@ _SUBCOMMANDS = {
     "plan": "trip",       # trip.py owns the CLI historically named "plan a trip"
     "trip": "trip",
     "go": "go",           # one-shot zero-key trip plan: `hopandhaul go JFK TLL`
+    "multicity": "multicity",   # order N cities into one trip: `hopandhaul multicity ...`
     "serve": "server",
     "geocode": "places",
     "weather": "weather",
@@ -44,6 +45,9 @@ def main(argv=None) -> int:
     if module_name == "go":
         from . import go
         return go.main(rest)
+    if module_name == "multicity":
+        from . import multicity
+        return multicity.main(rest)
     if module_name == "server":
         from . import server
         return server.main(rest)
