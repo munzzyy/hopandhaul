@@ -35,6 +35,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
       - name: Stage the airport/gateway data JSON into the published site
         # engine/data.js fetches these as "./data/<file>" relative to ui/ - same two files
         # server.py's geo.py reads, copied here instead of duplicated in git (single source of
