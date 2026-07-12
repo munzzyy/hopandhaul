@@ -433,7 +433,7 @@ def build_options(args) -> list[dict]:
 
 
 def _force_utf8():
-    """Windows consoles default to cp1252 and choke on -> ✅ ≈; make stdout/stderr UTF-8."""
+    """Windows consoles default to cp1252 and choke on ✅ ≈ and the like; make stdout/stderr UTF-8."""
     for stream in (sys.stdout, sys.stderr):
         try:
             stream.reconfigure(encoding="utf-8")  # py3.7+

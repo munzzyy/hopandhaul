@@ -88,10 +88,10 @@ jobs:
       - run: pip install noslop-lint==0.10.0
       - name: Source files read human (code mode)
         run: |
-          git ls-files 'src/hopandhaul/*.py' 'src/hopandhaul/ui/*.js' \
+          git ls-files -z 'src/hopandhaul/*.py' 'src/hopandhaul/ui/*.js' \
             'src/hopandhaul/ui/*.css' 'src/hopandhaul/ui/*.html' \
             'tools/*.py' 'tests/**' '.github/workflows/*.yml' \
-            | grep -v '^src/hopandhaul/ui/vendor/' \
-            | xargs noslop --no-config
+            | grep -zv '^src/hopandhaul/ui/vendor/' \
+            | xargs -0r noslop --no-config
       - name: Docs read human (prose mode)
-        run: noslop --no-config README.md SECURITY.md CONTRIBUTING.md docs/DESIGN.md docs/api.md
+        run: git ls-files -z '*.md' | xargs -0r noslop --no-config
