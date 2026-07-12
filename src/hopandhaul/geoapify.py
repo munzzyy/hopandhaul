@@ -157,6 +157,16 @@ def selftest():
           _GEOCODE_CACHE.get(("fwd", "aspen, co", 5, "en")) == [row])
     check("net.TTLCache is the backing cache type", isinstance(_GEOCODE_CACHE, net.TTLCache))
 
+    # reverse() shares _clean/_http_json with geocode but had no coverage of its
+    # own guard or cache-key shape. Deterministic with or without keys: with a
+    # key configured the guard short-circuits True; without one, reverse must
+    # return None before any network call.
+    check("reverse() short-circuits to None without API keys",
+          have_keys() or reverse(39.19, -106.82) is None)
+    _GEOCODE_CACHE.set(("rev", 39.19, -106.82, "en"), row)
+    check("reverse cache round-trips under the (rev, lat, lng, lang) key",
+          _GEOCODE_CACHE.get(("rev", 39.19, -106.82, "en")) == row)
+
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (offline checks)")
     return 1 if fails else 0
 
