@@ -932,6 +932,16 @@ def selftest():
         if not cond:
             fails.append(name)
 
+    # airports.json is keyed by IATA and grows through contributions (see
+    # CONTRIBUTING.md's airport-data section); a duplicate code would silently
+    # shadow one of the two rows in by_iata's lookup, so guard the file stays
+    # one row per code.
+    seen, dupes = set(), set()
+    for a in airports():
+        code = a["iata"]
+        (dupes if code in seen else seen).add(code)
+    check(f"airports.json has no duplicate IATA codes (found {sorted(dupes)[:5]})", not dupes)
+
     # haversine: JFK<->LAX is ~3970 km
     d = haversine_km(40.641, -73.778, 33.942, -118.408)
     check(f"haversine JFK-LAX ~3970km (got {d})", 3900 <= d <= 4050)
