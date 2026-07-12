@@ -11,7 +11,7 @@
 import { pyRound } from "./pyround.js";
 
 export const DEFAULT_THRESHOLD = 200.0;
-const GROUND_MODES = new Set(["train", "bus", "coach", "drive", "car", "rental", "ferry", "rail", "ground", "shuttle"]);
+const GROUND_MODES = new Set(["train", "bus", "coach", "drive", "car", "rental", "ferry", "rail", "ground", "shuttle", "taxi", "uber", "rideshare"]);
 const FLIGHT_MODES = new Set(["fly", "flight", "plane", "air"]);
 const KNOWN_MODES = new Set([...GROUND_MODES, ...FLIGHT_MODES]);
 // Modes priced per VEHICLE (one car carries the whole group); everything else is per person.
