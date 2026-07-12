@@ -8,7 +8,7 @@ const panel = () => document.getElementById("results");
 
 /** Show a hidden panel for real: flip `hidden` off, force a reflow so the .show transition
  * actually animates from the pre-transition state, then add .show. Without the reflow the
- * browser coalesces both class changes into one paint and the transition never fires — this
+ * browser coalesces both class changes into one paint and the transition never fires - this
  * was previously dead code (the reveal never actually ran). */
 function reveal(el) {
   if (el.hidden) {
@@ -28,7 +28,7 @@ function weatherChip(w) {
     ? "<div class=\"wx-fc\">" + esc(w.forecast.emoji) + " " + esc(w.forecast.temp) + esc(w.forecast.units)
       + " &middot; " + esc(w.forecast.date) + "<br>" + esc(w.forecast.desc || "") + "</div>"
     : (w.forecast_note ? "<div class=\"wx-fc\">" + esc(w.forecast_note) + "</div>" : "");
-  // the weather glyph is the one emoji left in the product — it arrives in the server
+  // the weather glyph is the one emoji left in the product - it arrives in the server
   // payload, not authored in UI code, so it's out of scope for the icon-sprite swap.
   return "<div class=\"wx\">"
     + "<span class=\"wx-ico\" aria-hidden=\"true\">" + esc(w.emoji || "\u{1F321}️") + "</span>"
@@ -42,7 +42,7 @@ function legLabel(l) {
     + "<span class=\"sr-only\">" + esc(modeLabel(l.mode)) + "</span>" + fmtMoney(l.cost) + "</span>";
 }
 
-// String.replace(token, replacement) treats a *string* replacement specially — "$'", "$&",
+// String.replace(token, replacement) treats a *string* replacement specially - "$'", "$&",
 // "$`", "$$", and "$<name>" are all $-pattern substitutions, not literal text. A real-world
 // name containing one of those sequences (e.g. a place or option name with "$&" in it) would
 // silently corrupt the output. Passing a replacer *function* instead disables all of that:
@@ -57,7 +57,7 @@ function destDescription(data, placeLabel) {
     + esc(data.dest.iata) + "</bdi>" + (c ? " (" + esc(c) + ")" : "");
 }
 
-// rec.flyInto is "Fly into {hub}, then {mode} the rest." — escape the translated template
+// rec.flyInto is "Fly into {hub}, then {mode} the rest." - escape the translated template
 // first, then splice a <strong>-wrapped, independently-escaped hub name in for the {hub}
 // token and the (already-escaped) mode label in for {mode}. The catalog string never reaches
 // innerHTML unescaped; the tokens are substituted with pre-built, pre-escaped fragments only
@@ -114,7 +114,7 @@ function recommendationCard(R, rec, isDirect) {
     + "    </div>";
 }
 
-/** One leg of an option's itinerary — real airport identity, a clock schedule (example or
+/** One leg of an option's itinerary - real airport identity, a clock schedule (example or
  * live), the airport-arrival buffer for a flight leg, per-leg price + provenance, and a
  * one-click verify link. verify_url always opens in a new tab: it's a hop off the app to a
  * third-party site, never something that should navigate the plan away. */
@@ -126,7 +126,7 @@ function itineraryLegRow(leg) {
     ? " <span class=\"itin-carrier\">" + esc(leg.carrier)
       + (leg.flight_number ? " " + esc(leg.flight_number) : "") + "</span>"
     : "";
-  // "ASE — Aspen" not "ASE — Aspen, Aspen": small airports often have name == city.
+  // "ASE - Aspen" not "ASE - Aspen, Aspen": small airports often have name == city.
   const apLabel = (a) => esc(a.iata) + " — " + esc(a.name)
     + (a.city && a.city !== a.name ? ", " + esc(a.city) : "");
   const fromLabel = apLabel(leg.from);
@@ -155,7 +155,7 @@ function itineraryLegRow(leg) {
     + "      </li>";
 }
 
-/** Collapsible itinerary block for one option — <details> so a list of several options doesn't
+/** Collapsible itinerary block for one option - <details> so a list of several options doesn't
  * force every leg's worth of text on screen before anyone asks for it. */
 function itineraryBlock(o) {
   const itin = o.itinerary;
@@ -177,7 +177,7 @@ function optionRow(o, recName, greenestName) {
     ? t("opt.saves", { money: fmtMoney(o.savings_vs_baseline) })
     : (o.savings_vs_baseline < 0 ? t("opt.more", { money: fmtMoney(-o.savings_vs_baseline) }) : t("opt.baseline"));
   const isGreenest = greenestName != null && o.name === greenestName;
-  // "greenest" is a plain-text tag, not a color swap — same accessible pattern the cost/status
+  // "greenest" is a plain-text tag, not a color swap - same accessible pattern the cost/status
   // tags already use, so it reads fine with no color perception at all.
   const co2Line = o.co2e_kg != null
     ? "<span class=\"opt-co2" + (isGreenest ? " opt-co2--greenest" : "") + "\">"
@@ -204,12 +204,12 @@ function optionRow(o, recName, greenestName) {
 }
 
 // Mobile-only bottom-sheet expand/collapse (see the #results/.sheet-toggle rules in
-// styles.css) — everything past the hero recommendation card (why-greenest-differs note,
+// styles.css) - everything past the hero recommendation card (why-greenest-differs note,
 // weather, the full option list, caveats) is one tap away instead of fighting the map for
 // space by default. No-op wrapper element on desktop: the floating panel there already shows
 // everything at once, so .sheet-toggle just stays display:none per the CSS.
 // aria-expanded/label are derived from #results' own .results-expanded class, the single
-// source of truth — reread here rather than tracked in a second module-level flag, so a fresh
+// source of truth - reread here rather than tracked in a second module-level flag, so a fresh
 // renderPlan() (a new plan, or a language-switch re-render of the same one) always reflects
 // whatever the visitor last chose instead of silently resetting it.
 function sheetToggleButton(optionCount) {
@@ -223,7 +223,7 @@ function sheetToggleButton(optionCount) {
 }
 
 /** Flip the bottom sheet between its peek height (just the hero card) and full height (the
- * complete option list) — a cheap in-place class/label swap, not a re-render, so it can't
+ * complete option list) - a cheap in-place class/label swap, not a re-render, so it can't
  * disturb scroll position or steal focus the way rebuilding the whole panel would. */
 export function toggleSheet() {
   const el = panel();
@@ -238,7 +238,7 @@ export function toggleSheet() {
 
 /** Full render of a successful plan response. `placeLabel` is the free-text search label,
  * if the user searched rather than clicked, for the "X -> Y (place)" heading. `focusPanel`
- * should be true only for a user-initiated render (a new plan finishing) — not for a
+ * should be true only for a user-initiated render (a new plan finishing) - not for a
  * language-switch re-render of the same data, which must not steal focus. */
 export function renderPlan(data, placeLabel, focusPanel = false) {
   const R = data.result;
@@ -260,7 +260,7 @@ export function renderPlan(data, placeLabel, focusPanel = false) {
     ...(data.notes || []),
   ];
 
-  // cheapest vs greenest, shown as a plain sentence rather than picking one for the user —
+  // cheapest vs greenest, shown as a plain sentence rather than picking one for the user - 
   // only worth a callout when they're actually different options.
   const NAME_TOKEN = "@@NAME@@";
   const cheapestVsGreenest = (greenestOpt && greenestOpt.name !== rec.name)
@@ -307,7 +307,7 @@ export function renderPlan(data, placeLabel, focusPanel = false) {
 // tells the user what to do.
 export function renderError(msg, focusPanel = false) {
   const el = panel();
-  // A previous plan may have left the mobile sheet expanded (see toggleSheet()) — this state
+  // A previous plan may have left the mobile sheet expanded (see toggleSheet()) - this state
   // has no option list and no toggle button to shrink it back, so drop back to the compact
   // peek height rather than stranding the visitor with a full-height sheet hiding the map.
   el.classList.remove("results-expanded");
@@ -322,7 +322,7 @@ export function renderError(msg, focusPanel = false) {
 }
 
 // Empty-state motif: viewBox 0 0 280 90, same arc/rail/node semantics as the map and the
-// h1 mark — blue dotted hop arc, ink transfer node, green dashed haul leg. Mirrors under
+// h1 mark - blue dotted hop arc, ink transfer node, green dashed haul leg. Mirrors under
 // [dir="rtl"] via the .empty-art svg{transform:scaleX(-1)} rule in styles.css.
 const EMPTY_ART = "\n"
   + "    <svg class=\"empty-art\" viewBox=\"0 0 280 90\" width=\"140\" height=\"45\" aria-hidden=\"true\">\n"
@@ -348,10 +348,10 @@ export function renderEmpty() {
 export function renderLoading() {
   const el = panel();
   // Every new plan attempt (planTo()) routes through here first, so this is also the natural
-  // place to drop a carried-over expanded sheet back to peek for the NEW route — the visitor
+  // place to drop a carried-over expanded sheet back to peek for the NEW route - the visitor
   // gets the map back while it's working, same as renderError()/renderEmpty() above. A
   // language switch on an already-finished plan (rerenderCurrent()) skips this function
-  // entirely and goes straight to renderPlan(), so it isn't affected — that path still
+  // entirely and goes straight to renderPlan(), so it isn't affected - that path still
   // preserves whatever the visitor had open.
   el.classList.remove("results-expanded");
   el.innerHTML = "\n"

@@ -46,14 +46,14 @@ function renderList(query) {
       + `</span>`
       + `${isActive ? `<span class="lang-item-check" aria-hidden="true">✓</span>` : ""}`
       + `</li>`;
-  // A real (but non-interactive) option, not role="presentation" — a listbox announcing zero
+  // A real (but non-interactive) option, not role="presentation" - a listbox announcing zero
   // options with no explanation is worse than one disabled row explaining why it's empty.
   }).join("") || `<li class="lang-item lang-item--empty" role="option" aria-disabled="true" `
     + `id="lang-opt-empty">${esc(t("search.noMatches"))}</li>`;
 }
 
 function paintActive() {
-  if (!visibleCodes.length) return; // only the disabled "no matches" row exists — never focus it
+  if (!visibleCodes.length) return; // only the disabled "no matches" row exists - never focus it
   [...list.children].forEach((el, i) => {
     el.classList.toggle("lang-item--focused", i === activeIndex);
   });
@@ -62,19 +62,19 @@ function paintActive() {
     focused.scrollIntoView({ block: "nearest" });
     filterInput.setAttribute("aria-activedescendant", focused.id);
   } else {
-    // an empty aria-activedescendant is an invalid IDREF — remove rather than set ""
+    // an empty aria-activedescendant is an invalid IDREF - remove rather than set ""
     filterInput.removeAttribute("aria-activedescendant");
   }
 }
 
 // Monotonic token so a slow earlier choose() can't resolve after a newer one and stomp its
-// result — without this, a slow catalog fetch for a language the user already changed away
+// result - without this, a slow catalog fetch for a language the user already changed away
 // from would land last and leave the UI, <html lang>, and localStorage on the stale choice.
 let chooseSeq = 0;
 
 async function choose(code) {
   const mySeq = ++chooseSeq;
-  await loadLang(code); // resolves silently to English internally if the catalog 404s —
+  await loadLang(code); // resolves silently to English internally if the catalog 404s - 
                         // dir/lang below still follow the user's *chosen* code, not the fallback
   if (mySeq !== chooseSeq) return; // superseded by a newer selection while this awaited
   saveLangPref(code);
@@ -104,7 +104,7 @@ function closeModal() {
 }
 
 function moveActive(delta) {
-  const count = visibleCodes.length; // real options only — never the disabled empty-state row
+  const count = visibleCodes.length; // real options only - never the disabled empty-state row
   if (!count) return;
   activeIndex = ((activeIndex + delta) % count + count) % count;
   paintActive();
@@ -139,7 +139,7 @@ function onKeydown(e) {
 }
 
 /** Wire the launcher + modal. `onChange(code)` fires after a new language has been loaded,
- * dir/lang applied, and the modal closed — callers re-run applyStatic() + re-render there. */
+ * dir/lang applied, and the modal closed - callers re-run applyStatic() + re-render there. */
 export function initLangPicker(onChange) {
   onChangeCb = onChange;
   launcher = document.getElementById("lang-toggle");

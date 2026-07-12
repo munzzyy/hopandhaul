@@ -1,7 +1,7 @@
-// geo.js — faithful JS port of hopandhaul/geo.py's estimate path (no network).
+// geo.js - faithful JS port of hopandhaul/geo.py's estimate path (no network).
 //
 // This mirrors geo.py function-for-function, constant-for-constant, including operation
-// order, so it stays bit-for-bit identical to the Python engine after rounding — see
+// order, so it stays bit-for-bit identical to the Python engine after rounding - see
 // tests/web_parity/. If you're changing behavior here, change geo.py first and port the
 // change back; this file should never drift ahead of the Python original.
 //
@@ -15,7 +15,7 @@ import {
 export { byIata };
 
 /** Python "%g" formatting for the numbers this engine narrates (fares, hours, sailing
- * frequencies): 6 significant digits, trailing zeros stripped — matches f"{x:g}". */
+ * frequencies): 6 significant digits, trailing zeros stripped - matches f"{x:g}". */
 export function pyG(x) {
   return String(Number(Number(x).toPrecision(6)));
 }
@@ -29,7 +29,7 @@ export const HUB_COMPETITION_DISCOUNT = 0.92;
 export const FLIGHT_FIXED_H = 1.1;
 export const CONNECTION_H = 1.6;
 
-// Route-market multiplier by (region, region) pair, pre-sorted alphabetically — mirrors
+// Route-market multiplier by (region, region) pair, pre-sorted alphabetically - mirrors
 // geo.py's ROUTE_MULT dict exactly (including its "keys must be pre-sorted" invariant, which
 // this module also enforces below at load time, matching geo.py's module-level assert).
 const ROUTE_MULT_ENTRIES = [
@@ -149,7 +149,7 @@ export const NEAREST_SOFT_KM = 120;
 export const NEAREST_WARN_KM = 400;
 export const NEAREST_HARD_KM = 700;
 
-/** Closest airport to a point, capped at maxKm — mirrors geo.nearest_airport exactly,
+/** Closest airport to a point, capped at maxKm - mirrors geo.nearest_airport exactly,
  * including its "first minimal wins" tie-break (relies on airports() iteration order matching
  * the Python side's, which it does: both read the same airports.json in file order). */
 export function nearestAirport(lat, lng, { preferHub = false, maxKm = NEAREST_HARD_KM } = {}) {
@@ -171,7 +171,7 @@ export function nearestAirport(lat, lng, { preferHub = false, maxKm = NEAREST_HA
 }
 
 // --------------------------------------------------------------------------- regions
-/** Coarse region for ground-transport quality/cost and route-market pricing — mirrors
+/** Coarse region for ground-transport quality/cost and route-market pricing - mirrors
  * geo.region_of's if/elif chain exactly, including its comments on why order matters. */
 export function regionOf(lat, lng) {
   if (lat >= 41 && lat <= 82 && lng >= 41 && lng <= 180) return "RU";
@@ -204,7 +204,7 @@ function pad2(n) {
   return String(n).padStart(2, "0");
 }
 
-/** Strict YYYY-MM-DD parse + real-calendar-date validation. Returns {y,m,d} or null —
+/** Strict YYYY-MM-DD parse + real-calendar-date validation. Returns {y,m,d} or null - 
  * mirrors what datetime.date.fromisoformat()/date() raise ValueError on. */
 function parseIsoDate(dateStr) {
   const s = String(dateStr);
@@ -216,7 +216,7 @@ function parseIsoDate(dateStr) {
   return { y, m, d };
 }
 
-/** Today as a pure {y,m,d} calendar date in the LOCAL timezone — matches Python's
+/** Today as a pure {y,m,d} calendar date in the LOCAL timezone - matches Python's
  * datetime.date.today(), which is also local-timezone. */
 function localTodayYMD() {
   const now = new Date();
@@ -255,13 +255,13 @@ export function fareDateMultiplier(dateStr, today = null) {
 }
 void pad2; // reserved for future date formatting; keeps lint quiet if unused in a given build
 
-// US fare anchoring — mirrors geo.py: the anchor BOUNDS the curve using the real BTS band
+// US fare anchoring - mirrors geo.py: the anchor BOUNDS the curve using the real BTS band
 // and rides along in the output for provenance.
 export const ANCHOR_MATCH_KM = 60.0;
 export const ANCHOR_LO_FRAC = 0.45;
 export const ANCHOR_HI_FRAC = 1.00;
 
-/** The busiest real BTS city-pair market covering these two airports, or null —
+/** The busiest real BTS city-pair market covering these two airports, or null - 
  * mirrors geo.fare_anchor_for, including its "first orientation match, then break" scan
  * and its strictly-greater pax_day tie-break (ties keep the earlier anchor). */
 export function fareAnchorFor(orig, dest) {
@@ -541,7 +541,7 @@ function _offsetPoint(lat, lng, thetaRad, distKm) {
   return [pyRound(p2 / DEG2RAD, 4), pyRound(lng2, 4)];
 }
 
-/** True when open sea genuinely separates two points and no land detour plausibly exists —
+/** True when open sea genuinely separates two points and no land detour plausibly exists - 
  * mirrors geo.sea_gap: direct-run trigger, tight offset-path rescue, fixed-link rescue. */
 export function seaGap(a, b) {
   const stats = waterPathStats(a.lat, a.lng, b.lat, b.lng);
@@ -588,7 +588,7 @@ function _accessOk(airport, port) {
   return stats.max_run_km < ACCESS_WATER_RUN_KM;
 }
 
-/** Best real ferry corridor connecting the areas around two airports — mirrors
+/** Best real ferry corridor connecting the areas around two airports - mirrors
  * geo.ferry_corridor_for, including its strictly-lower access-score tie-break. */
 export function ferryCorridorFor(a, b, maxPortKm = PORT_MATCH_KM) {
   let best = null;
@@ -681,7 +681,7 @@ export function discoverGateways(dest, origin = null, { maxGroundH = 6.0, maxGat
     const d = haversineKm(dest.lat, dest.lng, a.lat, a.lng);
     if (d < 25 || d > maxKm) continue;
 
-    // Water honesty, three rules — mirrors geo.py's discover_gateways exactly:
+    // Water honesty, three rules - mirrors geo.py's discover_gateways exactly:
     //   1. a real corridor spanning most of the leg IS the connection;
     //   2. different landmasses with no corridor -> no leg at all;
     //   3. same landmass but a sea gap with no land detour -> no leg.

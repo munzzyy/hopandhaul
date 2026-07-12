@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-_secrets.py — tiny local secret loader for hopandhaul.
+_secrets.py - tiny local secret loader for hopandhaul.
 
 Resolution order for any key:
-  1. environment variable  (e.g. DUFFEL_API_KEY)      — wins, so CI/agents can override
-  2. secrets.local.json    (this directory, gitignored) — convenient persistent storage
+  1. environment variable  (e.g. DUFFEL_API_KEY)      - wins, so CI/agents can override
+  2. secrets.local.json    (this directory, gitignored) - convenient persistent storage
 
 No secret is ever hardcoded in tracked source. secrets.local.json is listed in .gitignore.
 Pure stdlib. Import and call get("DUFFEL_API_KEY").
@@ -44,7 +44,7 @@ def has(name: str) -> bool:
 
 
 def mask(name: str) -> str:
-    """Safe-to-print fingerprint of a key: 'set (…OovM)' or 'MISSING'."""
+    """Safe-to-print fingerprint of a key: 'set (...OovM)' or 'MISSING'."""
     v = get(name)
     if not v:
         return "MISSING"

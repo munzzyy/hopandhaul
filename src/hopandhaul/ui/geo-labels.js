@@ -1,5 +1,5 @@
 // Centroids for the translated place-label overlay drawn on the map.
-// Names aren't stored here — they're resolved at runtime from these codes via
+// Names aren't stored here - they're resolved at runtime from these codes via
 // Intl.DisplayNames for the active UI locale, so all 56 languages come for free
 // with zero translation data. Country centroids: gavinr/world-countries-centroids
 // (public domain), reduced to alpha-2 -> [lat, lng]. Continents use UN M49 codes,
@@ -55,7 +55,7 @@ export const COUNTRIES = {
 
 // Continent names by app locale. Intl.DisplayNames("region") does not resolve the UN M49
 // continent codes in browsers, so these come from Unicode CLDR (the same data Intl uses for
-// countries) — official, not hand-translated. Codes: 002 Africa, 150 Europe, 142 Asia,
+// countries) - official, not hand-translated. Codes: 002 Africa, 150 Europe, 142 Asia,
 // 003 North America, 005 South America, 009 Oceania, AQ Antarctica.
 export const CONTINENT_NAMES = {
   "ar": { "002":"أفريقيا", "150":"أوروبا", "142":"آسيا", "003":"أمريكا الشمالية", "005":"أمريكا الجنوبية", "009":"أوقيانوسيا", "AQ":"أنتاركتيكا" },

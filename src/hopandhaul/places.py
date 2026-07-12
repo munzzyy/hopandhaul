@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-places.py — place search that works with ZERO keys.
+places.py - place search that works with ZERO keys.
 
 Geocoding used to require a Geoapify key, which meant the search box was dead on a fresh
-install. Photon (photon.komoot.io — Apache-2.0 software, OSM data, keyless, fair-use) now
+install. Photon (photon.komoot.io - Apache-2.0 software, OSM data, keyless, fair-use) now
 answers by default; a Geoapify key, when present, still takes precedence (higher volume
 allowance, address-level results). Same normalized result shape either way, so server.py and
 the UI don't care which provider answered.
 
-Photon usage note: fair-use, no hard published quota — this module caches, sends an
+Photon usage note: fair-use, no hard published quota - this module caches, sends an
 identifying User-Agent, and is only ever called from a local, single-user server. Result data
 is OSM -> attribution "© OpenStreetMap contributors" ships in the README/UI.
 
@@ -33,7 +33,7 @@ _PHOTON_CACHE = net.TTLCache(ttl_seconds=600, max_size=256)
 
 
 def available() -> bool:
-    """Place search is always available now — Photon needs no key."""
+    """Place search is always available now - Photon needs no key."""
     return True
 
 

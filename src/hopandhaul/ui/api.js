@@ -1,15 +1,15 @@
-// api.js — same fetchConfig/fetchGeocode/fetchNearest/fetchPlan contract app.js/search.js
+// api.js - same fetchConfig/fetchGeocode/fetchNearest/fetchPlan contract app.js/search.js
 // already call. Two backends, tried in this order:
 //
 //   1. A real python -m hopandhaul.server on this origin (LIVE fares/weather/typed-geocode
-//      when it's keyed). Detected once via a same-origin /api/config probe — see probeServer().
-//   2. The in-browser engine (./engine/) + the shipped airport DB — no network beyond fetching
+//      when it's keyed). Detected once via a same-origin /api/config probe - see probeServer().
+//   2. The in-browser engine (./engine/) + the shipped airport DB - no network beyond fetching
 //      the two static JSON data files, no keys, works on GitHub Pages or any static host.
 //
 // GitHub Pages has no /api/* routes (a plain 404), same as `python -m http.server` used for
-// local static preview — both look identical to the probe: "no server, use the engine". Only
+// local static preview - both look identical to the probe: "no server, use the engine". Only
 // a real hopandhaul server answers /api/config with {ok:true, ...}, and even then only for
-// whichever of geocode/weather/live-fares it actually has keys for — everything else still
+// whichever of geocode/weather/live-fares it actually has keys for - everything else still
 // falls back to the engine per-call (see fetchGeocode).
 import { plan as enginePlan } from "./engine/plan.js";
 import { loadData } from "./engine/data.js";
@@ -26,7 +26,7 @@ function ensureData() {
   return _dataPromise;
 }
 // Warm the fallback data in the background as soon as this module loads, in parallel with the
-// server probe below — whichever backend actually ends up serving a given call, the engine's
+// server probe below - whichever backend actually ends up serving a given call, the engine's
 // data is ready by the time anything needs it instead of adding its own load latency later.
 ensureData().catch(() => {}); // a real failure surfaces later, when a caller actually awaits it
 
@@ -43,7 +43,7 @@ async function getJson(path, signal) {
 let _serverProbe = null;
 
 /** Resolves to the server's /api/config payload if a real hopandhaul server answered, else
- * null. Memoized — every caller below awaits the same one probe. */
+ * null. Memoized - every caller below awaits the same one probe. */
 function probeServer() {
   if (!_serverProbe) {
     _serverProbe = (async () => {
@@ -76,8 +76,8 @@ export async function fetchConfig() {
     ok: true,
     has_live_keys: false,
     flights_provider: null,
-    // Backed by the local airport DB (engine/search.js), not a live geocoder — there's no key
-    // for one on Pages — but it does work, so this is honestly true, not a degraded "off".
+    // Backed by the local airport DB (engine/search.js), not a live geocoder - there's no key
+    // for one on Pages - but it does work, so this is honestly true, not a degraded "off".
     has_geocode: true,
     has_weather: false,
     default_origin: "JFK",
@@ -94,7 +94,7 @@ export async function fetchGeocode(query, signal) {
       const q = new URLSearchParams({ q: query, limit: "6" });
       return await getJson(`/api/geocode?${q}`, signal);
     } catch {
-      // server vanished mid-session (stopped, network blip) — fall back to the local search
+      // server vanished mid-session (stopped, network blip) - fall back to the local search
     }
   }
   try {
@@ -103,9 +103,9 @@ export async function fetchGeocode(query, signal) {
     return err("internal_error", "could not load the airport database");
   }
   const local = searchAirports(query, 6);
-  // A code or a known airport city resolves locally — keep that instant and offline. For
+  // A code or a known airport city resolves locally - keep that instant and offline. For
   // anything the airport DB can't answer (an address, a village, a landmark), Photon
-  // (photon.komoot.io — keyless, CORS-open, OSM data) turns the static build's search box
+  // (photon.komoot.io - keyless, CORS-open, OSM data) turns the static build's search box
   // into a real geocoder. Best-effort: any failure falls back to the local matches.
   if (!local.length && String(query || "").trim().length >= 3) {
     try {
@@ -131,7 +131,7 @@ export async function fetchGeocode(query, signal) {
         if (results.length) return { ok: true, results };
       }
     } catch {
-      // offline, blocked, or slow — the local airport search below still answers
+      // offline, blocked, or slow - the local airport search below still answers
     }
   }
   return { ok: true, results: local };
@@ -163,7 +163,7 @@ export async function fetchNearest(lat, lng, signal) {
 }
 
 // Tracks the in-flight plan request so a new click supersedes the previous one instead of
-// racing it — last-requested-wins, not last-resolved-wins. `_planAbort` cancels a real
+// racing it - last-requested-wins, not last-resolved-wins. `_planAbort` cancels a real
 // server-backed fetch; `_planToken` guards the local-engine path, which has no request to
 // cancel (it's synchronous CPU work) but still needs to bail out if a newer click beat it here.
 let _planAbort = null;
@@ -186,8 +186,8 @@ export async function fetchPlan(params) {
       const res = await fetch(`/api/plan?${q}`, { signal: controller.signal });
       return await res.json();
     } catch (e) {
-      if (e?.name === "AbortError") throw e; // superseded by a newer click — propagate, don't fall back
-      // a real network failure against a server that answered /api/config a moment ago —
+      if (e?.name === "AbortError") throw e; // superseded by a newer click - propagate, don't fall back
+      // a real network failure against a server that answered /api/config a moment ago - 
       // degrade to the local engine rather than surfacing a dead end.
     }
   }
@@ -251,7 +251,7 @@ export async function fetchPlan(params) {
     }
     return out;
   } catch (e) {
-    if (e?.name === "AbortError") throw e; // superseded by a newer click — propagate
+    if (e?.name === "AbortError") throw e; // superseded by a newer click - propagate
     // Mirrors server.py's _handle_plan: never leak internals to the UI, log for debugging.
     console.error("[hopandhaul] plan() failed:", e);
     return err("internal_error", "internal error planning that route");

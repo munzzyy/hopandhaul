@@ -1,0 +1,72 @@
+name: Gateway suggestion
+description: Suggest a "fly into this cheaper hub, then ground it" route for gateways.json
+title: "Gateway: "
+labels: ["gateway suggestion"]
+body:
+  - type: input
+    id: destination
+    attributes:
+      label: Destination airport (IATA)
+    validations:
+      required: true
+
+  - type: input
+    id: gateway
+    attributes:
+      label: Gateway airport (IATA)
+      description: The cheaper hub to fly into instead
+    validations:
+      required: true
+
+  - type: input
+    id: ground-mode
+    attributes:
+      label: Ground leg mode
+      placeholder: train / bus / ferry / drive
+    validations:
+      required: true
+
+  - type: input
+    id: ground-cost
+    attributes:
+      label: Ground leg cost
+      description: Approximate one-way cost per person (or per vehicle for drive), in USD
+    validations:
+      required: true
+
+  - type: input
+    id: ground-duration
+    attributes:
+      label: Ground leg duration
+      description: Approximate one-way time, in hours
+    validations:
+      required: true
+
+  - type: input
+    id: source
+    attributes:
+      label: Source for the cost/duration
+      placeholder: booking site, personal experience, official schedule, ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this is actually worth it
+      description: >
+        A sentence or two on why this specific hub is meaningfully cheaper to fly into than
+        the destination directly (more competition, an LCC base, ...). Real-world knowledge
+        like this is exactly what a curated PR is better at than an algorithm.
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else worth knowing
+      description: >
+        Visa/border crossing involved, seasonal service only, luggage restrictions on the
+        ground leg, and so on.
+    validations:
+      required: false

@@ -1,9 +1,9 @@
-// trip.js — faithful JS port of hopandhaul/trip.py's option-parsing and evaluate() reasoning.
+// trip.js - faithful JS port of hopandhaul/trip.py's option-parsing and evaluate() reasoning.
 //
 // Mirrors trip.py exactly (including comments explaining *why*, kept so this never drifts
 // from the rationale of the Python original) for the subset plan.js's orchestrator actually
 // needs: leg/option parsing, group-size scaling, and the evaluate() ranking engine. The CLI-only
-// surface (sugar_direct/sugar_split, format_report, argparse, selftest) isn't ported — nothing
+// surface (sugar_direct/sugar_split, format_report, argparse, selftest) isn't ported - nothing
 // in the browser calls it; plan.js builds canonical option strings directly, the same way
 // server.py's plan() does.
 //
@@ -18,7 +18,7 @@ const KNOWN_MODES = new Set([...GROUND_MODES, ...FLIGHT_MODES]);
 const PER_VEHICLE_MODES = new Set(["drive", "car", "rental", "taxi", "uber", "rideshare"]);
 
 // --------------------------------------------------------------------------- parsing
-/** Parse a cost/hours token: strips $ , and stray whitespace — mirrors trip.num(). */
+/** Parse a cost/hours token: strips $ , and stray whitespace - mirrors trip.num(). */
 export function num(tok) {
   let cleaned = tok.trim().replace(/^\$+/, "").replace(/,/g, "").replace(/\$/g, "");
   if (cleaned.endsWith("h")) cleaned = cleaned.slice(0, -1);
@@ -29,7 +29,7 @@ export function num(tok) {
   return v;
 }
 
-/** 'fly 210 3.0' -> {mode, cost, hours, mode_unknown} — mirrors trip.parse_leg(). */
+/** 'fly 210 3.0' -> {mode, cost, hours, mode_unknown} - mirrors trip.parse_leg(). */
 export function parseLeg(text) {
   const parts = text.split(/\s+/).filter(Boolean);
   if (parts.length < 2) throw new Error(`leg needs at least 'mode cost': got ${JSON.stringify(text)}`);
@@ -40,7 +40,7 @@ export function parseLeg(text) {
   return { mode, cost, hours, mode_unknown: !KNOWN_MODES.has(mode) };
 }
 
-/** 'NAME | fly 210 3.0 ; train 75 4.0' -> full option dict with totals — mirrors
+/** 'NAME | fly 210 3.0 ; train 75 4.0' -> full option dict with totals - mirrors
  * trip.parse_option(). minLegs guards a malformed multi-leg split being silently demoted to a
  * 1-leg direct, same as the Python original. */
 export function parseOption(text, minLegs = 1) {
@@ -70,14 +70,14 @@ export function parseOption(text, minLegs = 1) {
   };
 }
 
-/** Group math: per-person modes (fly/train/bus/ferry…) scale ×N; per-vehicle modes don't —
+/** Group math: per-person modes (fly/train/bus/ferry...) scale ×N; per-vehicle modes don't - 
  * mirrors trip.scale_leg_cost(). */
 export function scaleLegCost(mode, cost, travelers) {
   if (travelers <= 1 || PER_VEHICLE_MODES.has(mode.toLowerCase())) return cost;
   return cost * travelers;
 }
 
-/** Re-price a parsed option for N travelers — mirrors trip.scale_option(). */
+/** Re-price a parsed option for N travelers - mirrors trip.scale_option(). */
 export function scaleOption(opt, travelers) {
   if (travelers <= 1) return opt;
   const legs = opt.legs.map((leg) => ({ ...leg, cost: pyRound(scaleLegCost(leg.mode, leg.cost, travelers), 2) }));
@@ -86,7 +86,7 @@ export function scaleOption(opt, travelers) {
 }
 
 // --------------------------------------------------------------------------- reasoning
-/** a dominates b if a is no worse on both cost and time, and strictly better on one — mirrors
+/** a dominates b if a is no worse on both cost and time, and strictly better on one - mirrors
  * trip._dominates(). Compares hours_eff (buffered), falling back to raw hours if unbuffered. */
 function dominates(a, b) {
   const aH = a.hours_eff !== undefined ? a.hours_eff : a.hours;
@@ -104,7 +104,7 @@ function cmpTuple(a, b) {
   return 0;
 }
 
-/** min(arr, key=keyFn) — keeps the FIRST minimal element on a tie, exactly like Python's
+/** min(arr, key=keyFn) - keeps the FIRST minimal element on a tie, exactly like Python's
  * min(), which JS's Math.min has no equivalent for. */
 function minByTuple(arr, keyFn) {
   let best = null;
@@ -119,10 +119,10 @@ function minByTuple(arr, keyFn) {
   return best;
 }
 
-/** Rank options and apply Cole's split-vs-direct rule — mirrors trip.evaluate() exactly,
+/** Rank options and apply Cole's split-vs-direct rule - mirrors trip.evaluate() exactly,
  * including its stable sort/tie-break semantics (see minByTuple/cmpTuple above). Returns the
  * same shape as the Python version, MINUS the "_"-prefixed private rows (baseline/recommended
- * are exposed as `recommended`/`baseline` string names, same as the public trip.py contract —
+ * are exposed as `recommended`/`baseline` string names, same as the public trip.py contract - 
  * plan.js reads the private rows internally before stripping, same as server.py does). */
 export function evaluate(options, {
   threshold = DEFAULT_THRESHOLD, vot = null, transferBuffer = 0.0,

@@ -1,26 +1,26 @@
-/* hopandhaul — design tokens, layout, components. No build step: plain CSS, custom properties,
+/* hopandhaul - design tokens, layout, components. No build step: plain CSS, custom properties,
    native nesting-free selectors so it works in any evergreen browser without a preprocessor. */
 
 /* ---------------------------------------------------------------- tokens
-   Accent discipline — --arc = flight + interaction, --rail = savings + ground leg, never
+   Accent discipline - --arc = flight + interaction, --rail = savings + ground leg, never
    swapped. --arc goes ONLY on: links, focus rings, the one selected control per group, the
    combobox active option, .skip-link, spinner, flight legs + origin pin, and the direct-flight
-   hero value. --arc NEVER on: the hero savings number (always --rail — that figure staying in
+   hero value. --arc NEVER on: the hero savings number (always --rail - that figure staying in
    the "money saved" color is the product story), panel borders/titles (stay --dim), .btn at
    rest/hover, badges/tags at rest, weather chip, non-recommended pins, scrollbars, or any wash
    stronger than 14%.
 
    This discipline is per-TOKEN, not per-hex: every theme below reassigns --arc/--rail to its
    own palette (a jetstream blue in most, but the amber terminal theme below deliberately
-   breaks from blue — blue has no place in a monochrome-phosphor CRT look, so --arc goes amber
+   breaks from blue - blue has no place in a monochrome-phosphor CRT look, so --arc goes amber
    there and --rail stays a second, cooler phosphor green, matching real dual-color terminals).
    What never moves is which SLOT a color goes in and what it means once it's there. Every
    theme's worst-case text contrast (ink/dim/arc/rail/warn/bad against panel, plus the
-   rec-card color-mix blends) is computed against WCAG AA — 4.5:1 body text, 3:1 large text
-   and UI components — before it ships, not eyeballed. The contrast comment on each color
+   rec-card color-mix blends) is computed against WCAG AA - 4.5:1 body text, 3:1 large text
+   and UI components - before it ships, not eyeballed. The contrast comment on each color
    below is that computed ratio against --panel. */
 :root,
-[data-theme="dark"] {                /* DARK — Departure Board (default) */
+[data-theme="dark"] {                /* DARK - Departure Board (default) */
   color-scheme: dark;
   --bg:        #0c1519;
   --panel:     #122026;
@@ -28,8 +28,8 @@
   --line:      #29404a;
   --ink:       #e7f0f2;
   --dim:       #9db4bc;              /* 7.7:1 on panel */
-  --arc:       #47b6ff;              /* "Jetstream" — flight blue. 8.3:1 on bg */
-  --rail:      #3dd68c;              /* "Signal" — rail/savings green. ~9:1 */
+  --arc:       #47b6ff;              /* "Jetstream" - flight blue. 8.3:1 on bg */
+  --rail:      #3dd68c;              /* "Signal" - rail/savings green. ~9:1 */
   --accent:    var(--arc);
   --accent-ink:#04161f;              /* 9.5:1 on accent fill */
   --good:      var(--rail);
@@ -47,7 +47,7 @@
   --radius-xs: 6px;
 }
 
-[data-theme="light"] {               /* LIGHT — Boarding Pass (warm timetable paper) */
+[data-theme="light"] {               /* LIGHT - Boarding Pass (warm timetable paper) */
   color-scheme: light;
   --bg:        #f6f4ee;
   --panel:     #ffffff;
@@ -63,7 +63,7 @@
   --warn:      #8a6100;
   --bad:       #c8323e;
   --hub:       var(--dim);
-  --map-bg:    #bfdbe6;              /* Voyager water tint — no white flash */
+  --map-bg:    #bfdbe6;              /* Voyager water tint - no white flash */
   --map-ref:   #8a989e;
   --focus:     0 0 0 3px rgba(8, 109, 189, .35);
   --shadow-1:  0 1px 3px  rgba(27, 43, 51, .10);
@@ -71,7 +71,7 @@
   --shadow-3:  0 10px 30px rgba(27, 43, 51, .14);
 }
 
-[data-theme="oled"] {                /* DARK — Night Flight (true OLED black) */
+[data-theme="oled"] {                /* DARK - Night Flight (true OLED black) */
   color-scheme: dark;
   --bg:        #000000;
   --panel:     #0a0a0c;
@@ -95,7 +95,7 @@
   --shadow-3:  0 10px 30px rgba(0, 0, 0, .68);
 }
 
-[data-theme="amber"] {               /* DARK — Terminal (monochrome CRT departure board) */
+[data-theme="amber"] {               /* DARK - Terminal (monochrome CRT departure board) */
   color-scheme: dark;
   --bg:        #0a0704;
   --panel:     #120d07;
@@ -103,9 +103,9 @@
   --line:      #4a3418;
   --ink:       #ffd899;              /* 14.3:1 on panel */
   --dim:       #c99a55;              /* 7.6:1 on panel */
-  --arc:       #ffb000;              /* primary phosphor amber — 10.6:1 on panel. Deliberately
+  --arc:       #ffb000;              /* primary phosphor amber - 10.6:1 on panel. Deliberately
                                          not blue: see the accent-discipline note above. */
-  --rail:      #33d17a;              /* secondary phosphor green — 9.7:1 on panel, the one
+  --rail:      #33d17a;              /* secondary phosphor green - 9.7:1 on panel, the one
                                          concession to a second hue, matching real dual-trace
                                          terminals and keeping "green = savings" legible here too */
   --accent:    var(--arc);
@@ -122,16 +122,16 @@
   --shadow-3:  0 10px 30px rgba(0, 0, 0, .68);
 }
 
-[data-theme="contrast"] {            /* DARK — High Contrast (accessibility: max-contrast) */
+[data-theme="contrast"] {            /* DARK - High Contrast (accessibility: max-contrast) */
   color-scheme: dark;
   --bg:        #000000;
   --panel:     #000000;
   --panel-2:   #0d0d0d;
   --line:      #ffffff;              /* full-strength borders, not a subtle hairline */
   --ink:       #ffffff;              /* 21:1 on panel */
-  --dim:       #d9d9d9;              /* 14.9:1 on panel — still far above AA, kept off pure
+  --dim:       #d9d9d9;              /* 14.9:1 on panel - still far above AA, kept off pure
                                          white only so hierarchy (label vs value) still reads */
-  --arc:       #ffd400;              /* 14.7:1 on panel — the canonical high-contrast link/
+  --arc:       #ffd400;              /* 14.7:1 on panel - the canonical high-contrast link/
                                          focus yellow */
   --rail:      #22e06b;              /* 11.9:1 on panel */
   --accent:    var(--arc);
@@ -143,13 +143,13 @@
   --map-bg:    #000000;
   --map-ref:   #ffffff;
   --focus:     0 0 0 3px #ffd400;
-  --shadow-1:  none;                 /* real high-contrast modes drop soft shadows too — the
+  --shadow-1:  none;                 /* real high-contrast modes drop soft shadows too - the
                                          white 1px border alone (already 21:1) draws every
                                          boundary; a blurred shadow doesn't add legibility */
   --shadow-2:  none;
   --shadow-3:  none;
 }
-/* Thicker focus outline for this theme only — cheap, real accessibility value, not a hue swap. */
+/* Thicker focus outline for this theme only - cheap, real accessibility value, not a hue swap. */
 [data-theme="contrast"] :focus-visible {
   outline-width: 3px;
 }
@@ -160,7 +160,7 @@
   outline-width: 3px;
 }
 
-[data-theme="vintage"] {             /* LIGHT — Rail Poster (parchment + silkscreen ink) */
+[data-theme="vintage"] {             /* LIGHT - Rail Poster (parchment + silkscreen ink) */
   color-scheme: light;
   --bg:        #f2e4c8;
   --panel:     #fbf3e1;
@@ -168,8 +168,8 @@
   --line:      #b99a63;
   --ink:       #3b2412;              /* 13.1:1 on panel */
   --dim:       #6b4a20;              /* 7.2:1 on panel */
-  --arc:       #0d6e63;              /* poster teal — 5.6:1 on panel */
-  --rail:      #3f6d27;              /* poster olive-green — 5.6:1 on panel */
+  --arc:       #0d6e63;              /* poster teal - 5.6:1 on panel */
+  --rail:      #3f6d27;              /* poster olive-green - 5.6:1 on panel */
   --accent:    var(--arc);
   --accent-ink:#fdf6e7;
   --good:      var(--rail);
@@ -184,7 +184,7 @@
   --shadow-3:  0 10px 30px rgba(59, 36, 18, .26);
 }
 
-[data-theme="sepia"] {               /* LIGHT — Old Map (aged-paper cartography) */
+[data-theme="sepia"] {               /* LIGHT - Old Map (aged-paper cartography) */
   color-scheme: light;
   --bg:        #e3d3b0;
   --panel:     #efe2c4;
@@ -192,8 +192,8 @@
   --line:      #a98b5c;
   --ink:       #3f2f18;              /* 10.0:1 on panel */
   --dim:       #5f4a26;              /* 6.6:1 on panel */
-  --arc:       #2c4a6e;              /* old map-ink blue — 7.1:1 on panel */
-  --rail:      #54662a;              /* faded ledger green — 4.9:1 on panel */
+  --arc:       #2c4a6e;              /* old map-ink blue - 7.1:1 on panel */
+  --rail:      #54662a;              /* faded ledger green - 4.9:1 on panel */
   --accent:    var(--arc);
   --accent-ink:#fbf3df;
   --good:      var(--rail);
@@ -208,7 +208,7 @@
   --shadow-3:  0 10px 30px rgba(63, 47, 24, .28);
 }
 
-[data-theme="coastal"] {             /* LIGHT — Coastal (sand + sea) */
+[data-theme="coastal"] {             /* LIGHT - Coastal (sand + sea) */
   color-scheme: light;
   --bg:        #eaf1ee;
   --panel:     #f8fbfa;
@@ -216,8 +216,8 @@
   --line:      #a9c9c0;
   --ink:       #123531;              /* 12.8:1 on panel */
   --dim:       #3f6b64;              /* 5.8:1 on panel */
-  --arc:       #00738f;              /* ocean teal — 5.2:1 on panel */
-  --rail:      #177056;              /* seagrass green — 5.8:1 on panel */
+  --arc:       #00738f;              /* ocean teal - 5.2:1 on panel */
+  --rail:      #177056;              /* seagrass green - 5.8:1 on panel */
   --accent:    var(--arc);
   --accent-ink:#ffffff;
   --good:      var(--rail);
@@ -232,14 +232,14 @@
   --shadow-3:  0 10px 30px rgba(18, 53, 49, .16);
 }
 
-/* type scale — the savings figure needs headroom above everything else on the page */
+/* type scale - the savings figure needs headroom above everything else on the page */
 :root {
   --fs-xs: 0.6875rem;   /* 11px  */
   --fs-sm: 0.75rem;     /* 12px  */
   --fs-base: 0.8125rem; /* 13px  */
   --fs-md: 0.9375rem;   /* 15px  */
   --fs-lg: 1.125rem;    /* 18px  */
-  --fs-hero: 2.5rem;    /* 40px — the dollar-savings number, the whole point of the product */
+  --fs-hero: 2.5rem;    /* 40px - the dollar-savings number, the whole point of the product */
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px;
   --ease: cubic-bezier(.2, .7, .2, 1);
   --lh-tight: 1.1;
@@ -298,7 +298,7 @@ h1, .state-title, .rec-route { text-wrap: balance; }
 
 a { color: var(--accent); }
 
-/* visible, WCAG 2.2-compliant focus rings everywhere — never suppressed */
+/* visible, WCAG 2.2-compliant focus rings everywhere - never suppressed */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -329,7 +329,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 .skip-link:focus { top: 8px; }
 
 /* Desktop: two floating panels. Mobile media query below turns #controls into a top bar
-   and #results into a bottom sheet — this is the real responsive rework, not a fixed-width
+   and #results into a bottom sheet - this is the real responsive rework, not a fixed-width
    panel that silently overflows a 375px viewport. */
 #controls {
   position: absolute; top: var(--space-4); inset-inline-start: var(--space-4); z-index: 1000; width: 320px;
@@ -491,13 +491,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 }
 
 /* ---------------------------------------------------------------- theme picker
-   A small anchored listbox popup (not a full-screen modal like the language picker above —
+   A small anchored listbox popup (not a full-screen modal like the language picker above - 
    9 rows never need a filter box, so the lighter "menu button" pattern fits better and stays
    compact at any viewport width with zero special-casing for 360px). */
 .theme-picker { position: relative; }
 #theme-toggle { position: relative; }
 
-/* Decorative-only preview of the CURRENTLY active theme's own accent — no JS required to keep
+/* Decorative-only preview of the CURRENTLY active theme's own accent - no JS required to keep
    this in sync: it's var(--accent), so it repaints for free every time data-theme changes. */
 .theme-swatch-dot {
   position: absolute; inset-inline-end: 4px; inset-block-end: 4px;
@@ -536,7 +536,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 .theme-item-desc { font-size: var(--fs-xs); color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .theme-item-check { color: var(--good); font-weight: 700; flex: none; }
 
-/* Live two-tone previews (bg / accent) of every OTHER theme's real palette — necessarily
+/* Live two-tone previews (bg / accent) of every OTHER theme's real palette - necessarily
    hardcoded here rather than read from custom properties, since the point is showing what a
    theme that ISN'T active looks like. Keep these in sync with their [data-theme] block above
    if a palette ever changes. */
@@ -577,8 +577,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 }
 .results-subtitle { margin: var(--space-4) 0 var(--space-2); }
 
-/* the recommendation card — the one hero surface per screen; flat color-mix tint, never a
-   gradient (a gradient card is itself a template tell) — capped at a 14% brand wash. */
+/* the recommendation card - the one hero surface per screen; flat color-mix tint, never a
+   gradient (a gradient card is itself a template tell) - capped at a 14% brand wash. */
 .rec-card {
   background: color-mix(in srgb, var(--rail) 10%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--rail) 30%, var(--panel));
@@ -596,7 +596,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 .rec-hero-value {
   font-family: var(--font-num);
   font-size: var(--fs-hero); font-weight: 700; letter-spacing: -0.5px;
-  color: var(--good); /* the savings figure is always green — never the accent blue */
+  color: var(--good); /* the savings figure is always green - never the accent blue */
 }
 .rec-card--direct .rec-hero-value { color: var(--arc); }
 .rec-hero-label { font-size: var(--fs-sm); color: var(--dim); font-weight: 400; }
@@ -612,7 +612,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 .wx-desc { font-size: var(--fs-sm); color: var(--dim); text-transform: capitalize; }
 .wx-fc { font-size: var(--fs-xs); color: var(--dim); margin-inline-start: auto; text-align: end; line-height: 1.35; }
 
-/* option list — one bordered container with hairline separators, not seven sibling boxes */
+/* option list - one bordered container with hairline separators, not seven sibling boxes */
 .opt-list {
   list-style: none; margin: 0; padding: 0;
   border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
@@ -653,13 +653,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
   border-color: color-mix(in srgb, var(--arc) 35%, var(--panel));
 }
 
-/* per-option CO2e estimate — always paired with the "greenest" text tag, never color-only */
+/* per-option CO2e estimate - always paired with the "greenest" text tag, never color-only */
 .opt-meta--co2 { margin-top: 4px; }
 .opt-co2 { color: var(--dim); }
 .opt-co2--greenest { color: var(--good); font-weight: 600; }
 
 /* per-option itinerary: real airports, an example (or live) clock schedule, per-leg price
-   provenance, and a verify link — a <details> so a 5-option list doesn't force every leg's
+   provenance, and a verify link - a <details> so a 5-option list doesn't force every leg's
    worth of text on screen at once; the disclosure triangle is free a11y from the native element. */
 .itin { margin-top: var(--space-2); font-size: var(--fs-xs); }
 .itin > summary {
@@ -719,7 +719,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
   75%, 100% { content: "..."; }
 }
 
-/* empty-state illustration — same arc/rail/node semantics as the map */
+/* empty-state illustration - same arc/rail/node semantics as the map */
 .empty-art { display: block; margin: 0 0 var(--space-3); }
 .empty-art .arc-path { stroke: var(--arc); }
 .empty-art .rail-path { stroke: var(--rail); }
@@ -735,7 +735,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 }
 @keyframes draw-in { to { stroke-dashoffset: 0; } }
 
-/* spinner — a short dotted arc with a dot traveling it, echoing the brand motif */
+/* spinner - a short dotted arc with a dot traveling it, echoing the brand motif */
 #spinner {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1500;
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-sm);
@@ -813,12 +813,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
   }
 }
 
-/* view-transition polish where supported — no-op elsewhere */
+/* view-transition polish where supported - no-op elsewhere */
 @media (prefers-reduced-motion: no-preference) {
   ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .2s; }
 }
 
-/* Leaflet skin — stock white popups/controls are the most visibly unstyled surface in the
+/* Leaflet skin - stock white popups/controls are the most visibly unstyled surface in the
    app by default; theme every chrome element off the same 8 palette tokens. */
 .leaflet-popup-content-wrapper, .leaflet-popup-tip {
   background: var(--panel); color: var(--ink);
@@ -845,7 +845,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 #origin { font-family: var(--font-num); text-transform: uppercase; letter-spacing: .06em; }
 
 /* kills iOS focus-zoom (Safari zooms in on any focused input under 16px). Matched on
-   (pointer: coarse) too, not just the width breakpoint — a landscape phone (e.g. 812x375) is
+   (pointer: coarse) too, not just the width breakpoint - a landscape phone (e.g. 812x375) is
    wider than 760px but is still a touch device with the exact same zoom-on-focus behavior, so
    width alone let it slip through. */
 @media (max-width: 760px), (pointer: coarse) {
@@ -853,20 +853,20 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 }
 
 /* ================================================================== responsive */
-/* Zero @media rules existed before this file — this is the real mobile rework: the
+/* Zero @media rules existed before this file - this is the real mobile rework: the
    control panel collapses to a compact top bar, and results become a swipe-friendly
    bottom sheet instead of a 360px fixed panel that doesn't fit a 375px screen. */
 @media (max-width: 760px) {
   #controls {
     top: 0; inset-inline: 0; width: auto;
     border-radius: 0; border-left: 0; border-right: 0; border-top: 0;
-    /* Capped well under half the screen, not 62vh — the map is the point of this app, and a
+    /* Capped well under half the screen, not 62vh - the map is the point of this app, and a
        top bar plus a results sheet that each claimed most of the viewport left it fully
        hidden behind both panels the moment a plan rendered (see #results below). The form is
        still there in full, just an internal scroll away, same as it already was at 62vh. */
     max-height: 38vh; max-height: 38dvh;
     /* manifest.webmanifest declares display:standalone (installable), and index.html's
-       viewport meta now has viewport-fit=cover to actually activate env() — without both
+       viewport meta now has viewport-fit=cover to actually activate env() - without both
        halves this padding silently resolves to 0 and does nothing. Mirrors the existing
        safe-area-inset-bottom on #results below; this bar had never had its own top counterpart,
        so an installed PWA on a notched phone could render its title/lang/theme buttons under
@@ -884,7 +884,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
        strip of map visible). #sheet-toggle (rendered by results.js, only for a real plan)
        expands this to the full option list on demand via .results-expanded. */
     max-height: 40vh; max-height: 40dvh;
-    /* Re-states the base transform/opacity transition (not just adds to it — a `transition`
+    /* Re-states the base transform/opacity transition (not just adds to it - a `transition`
        shorthand here would otherwise fully replace, not merge with, the desktop rule above)
        plus the new max-height animation for the peek<->expanded toggle. */
     transition: transform .28s var(--ease), opacity .28s var(--ease), max-height .22s var(--ease);
@@ -902,14 +902,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
     background: var(--line); margin: 0 auto var(--space-2);
   }
 
-  #spinner { display: none; } /* the sheet carries loading state on mobile — no duplicate indicator */
+  #spinner { display: none; } /* the sheet carries loading state on mobile - no duplicate indicator */
 
   .row { flex-wrap: wrap; }
 }
 
-/* Bottom-sheet expand/collapse control — renderPlan() only (nothing to expand in the empty/
+/* Bottom-sheet expand/collapse control - renderPlan() only (nothing to expand in the empty/
    loading/error states). display:none by default and only switched on inside the mobile
-   @media block below — this order matters: both rules share one class' worth of specificity,
+   @media block below - this order matters: both rules share one class' worth of specificity,
    so whichever comes LATER in the file wins the tie regardless of viewport. The base rule has
    to come first, or the mobile override loses on every screen size including mobile. */
 .sheet-toggle {
@@ -940,7 +940,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
    here. The Leaflet map itself stays LTR internally (tile math, popups); this section only
    affects page chrome. */
 [dir="rtl"] #results:not(.show) { transform: translateX(-400px); }
-/* #results.show { transform: translateX(0) } is already direction-neutral — no override needed */
+/* #results.show { transform: translateX(0) } is already direction-neutral - no override needed */
 
 [dir="rtl"] h1,
 [dir="rtl"] .results-title,

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-build_land_grid.py — generates src/hopandhaul/data/landgrid.json: a packed 0.25-degree
+build_land_grid.py - generates src/hopandhaul/data/landgrid.json: a packed 0.25-degree
 land/water bitmap of Earth, rasterized from Natural Earth's 1:50m land polygons.
 
 Why this exists: geo.py's gateway discovery proposes ground legs between airport pairs from
 straight-line distance alone, which happily invented trains across the Gulf of Finland and
 ferries between islands no boat serves. The engine needs to know when a leg's path crosses
-open sea, so it can demand a real ferry corridor (data/ferries.json) or drop the leg — that
+open sea, so it can demand a real ferry corridor (data/ferries.json) or drop the leg - that
 check has to work offline, in both the Python engine and the browser port, which means
 bundled data, not a live API.
 
@@ -18,7 +18,7 @@ Method: even-odd scanline rasterization of every polygon at each grid row's cent
 (GeoJSON edges are straight lines in lat/lng space, same space as the grid), then every
 polygon vertex's cell is additionally marked land so a small island or coastal sliver thinner
 than a cell never silently disappears. A cell is land if its center falls inside land OR any
-coastline vertex touches it — biased toward land, so the sea-gap detector only fires on
+coastline vertex touches it - biased toward land, so the sea-gap detector only fires on
 genuinely open water, never on a bridged strait or a river mouth.
 
 Layout: row 0 = northernmost band (lat 90..90-res), col 0 = westernmost (lng -180..-180+res).

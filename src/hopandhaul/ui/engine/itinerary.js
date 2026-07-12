@@ -1,10 +1,10 @@
-// itinerary.js — faithful JS port of hopandhaul/itinerary.py's ESTIMATE-only path.
+// itinerary.js - faithful JS port of hopandhaul/itinerary.py's ESTIMATE-only path.
 //
 // The Pages build never has a Duffel key (no server, no CORS-able secret), so it only ever
-// exercises itinerary.py's synthetic-clock branch — never the live-segment one. This file
+// exercises itinerary.py's synthetic-clock branch - never the live-segment one. This file
 // still accepts a `segments`/`isLive` leg shape (mirroring build_timeline's full signature) so
 // it stays a faithful port instead of a silently-narrower one, but plan.js below never sets
-// those fields. See tests/web_parity/ for how this is checked against the Python original —
+// those fields. See tests/web_parity/ for how this is checked against the Python original - 
 // it rides along inside plan()'s own output, no separate case type needed.
 //
 // Same honesty rules as itinerary.py (see that file's module docstring for the full
@@ -23,7 +23,7 @@ function hhmmToMin(s) {
   return hh * 60 + mm;
 }
 
-/** minutes (may be negative or span multiple days) -> ["HH:MM", dayOffset] — mirrors
+/** minutes (may be negative or span multiple days) -> ["HH:MM", dayOffset] - mirrors
  * itinerary._min_to_hhmm(), including Python's floor-division mod semantics for negative
  * input (JS's % is remainder, not modulo, so this needs an explicit floor-div). */
 function minToHhmm(totalMin) {
@@ -59,13 +59,13 @@ export function googleFlightsLink(originIata, destIata, date = null) {
 }
 
 // Python's urllib.parse.quote(text, safe="-") only ever leaves ASCII letters/digits and
-// "_.-~" unescaped — everything else (including UTF-8 multi-byte characters, and punctuation
+// "_.-~" unescaped - everything else (including UTF-8 multi-byte characters, and punctuation
 // like "'" or "(" that plenty of real city names carry, e.g. "St. John's") gets percent-
 // escaped, uppercase hex. JS's built-in encodeURIComponent() has a DIFFERENT safe set (it also
-// leaves "!~*'()" unescaped) — close enough to look right by eye, but a byte-for-byte mismatch
+// leaves "!~*'()" unescaped) - close enough to look right by eye, but a byte-for-byte mismatch
 // on exactly the punctuation real airport city names contain. This reimplements Python's exact
 // safe set instead, so rome2rio_link() output matches _slug() byte for byte (see
-// tests/web_parity/ — this rides inside build_timeline()'s verify_url output).
+// tests/web_parity/ - this rides inside build_timeline()'s verify_url output).
 const PY_ALWAYS_SAFE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-~";
 
 function pyQuote(text) {
@@ -96,7 +96,7 @@ export function verifyLink(mode, origin, dest, date = null) {
 }
 
 // --------------------------------------------------------------------------- price provenance
-/** 'where this number comes from' for an ESTIMATE flight leg — `detail` is geo.estimateFlight()'s
+/** 'where this number comes from' for an ESTIMATE flight leg - `detail` is geo.estimateFlight()'s
  * own return object. */
 export function flightProvenanceEstimate(detail, date) {
   if (!detail) return "route-band estimate";
@@ -124,7 +124,7 @@ export function flightProvenanceLive(live) {
   return bits.join("; ");
 }
 
-/** 'where this number comes from' for a REAL ferry-corridor leg — mirrors
+/** 'where this number comes from' for a REAL ferry-corridor leg - mirrors
  * itinerary.ferry_provenance: names the ports, operators, real fare band and frequency. */
 export function ferryProvenance(ferry) {
   const ops = (ferry.operators || []).join(", ") || "operator n/a";
@@ -170,7 +170,7 @@ export function groundProvenance(gw, roadKm) {
 /**
  * legs: ordered leg specs, one per trip.js leg, each:
  *   {mode, cost, hours, from, to, price_basis, verify_url, is_live, segments}
- * Returns {legs, any_live, example_day, depart_local} — mirrors itinerary.build_timeline()
+ * Returns {legs, any_live, example_day, depart_local} - mirrors itinerary.build_timeline()
  * exactly, including its "clock math reconciles with hours_eff" invariant (see the Python
  * docstring for why the transfer buffer, not the airport-arrival buffer, drives the gap
  * between legs).

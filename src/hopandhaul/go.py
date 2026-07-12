@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-go.py — the one-shot trip plan: `hopandhaul go JFK "Tallinn" --date 2026-08-15`.
+go.py - the one-shot trip plan: `hopandhaul go JFK "Tallinn" --date 2026-08-15`.
 
 Everything the map click does, in a terminal, with ZERO keys: resolves the origin and
 destination (IATA code, or a city/airport name looked up in the bundled 4,175-airport DB),
@@ -64,7 +64,7 @@ def _search_airports(q: str) -> tuple[dict | None, list[dict]]:
         return None, []
     scored.sort(key=lambda s: (s[0], s[1]))
     best = scored[0][2]
-    # other DISTINCT places that matched about as well — distance is the disambiguator, not
+    # other DISTINCT places that matched about as well - distance is the disambiguator, not
     # name equality: "Springfield" hits both Springfield IL (exact) and Springfield MO
     # (prefix), while a same-metro second airport (LGA next to JFK) must stay suppressed.
     others = [a for sc, _hub, a in scored[1:8]
@@ -113,11 +113,11 @@ def main(argv=None) -> int:
         print(f"error: no airport matches {args.dest!r} — try an IATA code", file=sys.stderr)
         return 2
     # Destination point: the airport is the fallback, but when the user typed a PLACE and
-    # we're online, the town itself is the honest target — plan() resolves its own nearest
+    # we're online, the town itself is the honest target - plan() resolves its own nearest
     # airport from the point, the last-mile note stays accurate, and live ground schedules
     # can route to somewhere people actually go (transit can't snap a runway coordinate).
     # When the geocoder flatly disagrees with the airport-DB guess ("Victoria BC" matching
-    # Victoria, Texas), the geocoder wins — the user typed a place name, and plan() will
+    # Victoria, Texas), the geocoder wins - the user typed a place name, and plan() will
     # re-derive the right airport from the right point.
     dest_lat, dest_lng = dest["lat"], dest["lng"]
     if not args.offline and not (len(args.dest.strip()) == 3 and args.dest.strip().isalpha()):
@@ -155,7 +155,7 @@ def main(argv=None) -> int:
         return 0
 
     print(f"(pricing: {out['pricing_source']})")
-    # labels come from the plan's own resolution — when the geocoder moved the point, the
+    # labels come from the plan's own resolution - when the geocoder moved the point, the
     # plan's dest airport is the truth, not the pre-geocode name match
     o_lbl = f"{out['origin']['iata']} {out['origin'].get('city') or ''}".strip()
     d_lbl = f"{out['dest']['iata']} {out['dest'].get('city') or ''}".strip()

@@ -57,7 +57,7 @@ export function initSearch({ onChoose }) {
       input.setAttribute("aria-activedescendant", optionId(activeIndex));
       list.children[activeIndex]?.scrollIntoView({ block: "nearest" });
     } else {
-      // an empty aria-activedescendant is an invalid IDREF — remove rather than set ""
+      // an empty aria-activedescendant is an invalid IDREF - remove rather than set ""
       input.removeAttribute("aria-activedescendant");
     }
   }
@@ -109,7 +109,7 @@ export function initSearch({ onChoose }) {
     }
   });
 
-  // Prevent the input from blurring on mousedown-to-select — a <li> isn't natively
+  // Prevent the input from blurring on mousedown-to-select - a <li> isn't natively
   // focusable, so without this the focusout handler below (or the document click-away
   // handler) can race the click handler and close the list before choose() ever runs.
   list.addEventListener("mousedown", (e) => { e.preventDefault(); });
@@ -124,7 +124,7 @@ export function initSearch({ onChoose }) {
   });
 
   // Keyboard users tabbing away from the search should close the popup too, not just
-  // mouse-click-away — relatedTarget is null for some browsers on blur-to-nowhere, hence
+  // mouse-click-away - relatedTarget is null for some browsers on blur-to-nowhere, hence
   // the optional chaining rather than assuming it's always an Element.
   input.addEventListener("focusout", (e) => {
     if (!e.relatedTarget?.closest(".search")) close();

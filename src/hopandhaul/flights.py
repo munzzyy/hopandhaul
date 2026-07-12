@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-flights.py — live-flight pricing interface for the map server.
+flights.py - live-flight pricing interface for the map server.
 
 Exposes ONE small interface so server.py never has to know provider details:
   provider_name() -> "duffel" | None
@@ -18,7 +18,7 @@ Normalized result shape:
    "currency": str, "converted": bool, "source": "duffel", "rt": bool,
    "checked_bags_included": int|None, "refundable": bool, "changeable": bool,
    "native_price": float|None, "segments": list[dict]}
-"segments" is the real per-hop schedule — departure/arrival clock, carrier, flight number —
+"segments" is the real per-hop schedule - departure/arrival clock, carrier, flight number - 
 itinerary.py uses it to show a live leg's actual timeline instead of a synthetic example one.
 """
 from __future__ import annotations

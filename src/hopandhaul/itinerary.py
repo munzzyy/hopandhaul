@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-itinerary.py — turns a priced trip.py option into a leg-by-leg, checkable schedule: real
+itinerary.py - turns a priced trip.py option into a leg-by-leg, checkable schedule: real
 airport/station endpoints (IATA + full name + city), a clock-time walk-through with realistic
 buffers, per-leg price provenance ("where did this number come from"), and a one-click link to
 check it against reality.
@@ -9,19 +9,19 @@ Why this exists: a dollar figure with no airports, no schedule, and no way to ch
 indistinguishable from a random number generator. This module is what turns "$284" into "MCI
 -> DEN, ~2h05, route-band estimate for 2026-08-15, check it on Google Flights."
 
-CRITICAL HONESTY RULE — read this before touching the clock math below. Nothing here is a real
+CRITICAL HONESTY RULE - read this before touching the clock math below. Nothing here is a real
 booking. Clock times are an EXAMPLE schedule: a sane default departure (08:00) walked forward
-leg by leg with an airport-arrival buffer and a connection buffer between legs — never an
+leg by leg with an airport-arrival buffer and a connection buffer between legs - never an
 invented airline, flight number, or "departs 9:47am" precision pulled from nothing. The one
 exception: when a real live Duffel offer supplies a leg's actual segment times/carrier/flight
 number (see duffel.py's segment parsing), that leg is marked live=True and its numbers are
 real, not an example.
 
 No cross-timezone conversion. data/airports.json carries no timezone data, and guessing one
-from longitude would be its own kind of dishonesty — real UTC offsets don't track longitude/15;
+from longitude would be its own kind of dishonesty - real UTC offsets don't track longitude/15;
 political borders, DST, and half-hour/45-minute zones all break that approximation. Every
 synthetic clock time is elapsed trip-time counted forward from the stated origin departure, and
-is labelled as such — a long transatlantic leg will show an "arrival" that doesn't match the
+is labelled as such - a long transatlantic leg will show an "arrival" that doesn't match the
 clock on the terminal wall at the destination, and build_timeline's output says so via
 `example_day`. A live Duffel segment's times ARE real per-airport local times (Duffel resolves
 that server-side, this module doesn't need to) and are used as-is; the synthetic clock re-syncs
@@ -30,7 +30,7 @@ to a live leg's real arrival time before continuing into whatever estimate leg c
 Pure stdlib. Importable by duffel.py (CLI) and server.py (JSON API / browser UI). The browser
 gets a hand-ported mirror at ui/engine/itinerary.js, checked against this file's output via
 tests/web_parity/ (it rides along inside server.py's plan() output, no separate case type
-needed — see gen_fixtures.py/check.mjs).
+needed - see gen_fixtures.py/check.mjs).
 
 Run: python -m hopandhaul.itinerary --selftest
 """
@@ -41,7 +41,7 @@ import urllib.parse
 
 AIRPORT_ARRIVAL_BUFFER_H = 2.0     # standard "be there early" buffer before a flight's departure
 DEFAULT_DEPART_LOCAL = "08:00"     # sane default start-of-day for an example schedule
-# Independent copy of trip.FLIGHT_MODES — this module takes plain leg dicts from its callers
+# Independent copy of trip.FLIGHT_MODES - this module takes plain leg dicts from its callers
 # and shouldn't need an import-order dependency on trip.py to classify a leg as a flight.
 FLIGHT_MODES = {"fly", "flight", "plane", "air"}
 
@@ -61,7 +61,7 @@ def _min_to_hhmm(total_min: int) -> tuple[str, int]:
 
 def _day_label(day_offset: int, date: str | None) -> str:
     """A real calendar date when the caller gave us one to anchor to, else a relative
-    'Day N' label — never fabricate a calendar date nobody asked for."""
+    'Day N' label - never fabricate a calendar date nobody asked for."""
     if date:
         try:
             d = datetime.date.fromisoformat(date) + datetime.timedelta(days=day_offset)
@@ -72,7 +72,7 @@ def _day_label(day_offset: int, date: str | None) -> str:
 
 
 def _airport_label(a: dict) -> dict:
-    """iata + full name + city — the whole point of this module is never showing a bare code."""
+    """iata + full name + city - the whole point of this module is never showing a bare code."""
     return {"iata": a.get("iata"), "name": a.get("name"), "city": a.get("city")}
 
 
@@ -92,7 +92,7 @@ def google_flights_link(origin_iata: str, dest_iata: str, date: str | None = Non
 
 def _slug(text: str) -> str:
     """A readable, URL-safe path segment for rome2rio's /map/{from}/{to}: spaces -> '-', then
-    percent-encode anything left (accents, punctuation, commas) — never hand-splice raw text
+    percent-encode anything left (accents, punctuation, commas) - never hand-splice raw text
     into a URL path."""
     return urllib.parse.quote(text.strip().replace(" ", "-"), safe="-")
 
@@ -117,7 +117,7 @@ def verify_link(mode: str, origin: dict, dest: dict, date: str | None = None) ->
 def flight_provenance_estimate(detail: dict | None, date: str | None) -> str:
     """Human-readable 'where this number comes from' for an ESTIMATE flight leg. `detail` is
     geo.estimate_flight()'s own return dict (distance_km/route_mult/regions/date_mult/
-    likely_connection) — never re-derived here, just narrated."""
+    likely_connection) - never re-derived here, just narrated."""
     if not detail:
         return "route-band estimate"
     bits = [f"route-band estimate for {date}" if date else "route-band estimate (no date given)"]
@@ -150,7 +150,7 @@ def flight_provenance_live(live: dict) -> str:
 
 
 def ferry_provenance(ferry: dict) -> str:
-    """'where this number comes from' for a REAL ferry-corridor leg — the one ground mode whose
+    """'where this number comes from' for a REAL ferry-corridor leg - the one ground mode whose
     price is a researched fare, not a formula. Names the ports, the operators, the fare band
     with its as-of date, and the sailing frequency, so the number is checkable against the
     operator directly."""
@@ -176,7 +176,7 @@ def ferry_provenance(ferry: dict) -> str:
 
 def ground_provenance(gw: dict, road_km: float | None) -> str:
     """'where this number comes from' for a ground leg. Ferry legs built from a real corridor
-    narrate their researched fare/schedule (ferry_provenance); everything else is an estimate —
+    narrate their researched fare/schedule (ferry_provenance); everything else is an estimate - 
     schedules can be checked live (Transitous), but no free, open multimodal FARES API exists
     (see README)."""
     base = None
@@ -207,15 +207,15 @@ def build_timeline(legs: list[dict], *, date: str | None = None,
        "carrier": str|None, "flight_number": str|None}
 
     Returns {"legs": [...], "any_live": bool, "example_day": bool, "depart_local": str}.
-    `example_day` stays True while ANY leg is still an estimate — a single live-priced flight
+    `example_day` stays True while ANY leg is still an estimate - a single live-priced flight
     next to an estimated ground leg must not let the block claim the whole day is real; the
     per-leg `is_live` flags say which rows came from a real offer.
 
     Clock math walks forward from `depart_local` at the very first leg's departure (no
-    timezone conversion — see the module docstring). Each leg's own `hours` advances the
+    timezone conversion - see the module docstring). Each leg's own `hours` advances the
     clock; a `transfer_buffer_h` gap is inserted BETWEEN legs, matching the same buffer
     trip.evaluate() already added to the option's hours_eff, so this timeline's total elapsed
-    time always reconciles with the headline number a caller already computed and tested —
+    time always reconciles with the headline number a caller already computed and tested - 
     the itinerary can't tell a different story than the summary card next to it.
     """
     if not legs:
@@ -273,7 +273,7 @@ def build_timeline(legs: list[dict], *, date: str | None = None,
 def _live_segments_to_rows(leg: dict, segments: list[dict], date: str | None,
                            add_checkin: bool, airport_buffer_h: float):
     """Real Duffel segment times -> timeline rows for one live flight leg (possibly more than
-    one hop if the cheapest offer connects). Returns (rows, resync_clock_min) — resync_clock_min
+    one hop if the cheapest offer connects). Returns (rows, resync_clock_min) - resync_clock_min
     lets a later synthetic leg (e.g. the ground leg after a live-priced flight) continue from
     this leg's REAL arrival instead of the synthetic clock it would otherwise have reached."""
     rows = []
@@ -386,7 +386,7 @@ def selftest() -> int:
     check("an estimate-only timeline is flagged example_day", tl["example_day"] is True and tl["any_live"] is False)
 
     # ---- timeline: fly + ground split, connection buffer must land between legs, and the
-    # summed elapsed time must equal each leg's own hours plus exactly one transfer buffer —
+    # summed elapsed time must equal each leg's own hours plus exactly one transfer buffer - 
     # the same total trip.evaluate() already computes as hours_eff, so the two can never disagree.
     split_legs = [
         {"mode": "fly", "cost": 210.0, "hours": 3.0, "from": jfk, "to": den,

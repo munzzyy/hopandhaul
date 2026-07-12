@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-weather.py — destination weather via Open-Meteo (open-meteo.com). KEYLESS.
+weather.py - destination weather via Open-Meteo (open-meteo.com). KEYLESS.
 
 This used to be an OpenWeather integration behind an optional API key, which meant weather
 was off for everyone who hadn't signed up for one. Open-Meteo serves the same "what's it like
-there" need with no key at all (free for non-commercial use, CC-BY 4.0 — attribution lives in
+there" need with no key at all (free for non-commercial use, CC-BY 4.0 - attribution lives in
 the README), a 16-day daily forecast horizon instead of 5, and open CORS. Non-blocking by
-design — if the call fails, callers get None and the trip still plans.
+design - if the call fails, callers get None and the trip still plans.
 
 Data: current temperature/feels-like/humidity/wind + WMO weather code, and a daily forecast
 row for the travel date when it's within the 16-day window. Same output shape the UI already
@@ -52,7 +52,7 @@ _WMO = {
 
 
 def available() -> bool:
-    """Weather is always available now — Open-Meteo needs no key."""
+    """Weather is always available now - Open-Meteo needs no key."""
     return True
 
 
@@ -130,7 +130,7 @@ def _forecast_for_date(lat: float, lng: float, date: str, units: str = "imperial
     try:
         out = _http_json(BASE + "?" + urllib.parse.urlencode(params), timeout=timeout)
     except net.FetchError as e:
-        # Open-Meteo answers a date beyond its horizon with a 400, not an empty row —
+        # Open-Meteo answers a date beyond its horizon with a 400, not an empty row - 
         # that's "no forecast yet", not an outage.
         if e.status == 400:
             _WEATHER_CACHE.set(cache_key, {})

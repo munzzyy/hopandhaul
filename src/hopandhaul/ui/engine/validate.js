@@ -1,9 +1,9 @@
-// validate.js — input validation for the browser engine's public entry points.
+// validate.js - input validation for the browser engine's public entry points.
 //
 // server.py's HTTP handler used to be the trust boundary (query-string params off the wire,
 // see its _v_* validators). On Pages there's no server, but there's still an untrusted-ish
-// input path — a hand-edited share URL (state.js's readUrlState()) can hand app.js's form
-// fields any string — so the same bounds checks apply here, at the new boundary: api.js, right
+// input path - a hand-edited share URL (state.js's readUrlState()) can hand app.js's form
+// fields any string - so the same bounds checks apply here, at the new boundary: api.js, right
 // before anything reaches the engine. Same constants/messages as server.py, so error text the
 // UI already knows how to render (results.js's renderError) stays correct unchanged.
 
@@ -96,7 +96,7 @@ function optional(v) {
 }
 
 /** Validates a fetchPlan()-style params object (string-or-number fields, same names api.js's
- * old query-string builder used) — mirrors server.py's parse_plan_params(). */
+ * old query-string builder used) - mirrors server.py's parse_plan_params(). */
 export function parsePlanParams(p) {
   const lat = vLat(p.lat);
   const lng = vLng(p.lng);

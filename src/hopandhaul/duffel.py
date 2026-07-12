@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """
-duffel.py — live flight-price fetcher for travel-scout via the Duffel Flights API.
+duffel.py - live flight-price fetcher for travel-scout via the Duffel Flights API.
 
 Cole's flight data source. Creates an offer request for each candidate O->D->date, reads the
 cheapest offer, normalizes it to USD, and (in CLI mode) attaches a ground leg per gateway and
-hands the whole thing to trip.py — which applies Cole's $200 fly-then-train rule.
+hands the whole thing to trip.py - which applies Cole's $200 fly-then-train rule.
 
-Auth is a single bearer key (no OAuth token dance): DUFFEL_API_KEY (a `duffel_test_…` or
-`duffel_live_…` token). Read from env or secrets.local.json via _secrets. Stdlib urllib only.
+Auth is a single bearer key (no OAuth token dance): DUFFEL_API_KEY (a `duffel_test_...` or
+`duffel_live_...` token). Read from env or secrets.local.json via _secrets. Stdlib urllib only.
 No key configured (or a route Duffel has no offer for) isn't a hard failure: the CLI falls back
-to geo.py's distance ESTIMATE per flight leg, same as server.py's map UI — see
+to geo.py's distance ESTIMATE per flight leg, same as server.py's map UI - see
 _price_flight_cli(). Every priced option also carries a leg-by-leg itinerary (itinerary.py):
 real airport names, an example (or, once live, real) clock schedule, per-leg price provenance,
-and a verify link — printed as plain text by format_itineraries().
+and a verify link - printed as plain text by format_itineraries().
 
 Currency: Duffel returns each offer in the airline's filing currency. To keep the money math
-honest (flight + ground summed in one currency) we convert to USD — with today's real ECB
+honest (flight + ground summed in one currency) we convert to USD - with today's real ECB
 rate via frankfurter.dev (keyless) when the network allows, else a labelled approximate
 bundled table; the native amount + currency are preserved and any conversion is flagged.
 
@@ -53,7 +53,7 @@ _RATE_LIMIT = net.TokenBucket(rate=120 / 60, capacity=20)
 # request once cabin became a UI toggle).
 _OFFER_CACHE = net.TTLCache(ttl_seconds=600, max_size=512)
 
-# Approximate USD value of 1 unit of each currency. Labelled ESTIMATE — the tool tells Cole to
+# Approximate USD value of 1 unit of each currency. Labelled ESTIMATE - the tool tells Cole to
 # re-verify fares at booking anyway; this only keeps mixed-currency comparisons sane. Unknown
 # currencies pass through native + flagged upstream.
 FX_AS_OF = "2026-07-04"  # bump this date whenever the table below is refreshed
@@ -167,7 +167,7 @@ def _http_json(url: str, data=None, method="GET", timeout=30):
 # --------------------------------------------------------------------------- duffel API
 def _offer_request_body(origin: str, dest: str, date: str, return_date: str | None = None,
                         adults: int = 1, cabin: str = "economy") -> dict:
-    """Pure request-body builder (unit-testable). A return_date adds the second slice —
+    """Pure request-body builder (unit-testable). A return_date adds the second slice - 
     real round-trip fares, which are often much better than 2× one-way."""
     slices = [{"origin": origin.upper(), "destination": dest.upper(), "departure_date": date}]
     if return_date:
@@ -200,7 +200,7 @@ def get_offers(offer_request_id: str, limit: int = 10, timeout: int = 30) -> lis
 def _checked_bags_included(first_slice: dict) -> int | None:
     """Fewest checked-bag allowance across passengers/segments in the outbound slice, or None
     if Duffel didn't return baggage data for this offer. A 'cheapest' fare that needs a paid
-    bag add-on isn't actually cheapest — this is what lets the UI say so."""
+    bag add-on isn't actually cheapest - this is what lets the UI say so."""
     counts = []
     for seg in first_slice.get("segments") or []:
         for pax in seg.get("passengers") or []:
@@ -212,7 +212,7 @@ def _checked_bags_included(first_slice: dict) -> int | None:
 
 def _parse_dt(s: str | None) -> datetime | None:
     """Duffel's departing_at/arriving_at are local-to-the-airport, naive ISO8601 timestamps
-    ('2026-08-15T08:12:00') — no timezone math needed, Duffel already resolved that server-side.
+    ('2026-08-15T08:12:00') - no timezone math needed, Duffel already resolved that server-side.
     Tolerant of a trailing 'Z' some providers add out of habit even on a naive local timestamp."""
     if not s:
         return None
@@ -223,10 +223,10 @@ def _parse_dt(s: str | None) -> datetime | None:
 
 
 def _parse_segments(first_slice: dict) -> list[dict]:
-    """Real per-hop schedule data Duffel already returns and the old parser discarded — this is
+    """Real per-hop schedule data Duffel already returns and the old parser discarded - this is
     what lets itinerary.py show a live leg's actual departure/arrival clock and carrier instead
     of a synthetic example. from_iata/to_iata only (not full airport records): resolving those
-    to name/city is geo.py's job, not this module's — keeps this a pure Duffel-shape parser."""
+    to name/city is geo.py's job, not this module's - keeps this a pure Duffel-shape parser."""
     out = []
     for seg in first_slice.get("segments") or []:
         dep = _parse_dt(seg.get("departing_at"))
@@ -266,7 +266,7 @@ def _parse_offer(o: dict) -> dict:
     usd, converted = to_usd(native, cur)
     owner = (o.get("owner") or {}).get("iata_code", "?")
     out = {
-        "price": usd,                    # USD (converted if needed) — what the engine sums
+        "price": usd,                    # USD (converted if needed) - what the engine sums
         "native_price": round(native, 2),
         "currency": cur,
         "converted": converted,
@@ -294,8 +294,8 @@ def search_cheapest(origin: str, dest: str, date: str, adults: int = 1,
     None if no offers / no key."""
     if not have_keys():
         return None
-    # Cache key includes every param that changes the fare returned — cabin/nonstop/adults/
-    # return_date — not just origin/dest/date. The old cache keyed on the latter only, so a
+    # Cache key includes every param that changes the fare returned - cabin/nonstop/adults/
+    # return_date - not just origin/dest/date. The old cache keyed on the latter only, so a
     # cached economy result would get silently served to a business-class request.
     cache_key = (origin.upper(), dest.upper(), date, adults, cabin, nonstop, return_date)
     cached = _OFFER_CACHE.get(cache_key)
@@ -347,13 +347,13 @@ def auto_gateways(dest_airport: str) -> list[dict]:
 # --------------------------------------------------------------------------- orchestration (CLI)
 def _airport_or_stub(code: str) -> dict:
     """Full airport record from our own DB when we have one; a bare-bones stand-in when we
-    don't (Duffel's IATA universe is bigger than the curated 4175-row airports.json) — so an
+    don't (Duffel's IATA universe is bigger than the curated 4175-row airports.json) - so an
     itinerary leg always has SOMETHING to show instead of crashing on an obscure code."""
     return geo.by_iata(code) or {"iata": code.upper(), "name": code.upper(), "city": None}
 
 
 def _price_flight_cli(origin_a, dest_a, date, adults, cabin, nonstop, return_date):
-    """Live if a Duffel key is configured and returns an offer, else a distance ESTIMATE —
+    """Live if a Duffel key is configured and returns an offer, else a distance ESTIMATE - 
     mirrors server.py's _price_flight() so `hopandhaul duffel` (and the console script) work
     with NO key at all, the same estimate-first-live-if-possible contract the map UI already
     has, instead of the CLI refusing to run without one."""
@@ -375,10 +375,10 @@ def _price_flight_cli(origin_a, dest_a, date, adults, cabin, nonstop, return_dat
 
 
 def _flight_leg_spec_cli(origin_a, dest_a, f, date):
-    """itinerary.py leg spec for a duffel.py CLI flight leg — live (real Duffel offer, real
+    """itinerary.py leg spec for a duffel.py CLI flight leg - live (real Duffel offer, real
     segment schedule) when _price_flight_cli() found one, else a distance ESTIMATE. Mirrors
     server.py's _flight_leg_spec(). `f["segments"]` is duffel.py's own raw per-hop schedule
-    (see _parse_segments) — resolved to full airport records here so the itinerary shows the
+    (see _parse_segments) - resolved to full airport records here so the itinerary shows the
     real departure/arrival clock and carrier instead of a synthetic example."""
     is_live = f.get("source") != "estimate"
     segments = None
@@ -400,7 +400,7 @@ def _flight_leg_spec_cli(origin_a, dest_a, f, date):
 
 
 def _ground_leg_spec_cli(gw_iata_a, dest_a, mode, cost, hours):
-    """itinerary.py leg spec for a duffel.py CLI ground leg — always an estimate; gateways
+    """itinerary.py leg spec for a duffel.py CLI ground leg - always an estimate; gateways
     passed on this CLI (--gateway / --auto-gateways) carry no 'source'/'notes' the way
     geo.py's curated/auto-discovered gateway dicts do, so provenance is generic distance-based."""
     road_km = None
@@ -422,7 +422,7 @@ def build_and_evaluate(origin, dest, date, gateways, adults, cabin, nonstop,
     scaled ×adults (per-person modes only) and ×2 on a round-trip to keep the sums honest.
 
     Every flight leg is priced live when a Duffel key is configured and returns an offer, else
-    a distance ESTIMATE (see _price_flight_cli) — this runs with no key at all, same as the map
+    a distance ESTIMATE (see _price_flight_cli) - this runs with no key at all, same as the map
     UI. Each returned option also carries an 'itinerary' (see itinerary.py): real airport names,
     an example (or, once live, real) clock schedule, per-leg price provenance, and a one-click
     verify link."""
@@ -476,13 +476,13 @@ def print_setup_help():
 
 
 def _fmt_money(x: float) -> str:
-    """Mirrors trip.py's private _fmt_money — duplicated here rather than reached into across
+    """Mirrors trip.py's private _fmt_money - duplicated here rather than reached into across
     modules, same one-function-worth-of-footprint every other module in this repo keeps local."""
     return f"${x:,.0f}" if abs(x - round(x)) < 0.005 else f"${x:,.2f}"
 
 
 def _airport_label(a: dict) -> str:
-    """'ASE (Aspen)' not 'ASE (Aspen, Aspen)' — resort/small airports in airports.json often
+    """'ASE (Aspen)' not 'ASE (Aspen, Aspen)' - resort/small airports in airports.json often
     have name == city, and repeating it reads like a data bug."""
     city = a.get("city")
     if city and city != a.get("name"):
@@ -491,7 +491,7 @@ def _airport_label(a: dict) -> str:
 
 
 def _format_itinerary_block(option: dict) -> str:
-    """Human-readable leg-by-leg schedule for one priced option — real airports, an example
+    """Human-readable leg-by-leg schedule for one priced option - real airports, an example
     (or, when live, a real) clock schedule, per-leg price provenance, and a verify link. This is
     what turns 'DEN + train  $XXX' into something a person can actually check."""
     itin = option.get("itinerary") or {}
@@ -692,7 +692,7 @@ def selftest():
     check("have_keys() is a bool", isinstance(have_keys(), bool))
 
     # build_and_evaluate() end-to-end, offline (mocked search_cheapest): every option must
-    # come back with a leg-by-leg itinerary — real airports, live schedule for the flight leg,
+    # come back with a leg-by-leg itinerary - real airports, live schedule for the flight leg,
     # provenance + a verify link for both legs.
     import unittest.mock as _mock
 
@@ -709,7 +709,7 @@ def selftest():
                              "arrive_at": datetime(2026, 8, 15, 12, 30),
                              "carrier": "United Airlines", "flight_number": "UA55"}]}
 
-    # patch this module's OWN globals (not a dotted string path) — same reasoning as the
+    # patch this module's OWN globals (not a dotted string path) - same reasoning as the
     # equivalent guard in server.py's selftest: run via `python -m hopandhaul.duffel --selftest`
     # this module is loaded as __main__, so a string-path patch risks hitting a second,
     # separately-imported copy instead of the one build_and_evaluate() actually calls into.
@@ -747,7 +747,7 @@ def selftest():
           "verify: https://" in itin_text)
 
     # with NO key configured at all, build_and_evaluate() must still work end to end (distance
-    # ESTIMATES throughout, same as the map UI with no key) rather than requiring one — this is
+    # ESTIMATES throughout, same as the map UI with no key) rather than requiring one - this is
     # the whole point of _price_flight_cli's fallback.
     with _mock.patch.object(_this_module, "have_keys", return_value=False):
         res_nokey, warn_nokey = build_and_evaluate(
@@ -782,7 +782,7 @@ def selftest():
 
     check("FX table has a grep-able as-of date", bool(FX_AS_OF) and FX_AS_OF[:4].isdigit())
 
-    # real segment schedule data — what lets itinerary.py show a live leg's actual times/carrier
+    # real segment schedule data - what lets itinerary.py show a live leg's actual times/carrier
     # instead of a synthetic example, and what the old parser silently discarded.
     offer_with_segments = {
         "total_amount": "241.50", "total_currency": "USD",

@@ -1,0 +1,5 @@
+# Not authored prose: translated UI catalogs (noslop's language packs don't cover
+# every shipped locale, and machine-flagging a translation says nothing about the
+# code) and vendored third-party assets. CI scans everything else - see ci.yml.
+src/hopandhaul/ui/i18n/*.json
+src/hopandhaul/ui/vendor/*

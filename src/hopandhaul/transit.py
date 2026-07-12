@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-transit.py — REAL ground-transport schedules via Transitous (api.transitous.org), the
+transit.py - REAL ground-transport schedules via Transitous (api.transitous.org), the
 community-run MOTIS journey planner over worldwide GTFS. Keyless, free for open-source /
 non-commercial use (hopandhaul qualifies), CORS-open (the browser build calls it too).
 
 What it changes: ground legs used to be pure distance formulas. When Transitous knows the
-route, a leg now carries the real thing — actual operators (DB Fernverkehr, Viking Line,
+route, a leg now carries the real thing - actual operators (DB Fernverkehr, Viking Line,
 Washington State Ferries), a real departure time, and a real door-to-door duration. FARES
 stay estimates (GTFS almost never ships them); the per-leg provenance says exactly which
 half is real.
@@ -37,7 +37,7 @@ ATTRIBUTION_URL = "https://transitous.org/sources/"
 
 _CACHE = net.TTLCache(ttl_seconds=600, max_size=256)
 
-# circuit breaker: after this many consecutive network failures, stop trying for a while —
+# circuit breaker: after this many consecutive network failures, stop trying for a while - 
 # an offline laptop must not pay a connect-timeout on every map click.
 _BREAKER_THRESHOLD = 2
 _BREAKER_COOLDOWN_S = 600
@@ -107,7 +107,7 @@ def ground_options(from_lat: float, from_lng: float, to_lat: float, to_lng: floa
     how many the planner offered, or None (no coverage / network down / breaker open).
 
     prefer_mode: when the engine already chose a leg mode ("ferry", "train", "bus"), pick the
-    fastest itinerary WHOSE MAIN MODE MATCHES it if one exists — the point is to put real
+    fastest itinerary WHOSE MAIN MODE MATCHES it if one exists - the point is to put real
     times on the leg we're already showing, not to silently swap it for a different mode."""
     if _breaker_open():
         return None

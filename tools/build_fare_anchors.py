@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-build_fare_anchors.py — generates src/hopandhaul/data/fareanchors.json: REAL average fares
+build_fare_anchors.py - generates src/hopandhaul/data/fareanchors.json: REAL average fares
 for the busiest contiguous-US city-pair markets, from the US DOT/BTS Consumer Airfare Report
-(Table 6, Socrata dataset yj5y-b2ir — US government work, public domain, keyless SODA API).
+(Table 6, Socrata dataset yj5y-b2ir - US government work, public domain, keyless SODA API).
 
-Why this exists: the engine's US fare estimates were a calibrated curve — a reasonable model,
+Why this exists: the engine's US fare estimates were a calibrated curve - a reasonable model,
 but a model. BTS publishes the actual average fare paid per city-pair market every quarter,
 including the average fare of the lowest-fare carrier on the route (`fare_low`). Anchoring
 the estimate to that turns "formula says $x" into "the real market average says $y" for the
 routes that carry the vast majority of US domestic passengers.
 
 Method: pull the latest four published quarters, passenger-weight each pair's fare/fare_low
-across them (smooths seasonality — the engine's own date multiplier re-adds it), geocode each
+across them (smooths seasonality - the engine's own date multiplier re-adds it), geocode each
 BTS city market to a centroid of its matching airports in our own airports.json, and keep the
 top pairs by passenger volume. Pairs whose city names can't be confidently matched to airport
-cities are dropped and reported — never guessed.
+cities are dropped and reported - never guessed.
 
 Run:  python tools/build_fare_anchors.py           (writes src/hopandhaul/data/fareanchors.json)
 """
@@ -31,7 +31,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.normpath(os.path.join(HERE, "..", "src", "hopandhaul", "data"))
 SODA = "https://data.transportation.gov/resource/yj5y-b2ir.json"
 UA = "hopandhaul/0.7 (https://github.com/munzzyy/hopandhaul)"
-MAX_ANCHORS = 1800          # top pairs by passenger volume — covers most US domestic traffic
+MAX_ANCHORS = 1800          # top pairs by passenger volume - covers most US domestic traffic
 MIN_PAX_PER_DAY = 10.0      # below ~10 pax/day the quarterly averages get noisy
 EXTRA_FARE_LOW = 250.0      # ...but every expensive thin market is kept: that's where the
                             # distance curve misprices and a real number earns its keep
@@ -142,7 +142,7 @@ def haversine_km(lat1, lng1, lat2, lng2) -> float:
 def city_points(bts_city: str, cities: dict) -> list[tuple[float, float]]:
     """BTS 'City, ST (Metropolitan Area)' -> CANDIDATE centroids, one per geographic cluster
     of same-named airport cities. US city names repeat across states ('Portland', 'Jackson',
-    'Columbus') and BTS's state suffix doesn't exist in our airport DB — so instead of guessing,
+    'Columbus') and BTS's state suffix doesn't exist in our airport DB - so instead of guessing,
     every cluster is returned and the caller validates the pair against BTS's own published
     route distance (nsmiles). A wrong Portland can't survive that check."""
     name = re.sub(r"\s*\(Metropolitan Area\)\s*", "", bts_city).strip()
@@ -226,7 +226,7 @@ def main() -> int:
             "pax_day": round(pax_day),
         })
     anchors.sort(key=lambda x: -x["pax_day"])
-    # top markets by volume, PLUS every expensive thin market — high-fare monopoly routes are
+    # top markets by volume, PLUS every expensive thin market - high-fare monopoly routes are
     # exactly where the distance curve underprices and the real number earns its keep.
     kept = anchors[:MAX_ANCHORS]
     extra = [x for x in anchors[MAX_ANCHORS:] if x["fare_low"] >= EXTRA_FARE_LOW]

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * check.mjs — runs the JS port (src/hopandhaul/ui/engine/) over the same cases.json fixtures
+ * check.mjs - runs the JS port (src/hopandhaul/ui/engine/) over the same cases.json fixtures
  * gen_fixtures.py just generated from the real Python engine, and deep-equals the two. Any
  * drift between the browser engine and hopandhaul.trip/geo/server/emissions shows up here (and
  * in CI) instead of silently shipping a wrong answer to the Pages build.
@@ -26,7 +26,7 @@ const { plan } = await import(engineUrl("plan.js"));
 const trip = await import(engineUrl("trip.js"));
 const { loadData } = await import(engineUrl("data.js"));
 
-// Node has no browser fetch()-a-local-file story worth relying on here — read the same two
+// Node has no browser fetch()-a-local-file story worth relying on here - read the same two
 // JSON files geo.py reads, straight off disk. Same bytes, same array order, so nearest_airport/
 // discover_gateways see identical input on both sides.
 function nodeLoader(filename) {
@@ -66,7 +66,7 @@ function runPlanCase(c) {
 function runEvaluateCase(c) {
   const travelers = c.travelers ?? 1;
   // Every real call site scales each option's leg costs by travelers BEFORE evaluate() ever
-  // sees them (see the matching comment in gen_fixtures.py) — mirror that here.
+  // sees them (see the matching comment in gen_fixtures.py) - mirror that here.
   const options = c.options
     .map((o) => trip.parseOption(buildOptionString(o)))
     .map((o) => trip.scaleOption(o, travelers));
@@ -86,7 +86,7 @@ function runCase(c) {
   throw new Error(`unknown case type ${JSON.stringify(c.type)} in ${c.name}`);
 }
 
-// Deep compare; numbers within a tiny epsilon (should be EXACT after pyRound — this epsilon is
+// Deep compare; numbers within a tiny epsilon (should be EXACT after pyRound - this epsilon is
 // a safety net for float ULP noise between V8's and CPython's libm, not a tolerance for wrong
 // values), everything else strict equality. Object key order doesn't matter; array order does.
 function diff(a, b, at = "$") {

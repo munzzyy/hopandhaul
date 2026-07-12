@@ -5,8 +5,8 @@ import { CONTINENTS, COUNTRIES, continentName } from "./geo-labels.js";
 
 let map = null;
 let tileLayer = null;
-let lastPlan = null; // { data, rec } — replayed by setMapTheme() so a theme toggle redraws colors
-let currentTheme = null; // last theme actually applied — lets setMapTheme() no-op when unchanged
+let lastPlan = null; // { data, rec } - replayed by setMapTheme() so a theme toggle redraws colors
+let currentTheme = null; // last theme actually applied - lets setMapTheme() no-op when unchanged
 
 // One world, no repeats: the base map wraps infinitely by default, so panning used to reveal
 // copies of Earth side by side. maxBounds (with full viscosity) plus a noWrap tile layer keeps
@@ -21,7 +21,7 @@ function tileUrl(theme) {
 }
 
 export function initMap() {
-  // theme-boot.js sets data-theme pre-paint to one of 8 theme codes, not just "dark"/"light" —
+  // theme-boot.js sets data-theme pre-paint to one of 8 theme codes, not just "dark"/"light" - 
   // read the light/dark SCHEME the browser already resolved from it (every [data-theme] block
   // in styles.css sets color-scheme) rather than assuming the raw attribute value IS the base,
   // so the very first tile request matches what's on screen for every theme, not just the two
@@ -47,20 +47,20 @@ export function initMap() {
   return map;
 }
 
-/** Swap the basemap for the given theme — Voyager (warm cream, "travel atlas") in light,
+/** Swap the basemap for the given theme - Voyager (warm cream, "travel atlas") in light,
  * dark_nolabels in dark. Both label-free; our own overlay carries the (translated) place names.
- * Tiles only, and a no-op when `theme` matches what's already applied — callers like
+ * Tiles only, and a no-op when `theme` matches what's already applied - callers like
  * refreshThemeLabel() run on every language switch too, and shouldn't trigger a tile reload when
  * the theme didn't change. Redrawing the plan overlay is the theme-change caller's job (apply()
  * in theme.js): route colors are hex snapshots taken at draw time, so they go stale on ANY theme
- * change — including one between two themes that share a tile base, where this correctly no-ops. */
+ * change - including one between two themes that share a tile base, where this correctly no-ops. */
 export function setMapTheme(theme) {
   if (!tileLayer || theme === currentTheme) return;
   currentTheme = theme;
   tileLayer.setUrl(tileUrl(theme));
 }
 
-/** Re-run draw() with whatever plan is currently cached, with no theme/tile change — used to
+/** Re-run draw() with whatever plan is currently cached, with no theme/tile change - used to
  * re-translate map popups (built with t() at draw time) after a language switch. No-op if no
  * plan is on screen. */
 export function redrawLastPlan() {
@@ -69,8 +69,8 @@ export function redrawLastPlan() {
 
 // --- translated place labels: continents + countries, names resolved per active locale ---
 // The tiles are label-free; these overlay labels are the map's place names. Every name comes
-// from Intl.DisplayNames("region") for the current UI language — country ISO codes and UN M49
-// continent codes both localize — so all 56 languages are covered with no translation data.
+// from Intl.DisplayNames("region") for the current UI language - country ISO codes and UN M49
+// continent codes both localize - so all 56 languages are covered with no translation data.
 const geoLabels = L.layerGroup();
 let namesLocale = null, regionNames = null;
 
@@ -154,7 +154,7 @@ export function arc(a, b, segs = 64) {
 }
 
 // 12px filled dot + 2px panel-colored ring, colored via the wrapper's `pin--*` class
-// (currentColor) so a theme swap re-colors every pin with no re-render — the color comes
+// (currentColor) so a theme swap re-colors every pin with no re-render - the color comes
 // entirely from CSS, matching the legend swatches exactly.
 function pin(kind) {
   return L.divIcon({
@@ -181,7 +181,7 @@ export function clearMap() {
 
 /** Draw the full plan result: origin/dest pins, faint direct-flight reference, the
  * recommended route's real geometry, and every candidate gateway hub. Colors are read live
- * from the CSS custom properties at draw time — zero hardcoded hexes in JS — so a theme
+ * from the CSS custom properties at draw time - zero hardcoded hexes in JS - so a theme
  * toggle just needs to re-call draw() with the same data to restyle everything. */
 export function draw(data, rec) {
   clear();

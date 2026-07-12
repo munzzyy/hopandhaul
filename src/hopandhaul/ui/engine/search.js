@@ -1,10 +1,10 @@
-// search.js — local, offline "type a place" search over the shipped airport DB.
+// search.js - local, offline "type a place" search over the shipped airport DB.
 //
-// Not a port of anything in geo.py/geoapify.py — geoapify.py is a real typed-address geocoder
+// Not a port of anything in geo.py/geoapify.py - geoapify.py is a real typed-address geocoder
 // (any street address, landmark, neighborhood) backed by a paid API, and there's no key for it
 // on GitHub Pages. This is an honest, smaller replacement: search the same 4,175-airport
 // database the map already ships, by IATA code, city, or airport name. It covers "type a city
-// or airport" well; it will not resolve a street address the way the live geocoder does — the
+// or airport" well; it will not resolve a street address the way the live geocoder does - the
 // map-click flow (geo.nearestAirport) is still the primary, most precise way to set a point.
 import { airports } from "./data.js";
 

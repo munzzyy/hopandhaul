@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-server.py — tiny localhost server for the travel-scout click-the-map UI.
+server.py - tiny localhost server for the travel-scout click-the-map UI.
 
 Serves ui/index.html and a JSON API. On a map click the browser calls /api/plan with the
 clicked lat/lng; the server finds the nearest airport, discovers cheaper-hub + ground gateways
 (geo.py), prices every leg (live Duffel via flights.py if keys are set, else transparent
 distance ESTIMATES), and runs the deterministic engine (trip.py) with Cole's $200 rule. Each
 option also gets a rough co2e_kg estimate (emissions.py) and the response points out whichever
-option is lowest-carbon ("greenest") — informational only, never used to pick "recommended".
+option is lowest-carbon ("greenest") - informational only, never used to pick "recommended".
 
 Security: binds 127.0.0.1 only; rejects requests whose Host isn't localhost (DNS-rebinding
 guard); serves packaged ui/ assets, realpath-checked (no path traversal); no writes; no third-party code;
@@ -51,7 +51,7 @@ except Exception:  # pragma: no cover
     transit = None
 
 # UI root resolved via importlib.resources so this works from a repo checkout AND a
-# real (non-editable) pip install alike — never trust a path built from request input.
+# real (non-editable) pip install alike - never trust a path built from request input.
 _UI_ROOT = str(importlib.resources.files("hopandhaul") / "ui")
 INDEX = os.path.join(_UI_ROOT, "index.html")
 DEFAULT_PORT = int(os.environ.get("TRAVEL_PORT", "8770"))
@@ -78,7 +78,7 @@ _UI_REAL = os.path.realpath(_UI_ROOT)
 
 def _resolve_ui_asset(url_path):
     """Map a request path to a file inside ui/, or None. Only known asset extensions,
-    and the resolved realpath must stay within ui/ — this is the traversal guard."""
+    and the resolved realpath must stay within ui/ - this is the traversal guard."""
     rel = url_path.lstrip("/")
     ctype = _UI_TYPES.get(os.path.splitext(rel)[1].lower())
     if not rel or not ctype:
@@ -93,7 +93,7 @@ def _resolve_ui_asset(url_path):
 # ------------------------------------------------------------------- error contract
 # Every endpoint returns {"ok": true, ...} or {"ok": false, "error": <human-safe>, "code": <str>}.
 # Exception internals (message, traceback, type name) are logged server-side only, never in
-# the response body — an attacker probing this API shouldn't learn anything about the host,
+# the response body - an attacker probing this API shouldn't learn anything about the host,
 # file paths, or dependency versions from an error string.
 def _err(code: str, message: str) -> dict:
     return {"ok": False, "error": message, "code": code}
@@ -161,7 +161,7 @@ def _v_lng(raw: str) -> float:
 
 def _v_iata(raw: str) -> str:
     v = raw.strip().upper()
-    # ASCII A-Z only — str.isalpha() also accepts Unicode letters (e.g. accented or
+    # ASCII A-Z only - str.isalpha() also accepts Unicode letters (e.g. accented or
     # non-Latin scripts), which are never valid IATA codes and would pass through
     # unchecked to geo.by_iata()/provider calls.
     if not v or len(v) > MAX_IATA_LEN or not all("A" <= c <= "Z" for c in v):
@@ -271,7 +271,7 @@ def parse_nearest_params(q: dict) -> dict:
 # --------------------------------------------------------------------------- rate limiting
 class TokenBucket:
     """Thread-safe token bucket. Caps how fast the server opens outbound provider calls,
-    independent of how many browser clients are clicking — protects the Duffel account's
+    independent of how many browser clients are clicking - protects the Duffel account's
     real rate limit (120 req/60s) from a burst of concurrent map clicks."""
 
     def __init__(self, rate_per_s: float, capacity: float):
@@ -326,11 +326,11 @@ def _cached_live_search(session, origin_iata, dest_iata, date, adults, return_da
 
 
 def _price_flight(origin, dest, date, ret, travelers, session, ctx, deadline):
-    """Return {'price','hours','source','rt', ...} — TOTAL for all travelers; a real round-trip
+    """Return {'price','hours','source','rt', ...} - TOTAL for all travelers; a real round-trip
     fare when the provider priced the return (rt True), else one-way. Live if possible, else a
     date-aware distance estimate. Also carries whatever provenance itinerary.py needs to explain
     the number: 'estimate_detail' (geo.estimate_flight's own dict) on the estimate branch,
-    'segments'/'carrier'/'native_price'/'currency'/'converted' on the live branch — never
+    'segments'/'carrier'/'native_price'/'currency'/'converted' on the live branch - never
     discarded here just because _flight_cost()/the option string only needs the price."""
     if session and date and time.monotonic() < deadline:
         try:
@@ -348,10 +348,10 @@ def _price_flight(origin, dest, date, ret, travelers, session, ctx, deadline):
                         "segments": live.get("segments", []), "carrier": live.get("carrier"),
                         "native_price": live.get("native_price"), "currency": live.get("currency"),
                         "converted": live.get("converted", False)}
-        # network/HTTP-shaped failures only — a real bug in the normalization code should
+        # network/HTTP-shaped failures only - a real bug in the normalization code should
         # surface as a crash, not silently and permanently masquerade as "provider is down".
         # net.FetchError is what fetch_json() raises for every wrapped provider failure
-        # (401/429/5xx/timeout/bad-json) — without it here, a live-but-failing key broke the
+        # (401/429/5xx/timeout/bad-json) - without it here, a live-but-failing key broke the
         # WHOLE /api/plan instead of degrading this leg to the distance estimate.
         except (net.FetchError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError,
                 ConnectionError, ValueError, KeyError):
@@ -370,14 +370,14 @@ def _price_flight(origin, dest, date, ret, travelers, session, ctx, deadline):
 
 def _resolve_segment_airport(iata, fallback):
     """A live segment's endpoint by IATA, from our own airport DB (never trust a provider's own
-    name/city formatting when we already have a curated one) — falls back to the leg's known
+    name/city formatting when we already have a curated one) - falls back to the leg's known
     origin/dest record on the rare code our DB doesn't carry, so a timeline row never ends up
     with a blank name instead of just slightly-wrong provenance."""
     return geo.by_iata(iata) or fallback
 
 
 def _flight_leg_spec(origin, dest, f, cost, date):
-    """itinerary.py leg spec for a flight leg, built from _price_flight()'s return dict —
+    """itinerary.py leg spec for a flight leg, built from _price_flight()'s return dict - 
     `cost` is the already-computed group/round-trip total (_flight_cost()'s output), passed in
     rather than re-read from `f["price"]` so the itinerary never disagrees with the option's own
     printed cost."""
@@ -402,7 +402,7 @@ def _flight_leg_spec(origin, dest, f, cost, date):
 
 
 def _ground_leg_spec(g, dest, cost, road_km):
-    """itinerary.py leg spec for a ground leg — always an estimate (see README: no free, open
+    """itinerary.py leg spec for a ground leg - always an estimate (see README: no free, open
     multimodal fares API worth calling here)."""
     return {
         "mode": g["ground_mode"], "cost": round(cost, 2), "hours": g["ground_hours"],
@@ -421,11 +421,11 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         return {"ok": False, "error": f"unknown origin airport '{origin_iata}'", "code": "unknown_origin"}
     # prefer_hub=True so a click near a city snaps to the field with real airline service
     # instead of the literal closest point on the map (a seaplane base, a business-aviation
-    # field) — matches what /api/nearest already does.
+    # field) - matches what /api/nearest already does.
     dest = geo.nearest_airport(dest_lat, dest_lng, prefer_hub=True)
     if not dest:
         return {"ok": False, "error": "no airport found near that point", "code": "no_airport_near_point"}
-    # clicking on (or right next to) your own origin airport has no flight to plan — without
+    # clicking on (or right next to) your own origin airport has no flight to plan - without
     # this guard the engine happily prices a same-airport "direct flight" off the NA short-hop
     # floor and recommends it with full confidence.
     if dest["iata"] == origin["iata"]:
@@ -443,11 +443,11 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     # REAL ground schedules (Transitous, keyless): look up each transit-able gateway leg's
     # actual timetable to the clicked point, concurrently, under a short budget. A hit
     # replaces the leg's formula duration with the real door-to-door time and carries the
-    # real operators into provenance. Fares on those legs remain estimates — GTFS has none.
+    # real operators into provenance. Fares on those legs remain estimates - GTFS has none.
     if allow_transit and transit and gws:
         lookups = [g for g in gws if g["ground_mode"] in ("train", "bus", "ferry")]
         if lookups:
-            # 2 workers max — Transitous is a shared community instance and asks callers to
+            # 2 workers max - Transitous is a shared community instance and asks callers to
             # keep request volume low. The wait ceiling sits ABOVE the per-call timeout (8s
             # in transit.ground_options), so a slow-but-successful lookup is never discarded
             # by its own coordinator.
@@ -478,7 +478,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             session = None
             ctx["live_error"] = True
 
-    # Price every flight leg (direct + each gateway hub). When live, run them concurrently —
+    # Price every flight leg (direct + each gateway hub). When live, run them concurrently - 
     # each live offer-request is a slow, independent round-trip, so a click stays responsive.
     # A shared deadline bounds the whole fan-out: one slow provider degrades to estimates
     # instead of holding every thread for its own full per-call timeout.
@@ -491,7 +491,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
 
     if session and date and len(flight_targets) > 1:
         # Not a `with` block on purpose: ThreadPoolExecutor.__exit__ calls shutdown(wait=True),
-        # which blocks until every submitted worker returns — including ones we've already
+        # which blocks until every submitted worker returns - including ones we've already
         # given up on below. That defeated PLAN_TIME_BUDGET_S entirely: a single hung provider
         # call (e.g. Duffel's own 30s timeout x net.py's retries) held the whole /api/plan
         # response for however long that worker took, not the budget. Instead we shut down
@@ -537,11 +537,11 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     geo_by_name[direct_name] = [{"type": "flight", "from": _pt(origin), "to": _pt(dest)}]
     leg_specs_by_name[direct_name] = [_flight_leg_spec(origin, dest, df, direct_cost, date)]
     # emissions distance is always the great-circle flight distance, regardless of whether the
-    # fare itself came from a live quote or an estimate — CO2e only cares about km flown, not $.
+    # fare itself came from a live quote or an estimate - CO2e only cares about km flown, not $.
     direct_km = geo.haversine_km(origin["lat"], origin["lng"], dest["lat"], dest["lng"]) * rt_mult
     emissions_legs_by_name[direct_name] = [{"mode": "fly", "distance_km": direct_km}]
 
-    # splits (fly to a cheaper hub, then ground it) — ground legs are one-way per-person
+    # splits (fly to a cheaper hub, then ground it) - ground legs are one-way per-person
     # estimates: scale per-person modes ×travelers (vehicles stay flat) and ×2 on a round-trip.
     for g, (gf, _local) in zip(gws, priced[1:]):
         g["fly"] = gf
@@ -559,7 +559,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         # ground distance: same road-winding factor geo.py's own estimator uses, so a curated
         # gateway (which only ships a ground_time_h/ground_cost_usd, no distance) gets an
         # emissions figure consistent with an auto-discovered one built from estimate_ground.
-        # A real-corridor ferry leg uses the actual port-to-port crossing distance instead —
+        # A real-corridor ferry leg uses the actual port-to-port crossing distance instead - 
         # boats sail the strait, they don't follow a winding road.
         if g.get("ferry"):
             ground_km = g["ferry"]["crossing_km"] * rt_mult
@@ -578,10 +578,10 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
                         transfer_buffer=transfer_buffer, travelers=travelers)
 
     # attach map geometry, a rough CO2e estimate, and a leg-by-leg itinerary to each option,
-    # then strip private keys. co2e_kg is ESTIMATED from leg distances (see emissions.py) —
+    # then strip private keys. co2e_kg is ESTIMATED from leg distances (see emissions.py) - 
     # never treated as a booking fact, and never used to pick "recommended"; it's shown
     # alongside cost/time so the person looking at the numbers can weigh it themselves. The
-    # itinerary is what turns a bare dollar figure into something a user can actually check —
+    # itinerary is what turns a bare dollar figure into something a user can actually check - 
     # real airports, an example clock schedule, per-leg price provenance, a verify link.
     clean = {k: v for k, v in res.items() if not k.startswith("_")}
     for o in clean["options"]:
@@ -639,7 +639,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
                  "certified footprint — see docs/api.md for the factor basis. The lowest-carbon "
                  "option is flagged as 'greenest' but never auto-recommended over the cheapest.")
 
-    # destination weather — best-effort, never blocks a plan (weather is at the clicked point)
+    # destination weather - best-effort, never blocks a plan (weather is at the clicked point)
     wx = None
     if fetch_weather and weather and weather.have_keys():
         try:
@@ -693,7 +693,7 @@ class Handler(BaseHTTPRequestHandler):
     timeout = 15
 
     def version_string(self):
-        # Drop the default "Python/3.x.y" fingerprint from the Server response header —
+        # Drop the default "Python/3.x.y" fingerprint from the Server response header - 
         # no reason to hand a probing client the host's Python version.
         return "hopandhaul"
 
@@ -766,7 +766,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_err(500, "internal_error", "could not read that file")
 
     def _handle_config(self):
-        # Never echo a key or its fingerprint here — booleans and provider *names* only.
+        # Never echo a key or its fingerprint here - booleans and provider *names* only.
         # This is the one endpoint the browser is guaranteed to call before any secret
         # exists in scope; keep it that way through any future edit.
         fp = flights.provider_name() if flights else None
@@ -871,7 +871,7 @@ def selftest():
             fails.append(name)
 
     check("index.html exists", os.path.exists(INDEX))
-    # the UI is split into ES modules + a stylesheet — the asset resolver must serve them
+    # the UI is split into ES modules + a stylesheet - the asset resolver must serve them
     # (a regression here silently ships an unstyled, mapless page), and refuse traversal.
     check("serves ui/styles.css", _resolve_ui_asset("/styles.css") is not None)
     check("serves ui/app.js", _resolve_ui_asset("/app.js") is not None)
@@ -880,14 +880,14 @@ def selftest():
           and _resolve_ui_asset("/../../etc/passwd") is None)
     check("refuses unknown extension", _resolve_ui_asset("/secrets.env") is None)
 
-    # end-to-end plan for a click on Aspen, origin JFK — estimate mode, no network.
+    # end-to-end plan for a click on Aspen, origin JFK - estimate mode, no network.
     # (allow_live+allow_transit False -> no provider or Transitous calls; fetch_weather=False -> offline)
     out = plan(39.19, -106.82, origin_iata="JFK", vot=30, fetch_weather=False, allow_live=False, allow_transit=False)
     check("plan ok", out.get("ok") is True)
     check("dest resolved to ASE", out["dest"]["iata"] == "ASE")
     check("pricing source is estimate (no date)", out["pricing_source"] == "estimate")
     check("gateways discovered (incl DEN)", any(g["iata"] == "DEN" for g in out["gateways"]))
-    # one-way DEN+bus (~$140+$75) saves ~$65 vs direct (~$280) — under $200, KEEP the direct.
+    # one-way DEN+bus (~$140+$75) saves ~$65 vs direct (~$280) - under $200, KEEP the direct.
     check("marginal split under $200 correctly rejected (rule works)",
           out["result"]["recommended"] == "Fly direct to ASE")
     # drop the rule under the saving and the DEN split should now win.
@@ -899,7 +899,7 @@ def selftest():
     check("recommended split carries flight+ground map geo", len(recopt.get("geo", [])) == 2)
 
     # every option carries an itinerary: real airports, an example clock schedule, per-leg
-    # price provenance, and a verify link — not just a bare dollar figure.
+    # price provenance, and a verify link - not just a bare dollar figure.
     check("every option carries an itinerary with the right leg count",
           all(len(o["itinerary"]["legs"]) == o["nlegs"] for o in out_lo["result"]["options"]))
     itin_leg0 = recopt["itinerary"]["legs"][0]
@@ -928,7 +928,7 @@ def selftest():
     greenest_opt = next(o for o in out["result"]["options"] if o["name"] == greenest_name)
     check("'greenest' really is the lowest-co2e_kg option in the set (never picked by cost)",
           all(greenest_opt["co2e_kg"] <= o["co2e_kg"] for o in out["result"]["options"]))
-    # the DEN split flies a shorter hop then trains/buses the rest — that should usually beat
+    # the DEN split flies a shorter hop then trains/buses the rest - that should usually beat
     # the all-the-way-direct flight on CO2e even though the direct flight can still be cheaper.
     direct_opt = next(o for o in out["result"]["options"] if o["name"] == "Fly direct to ASE")
     den_opt = next((o for o in out["result"]["options"] if o["name"].startswith("DEN")), None)
@@ -938,7 +938,7 @@ def selftest():
     check("emissions note present, labels co2e_kg an estimate",
           any("co2e_kg" in n and "ESTIMATE" in n for n in out["notes"]))
 
-    # click on a major hub (Denver) — should be fine flying direct, no split needed.
+    # click on a major hub (Denver) - should be fine flying direct, no split needed.
     out2 = plan(39.74, -104.99, origin_iata="JFK", fetch_weather=False, allow_live=False, allow_transit=False)
     check("Denver click recommends flying direct", out2["result"]["recommended"].startswith("Fly direct"))
 
@@ -948,7 +948,7 @@ def selftest():
     check(f"Manhattan click resolves to a real NYC airport (got {nyc['dest']['iata']})",
           nyc["dest"]["iata"] in {"JFK", "LGA", "EWR"})
 
-    # a click in central Paris must resolve to CDG/ORY, not LBG (Le Bourget — business
+    # a click in central Paris must resolve to CDG/ORY, not LBG (Le Bourget - business
     # aviation, no scheduled airline service).
     paris = plan(48.86, 2.35, origin_iata="JFK", fetch_weather=False, allow_live=False, allow_transit=False)
     check(f"Central Paris click resolves to CDG/ORY, not Le Bourget (got {paris['dest']['iata']})",
@@ -1021,8 +1021,8 @@ def selftest():
 
     # ---- wall-clock regression: PLAN_TIME_BUDGET_S must actually bound plan()'s runtime, not
     # just its own bookkeeping. Before this fix the `with ThreadPoolExecutor(...)` block's
-    # __exit__ called shutdown(wait=True) and blocked until every hung worker returned —
-    # even the ones already given up on and re-priced as estimates — so a slow provider held
+    # __exit__ called shutdown(wait=True) and blocked until every hung worker returned - 
+    # even the ones already given up on and re-priced as estimates - so a slow provider held
     # the whole response for its own timeout, not the budget. Mock search_cheapest to sleep
     # well past a short budget and confirm plan() returns quickly anyway.
     import time as _time
@@ -1031,7 +1031,7 @@ def selftest():
         _time.sleep(3.0)
         raise net.FetchError("should never be awaited by plan()", status=599)
 
-    # patch this module's OWN globals (not "hopandhaul.server" by dotted path) — run via
+    # patch this module's OWN globals (not "hopandhaul.server" by dotted path) - run via
     # `python -m hopandhaul.server --selftest` this module is loaded as __main__, so a
     # string-path patch would patch a second, separately-imported copy of the module and
     # never touch the PLAN_TIME_BUDGET_S that the running plan() actually reads.
@@ -1081,7 +1081,7 @@ def selftest():
     check("an itinerary with a live leg is not flagged example_day",
           live_direct["itinerary"]["example_day"] is False)
 
-    # ---- error-contract + input-validation checks (no HTTP needed — call the validators
+    # ---- error-contract + input-validation checks (no HTTP needed - call the validators
     # and handlers' underlying helpers directly, matching what Handler does with parse_qs output)
     def qs(**kw):
         return {k: [v] for k, v in kw.items()}
@@ -1173,7 +1173,7 @@ def selftest():
         check("nearest: out-of-range lng rejected", True)
 
     # geocode error shape: no geoapify keys configured in this offline selftest run, so the
-    # handler-level fallback path returns the generic {ok:false, error, code} shape — never a
+    # handler-level fallback path returns the generic {ok:false, error, code} shape - never a
     # raw exception string (this is the exact bug DESIGN.md flags: f"{type(e).__name__}: {e}").
     err = _err("geocode_lookup_failed", "geocoding lookup failed")
     check("error contract: geocode error shape has ok/error/code, no exception internals",

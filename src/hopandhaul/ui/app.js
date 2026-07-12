@@ -1,6 +1,6 @@
 // Entry point: wires state <-> URL, the form, search, map, results, theme, and language
 // together. `rec` (the recommended option) is computed once here and passed to both draw()
-// and the results render — no more independent recomputation in two places.
+// and the results render - no more independent recomputation in two places.
 import { fetchConfig, fetchNearest, fetchPlan } from "./api.js";
 import { readUrlState, writeUrlState, shareUrl, loadLangPref, saveLangPref } from "./state.js";
 import { initMap, markOrigin, draw, clearMap, redrawLastPlan, renderGeoLabels } from "./map.js";
@@ -34,12 +34,12 @@ let clickMode = "dest"; // "dest" | "origin"
 let lastPlaceLabel = null;
 let lastClick = null; // {lat, lng} of the most recent destination point, for share/reload
 let lastConfig = null; // last successful /api/config payload, replayed by applyConfigBadge() on language change
-let lastPlanData = null; // last successful /api/plan payload — re-rendered on language change with no refetch
+let lastPlanData = null; // last successful /api/plan payload - re-rendered on language change with no refetch
 let planInFlight = false; // true from the moment a plan request starts until it settles
 let searchDisabled = false; // cached has_geocode result, re-applied after a language switch re-renders the input
 let lastErrorMsg = null; // message currently shown in the error panel, if any
 let lastErrorWasNetwork = false; // true when lastErrorMsg is the client-side t("error.network")
-                                  // string (as opposed to a server-supplied string) — only that
+                                  // string (as opposed to a server-supplied string) - only that
                                   // case needs its body re-translated on a language switch
 
 function announce(msg) {
@@ -49,12 +49,12 @@ function announce(msg) {
 // -------------------------------------------------------------------- static-string pass
 /**
  * Apply catalog strings to every data-i18n / data-i18n-attr element in the document.
- * data-i18n sets textContent (the element's only job is holding that string — safe, since
+ * data-i18n sets textContent (the element's only job is holding that string - safe, since
  * these are always leaf `<span>`/`<title>`/etc. nodes with no child markup to clobber).
  * data-i18n-attr is a comma-separated `attr:key` list, e.g. "aria-label:lang.buttonAria" or
  * "content:meta.description". Re-run after every language switch to refresh in place.
- * t(key) === key means no catalog (not even English) has that key — a catalog-load failure,
- * not a real translation — so we skip the write and let the baked-in English HTML stand.
+ * t(key) === key means no catalog (not even English) has that key - a catalog-load failure,
+ * not a real translation - so we skip the write and let the baked-in English HTML stand.
  */
 export function applyStatic(root = document) {
   root.querySelectorAll("[data-i18n]").forEach((el) => {
@@ -119,7 +119,7 @@ async function planTo(lat, lng) {
   try {
     data = await fetchPlan(params);
   } catch (err) {
-    if (err?.name === "AbortError") return; // superseded by a newer click — not an error
+    if (err?.name === "AbortError") return; // superseded by a newer click - not an error
     isNetworkError = true;
     data = { ok: false, error: t("error.network") };
   }
@@ -153,7 +153,7 @@ async function planTo(lat, lng) {
 }
 
 /** Re-render whatever is currently on screen using the newly-loaded catalog, without any
- * network refetch — called after a language switch. */
+ * network refetch - called after a language switch. */
 function rerenderCurrent() {
   renderGeoLabels(); // re-translate the map's continent/country labels into the new language
   if (planInFlight) {
@@ -162,13 +162,13 @@ function rerenderCurrent() {
     renderPlan(lastPlanData, lastPlaceLabel);
     $("#copy-link")?.addEventListener("click", onCopyLink);
     $("#sheet-toggle")?.addEventListener("click", toggleSheet);
-    redrawLastPlan(); // map popups bake t() strings at draw time — re-translate them too
+    redrawLastPlan(); // map popups bake t() strings at draw time - re-translate them too
   } else if (lastErrorMsg != null) {
     // re-render the panel so the title/chrome re-translate; if the body was the client-side
     // network message it needs re-translating too, otherwise it's a server string as sent
     renderError(lastErrorWasNetwork ? t("error.network") : lastErrorMsg);
   } else if (lastClick) {
-    // a plan attempt is in flight or previously errored with nothing cached — leave state as is
+    // a plan attempt is in flight or previously errored with nothing cached - leave state as is
   } else {
     renderEmpty();
   }
@@ -178,7 +178,7 @@ let copyTimer = null; // module-level so a second click always clears the previo
 
 /** Flash the copy-link button to an ok/err state for 1.8s, then restore its normal label.
  * Rebuilds the restored label via t("results.copyLink") rather than replaying a snapshot of
- * the button's original innerHTML — a snapshot goes stale if the language changes during the
+ * the button's original innerHTML - a snapshot goes stale if the language changes during the
  * 1.8s window, and would restore the button to whatever language was active when it was clicked. */
 function flashCopyButton(btn, { ok, label }) {
   clearTimeout(copyTimer);
@@ -204,10 +204,10 @@ async function onCopyLink() {
     }
     announce(t("announce.copied"));
   } catch {
-    // sighted users previously never saw this failure at all — the button just silently
+    // sighted users previously never saw this failure at all - the button just silently
     // didn't change. Now it flashes a visible error state, matching the success path.
     if (btn) {
-      // No dedicated short button-label key exists for this failure — reuses the existing
+      // No dedicated short button-label key exists for this failure - reuses the existing
       // announce.copyFail sentence rather than inventing a new string; verbose for a button,
       // but every word is already translated in all 46 catalogs.
       flashCopyButton(btn, { ok: false, label: esc(t("announce.copyFail")) });
@@ -236,7 +236,7 @@ function wireForm() {
     e.target.value = originIata;
     if (lastClick) planTo(lastClick.lat, lastClick.lng);
   });
-  // A return date implies round trip — flip the checkbox before the shared re-plan below runs.
+  // A return date implies round trip - flip the checkbox before the shared re-plan below runs.
   fields.ret.addEventListener("change", (e) => {
     if (e.target.value) fields.round.checked = true;
   });
@@ -328,7 +328,7 @@ function registerServiceWorker() {
 }
 
 /** Resolve which language to boot with: explicit saved choice, else autodetect from the
- * browser, else English. Always resolves — loadLang() itself never throws or rejects. */
+ * browser, else English. Always resolves - loadLang() itself never throws or rejects. */
 async function bootLang() {
   const saved = loadLangPref();
   const code = saved || detectLang();
@@ -349,7 +349,7 @@ async function main() {
     applyStatic();
     refreshThemeLabel();
     if (lastConfig) applyConfigBadge(lastConfig);
-    // applyStatic() only touches data-i18n(-attr) elements — the disabled search's placeholder
+    // applyStatic() only touches data-i18n(-attr) elements - the disabled search's placeholder
     // was set imperatively by search.disable(), so it needs its own re-localize here.
     if (searchDisabled) search.disable(t("search.unavailable"));
     rerenderCurrent();

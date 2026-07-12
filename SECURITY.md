@@ -1,8 +1,8 @@
 # Security
 
 hopandhaul is a local, single-user tool: `hopandhaul-serve` binds to `127.0.0.1` and
-talks to a fixed set of third-party APIs over hardcoded hosts — Duffel and Geoapify
-(optional, keyed) plus four keyless ones: Transitous (`api.transitous.org`, ground
+talks to a fixed set of third-party APIs over hardcoded hosts: Duffel and Geoapify
+(optional, keyed) plus four keyless ones, Transitous (`api.transitous.org`, ground
 schedules), Photon (`photon.komoot.io`, place search), Open-Meteo (`api.open-meteo.com`,
 weather), and frankfurter (`api.frankfurter.dev`, FX rates). The browser build's CSP
 allows exactly two of those (`api.transitous.org`, `photon.komoot.io`) beyond `'self'`,
@@ -12,7 +12,7 @@ handled, and what isn't built yet.
 
 ## No SSRF is possible
 
-Every outbound HTTP call in this codebase targets a hardcoded host literal — the six
+Every outbound HTTP call in this codebase targets a hardcoded host literal: the six
 hosts named above, nothing else. No code path builds a request URL or hostname from client input,
 a query parameter, or a map click. `geo.py` (nearest-airport lookup, gateway discovery)
 is pure local JSON/math and never touches the network at all.
@@ -21,7 +21,7 @@ This is a checkable claim, not a promise: grep `src/hopandhaul/*.py` and
 `src/hopandhaul/ui/*.js` for `http://` and `https://` and confirm every hit is a literal
 in the source, never an f-string built from a request. If a future feature ever lets a user point the server at their own geocoder or
 tile server, that's the point to add the standard SSRF guards (block RFC1918/loopback/
-link-local ranges, no blind redirect-following) — don't ship that without them.
+link-local ranges, no blind redirect-following). Don't ship that without them.
 
 ## Binding and the Host-header guard
 
@@ -31,9 +31,9 @@ link-local ranges, no blind redirect-following) — don't ship that without them
   attack where a malicious page's JS gets a browser to send a same-origin-looking request
   to `127.0.0.1` under a different `Host` header.
 
-If you ever want to run this beyond your own machine — a home server, a shared network —
+If you ever want to run this beyond your own machine (a home server, a shared network),
 that is explicitly **not** what the default stdlib server is built for. `http.server`'s own
-docs say it isn't hardened for that: no TLS, no slow-loris defense, no real request-size
+docs say it isn't hardened for that: it has no TLS, slow-loris defense, or real request-size
 limits. Don't flip the bind to `0.0.0.0` without adding, at minimum: TLS termination (a
 reverse proxy is the easy path), real authentication, and rate limiting in front of it.
 That's a distinct, opt-in deployment mode this project doesn't build by default.
@@ -43,13 +43,13 @@ That's a distinct, opt-in deployment mode this project doesn't build by default.
 The UI and its vendored assets (`ui/index.html`, `ui/vendor/leaflet.js`,
 `ui/vendor/leaflet.css`) are served from an exact-path allowlist dict, never from
 `os.path.join(root, request_path)`. There is no code path that turns a URL into a
-filesystem path outside that fixed set — a `..` in the request path just doesn't match
+filesystem path outside that fixed set: a `..` in the request path just doesn't match
 anything in the dict and 404s.
 
 ## No secrets reach the browser
 
 `/api/config` returns booleans and provider *names* only (`"duffel"` / `"photon"` /
-`"geoapify"` / `null`) — never a key, never a masked fragment of one. Every other endpoint follows the
+`"geoapify"` / `null`), never a key, never a masked fragment of one. Every other endpoint follows the
 same rule. If you add a new endpoint, keep this invariant: nothing that touches
 `_secrets.get(...)` should ever appear in a response body.
 
@@ -62,7 +62,7 @@ placeholder values ships instead so you can see the expected shape.
 
 Every endpoint returns one contract: `{"ok": true, ...}` on success, or
 `{"ok": false, "error": "<human-readable message>", "code": "<short_code>"}` on failure.
-Exception details — message, type name, traceback — are logged server-side
+Exception details (message, type name, traceback) are logged server-side
 (`stderr`) and never included in the response body. An earlier version of `/api/geocode`
 returned the raw `f"{type(e).__name__}: {e}"` string to the client; that's fixed, and the
 selftest asserts the error shape stays generic so it can't quietly regress.
@@ -86,7 +86,7 @@ DoS control.
 reaches any application logic: numeric fields are type- and range-checked (lat/lng within
 real coordinate bounds, traveler count 1-9, threshold and time-budget fields non-negative
 with a sane ceiling), string fields are length-capped, and dates are checked against a
-real calendar, not just a regex shape. A malformed request gets a 400 with a specific,
+real calendar rather than a regex shape. A malformed request gets a 400 with a specific,
 safe message — never a stack trace, never a silent wrong answer.
 
 ## Reporting a vulnerability

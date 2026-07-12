@@ -32,7 +32,7 @@ jobs:
         run: ruff check .
 
       # en.json is the i18n schema; every other catalog must parse, carry exactly its
-      # key set, and keep its {placeholder} tokens — otherwise a broken translation PR
+      # key set, and keep its {placeholder} tokens - otherwise a broken translation PR
       # (or a new UI string added to en.json alone) merges green while a locale quietly
       # falls back to English. See tools/check_i18n.py.
       - name: i18n catalogs (parse, key parity, placeholders)
@@ -56,7 +56,7 @@ jobs:
   # The GitHub Pages build (src/hopandhaul/ui/engine/) ships its own JS port of the estimate
   # path in trip.py/geo.py/emissions.py/server.py's plan(). This proves it stays in exact
   # numeric agreement with the Python engine, so the browser app can never quietly disagree
-  # with the CLI/server — see tests/web_parity/.
+  # with the CLI/server - see tests/web_parity/.
   web-parity:
     runs-on: ubuntu-latest
     steps:
@@ -71,3 +71,27 @@ jobs:
         run: pip install -e .
       - run: python tests/web_parity/gen_fixtures.py
       - run: node tests/web_parity/check.mjs
+
+  # Everything in this repo has to read like a person wrote it - comments and docs
+  # included. noslop's code mode scores each source file for machine-writing tells
+  # (chat-residue comments, narration, typography residue) and fails at 10/100 lines.
+  # Pinned so a rules update in noslop can't redden CI on its own; bump deliberately.
+  # i18n catalogs are checked structurally above, not here - noslop's packs don't
+  # cover every shipped locale, and translated UI strings aren't authored prose.
+  noslop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.11"
+      - run: pip install noslop-lint==0.10.0
+      - name: Source files read human (code mode)
+        run: |
+          git ls-files 'src/hopandhaul/*.py' 'src/hopandhaul/ui/*.js' \
+            'src/hopandhaul/ui/*.css' 'src/hopandhaul/ui/*.html' \
+            'tools/*.py' 'tests/**' '.github/workflows/*.yml' \
+            | grep -v '^src/hopandhaul/ui/vendor/' \
+            | xargs noslop --no-config
+      - name: Docs read human (prose mode)
+        run: noslop --no-config README.md SECURITY.md CONTRIBUTING.md docs/DESIGN.md docs/api.md

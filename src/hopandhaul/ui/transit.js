@@ -1,14 +1,14 @@
-// transit.js — REAL ground schedules for the BROWSER build, via Transitous
+// transit.js - REAL ground schedules for the BROWSER build, via Transitous
 // (api.transitous.org, CORS-open, keyless, free for open-source/non-commercial use).
 //
 // Mirrors hopandhaul/transit.py's summarize/describe logic so a live-schedule line reads the
 // same whether the server or the static build produced it. Browsers can't set User-Agent
-// (it's a forbidden header) — Transitous's policy accepts the automatically-sent Referer for
+// (it's a forbidden header) - Transitous's policy accepts the automatically-sent Referer for
 // browser-only callers, which is exactly what this is. Fails silent and fast: a short
-// timeout, a session circuit-breaker, and null on anything unexpected — live schedules are
+// timeout, a session circuit-breaker, and null on anything unexpected - live schedules are
 // an upgrade, never a blocker.
 //
-// This file is NOT part of the parity surface (tests/web_parity covers ./engine/ only) —
+// This file is NOT part of the parity surface (tests/web_parity covers ./engine/ only) - 
 // it's the browser twin of the server's own live layer.
 
 const BASE = "https://api.transitous.org/api/v2/plan";
@@ -69,7 +69,7 @@ function summarize(itin) {
   };
 }
 
-/** One honest provenance line — same wording as transit.py's describe(). */
+/** One honest provenance line - same wording as transit.py's describe(). */
 export function describe(t) {
   const riding = t.legs.filter((x) => x.mode !== "walk");
   const hops = riding

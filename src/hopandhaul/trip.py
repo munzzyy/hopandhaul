@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-trip.py — deterministic cheapest-route reasoning engine for the travel-scout agent.
+trip.py - deterministic cheapest-route reasoning engine for the travel-scout agent.
 
 Core question it answers: given several ways to get from A to B, which is cheapest,
-and — Cole's rule — is it worth flying into a cheaper nearby airport and taking a
+and - Cole's rule - is it worth flying into a cheaper nearby airport and taking a
 train/bus/car the rest of the way instead of flying direct?
 
 The rule: only recommend a multimodal "split" (fly-to-gateway + ground leg) over the
 cheapest direct option if the split saves at least a threshold amount (default $200).
 Below that, the extra transfer/hassle isn't worth it. Two honest exceptions the engine
-also handles: a split that is *both* cheaper AND faster (dominant — take it regardless),
+also handles: a split that is *both* cheaper AND faster (dominant - take it regardless),
 and a value-of-time overlay so you can compare cash against extra hours fairly.
 
-Pure Python stdlib. It does no networking — it reasons over prices/durations you (or the
+Pure Python stdlib. It does no networking - it reasons over prices/durations you (or the
 agent, via search/APIs) supply. Garbage prices in -> garbage answer out; gather real ones.
 
 Option grammar (canonical):
@@ -20,7 +20,7 @@ Option grammar (canonical):
   - "NAME |" is optional (auto-named from the legs if omitted).
   - legs separated by ";"  (a >=2-leg option is treated as a multimodal "split")
   - each leg: "mode cost hours"  e.g.  "fly 210 3.0"   ("hours" is decimal, door-to-door)
-  cost may be written $1,240 / 1240 — symbols and commas are stripped.
+  cost may be written $1,240 / 1240 - symbols and commas are stripped.
 
 Sugar:
     --direct "fly 620 5.5"                          (single leg to the final destination)
@@ -81,7 +81,7 @@ def parse_leg(text: str) -> dict:
 def parse_option(text: str, min_legs: int = 1) -> dict:
     """'NAME | fly 210 3.0 ; train 75 4.0' -> full option dict with totals.
 
-    min_legs guards callers that mean to build a multi-leg split (sugar_split) —
+    min_legs guards callers that mean to build a multi-leg split (sugar_split) - 
     a malformed "--split" with only one leg is a correctness bug in the core
     thesis (a split silently demoted to a direct), not something to swallow.
     """
@@ -135,7 +135,7 @@ def sugar_direct(text: str) -> str:
 
 
 def scale_leg_cost(mode: str, cost: float, travelers: int) -> float:
-    """Group math: per-person modes (fly/train/bus/ferry…) scale ×N; per-vehicle modes don't."""
+    """Group math: per-person modes (fly/train/bus/ferry...) scale ×N; per-vehicle modes don't."""
     if travelers <= 1 or mode.lower() in PER_VEHICLE_MODES:
         return cost
     return cost * travelers
@@ -155,7 +155,7 @@ def sugar_split(text: str) -> str:
     name = None
     body = text
     if ":" in text and "+" in text.split(":", 1)[1]:
-        # "NAME: leg + leg"  — only treat as name if a '+' follows (avoids eating times)
+        # "NAME: leg + leg"  - only treat as name if a '+' follows (avoids eating times)
         name, body = text.split(":", 1)
         name = name.strip()
     elif ":" in text and "+" not in text and text.count(":") == 1:
@@ -170,10 +170,10 @@ def sugar_split(text: str) -> str:
 def _dominates(a: dict, b: dict) -> bool:
     """a dominates b if a is no worse on both cost and time, and strictly better on one.
 
-    Time here means hours_eff (raw hours + the per-transfer buffer) — evaluate() has already
+    Time here means hours_eff (raw hours + the per-transfer buffer) - evaluate() has already
     annotated that onto every option before this is called. Comparing raw "hours" let a split
     that's actually slower once you account for the transfer buffer get called "cheaper AND
-    faster" (dominant) instead of just cheaper — a self-contradicting result. Falls back to
+    faster" (dominant) instead of just cheaper - a self-contradicting result. Falls back to
     "hours" only if a caller passes in options that were never buffered.
     """
     a_h, b_h = a.get("hours_eff", a["hours"]), b.get("hours_eff", b["hours"])
@@ -188,7 +188,7 @@ def evaluate(options: list[dict], threshold: float = DEFAULT_THRESHOLD,
     """Rank options and apply Cole's split-vs-direct rule. Returns a structured result.
 
     max_hours: options whose effective time exceeds this are excluded from the
-    recommendation (still shown, tagged over_time_budget) — unless nothing fits.
+    recommendation (still shown, tagged over_time_budget) - unless nothing fits.
     travelers: metadata only (costs must already be group totals); shown in the report.
     """
     if not options:
@@ -225,7 +225,7 @@ def evaluate(options: list[dict], threshold: float = DEFAULT_THRESHOLD,
         if is_baseline:
             status = "baseline"
         elif dominant:
-            status = "dominant"          # cheaper AND faster (or equal) — rule is moot, take it
+            status = "dominant"          # cheaper AND faster (or equal) - rule is moot, take it
         elif o["is_split"] and qualifies:
             status = "split_qualifies"   # the headline case: fly cheaper + ground, saves >= threshold
         elif qualifies:
@@ -257,7 +257,7 @@ def evaluate(options: list[dict], threshold: float = DEFAULT_THRESHOLD,
         })
 
     # eligible recommendation set: the baseline, plus anything dominant or clearing the threshold.
-    # A time budget (max_hours) knocks options out of contention — unless nothing at all fits.
+    # A time budget (max_hours) knocks options out of contention - unless nothing at all fits.
     eligible = [r for r in rows if r["is_baseline"] or r["dominant"] or r["qualifies"]]
     time_budget_binding = False
     if max_hours is not None:
@@ -411,7 +411,7 @@ def format_report(res: dict, origin: str | None, dest: str | None) -> str:
 
 # --------------------------------------------------------------------------- CLI
 def build_options(args) -> list[dict]:
-    # (raw_string, min_legs) — a --split that parses to 1 leg is a bug, not a silent direct.
+    # (raw_string, min_legs) - a --split that parses to 1 leg is a bug, not a silent direct.
     raw = []
     for d in args.direct or []:
         raw.append((sugar_direct(d), 1))
@@ -433,7 +433,7 @@ def build_options(args) -> list[dict]:
 
 
 def _force_utf8():
-    """Windows consoles default to cp1252 and choke on → ✅ ≈; make stdout/stderr UTF-8."""
+    """Windows consoles default to cp1252 and choke on -> ✅ ≈; make stdout/stderr UTF-8."""
     for stream in (sys.stdout, sys.stderr):
         try:
             stream.reconfigure(encoding="utf-8")  # py3.7+
@@ -541,7 +541,7 @@ def selftest():
     sr2 = next(o for o in r2["options"] if o["name"] == "Split")
     check("that split is tagged cheaper_below_threshold", sr2["status"] == "cheaper_below_threshold")
 
-    # Case 3: dominance — split cheaper $500 AND faster 4h beats direct $620/5.5h regardless of threshold.
+    # Case 3: dominance - split cheaper $500 AND faster 4h beats direct $620/5.5h regardless of threshold.
     opts3 = [
         parse_option("Fly direct | fly 620 5.5"),
         parse_option("Secondary + train | fly 430 2.5 ; train 70 1.5"),
@@ -560,7 +560,7 @@ def selftest():
     check("high VOT ($60/hr) prefers the direct flight", r4hi["recommended"] == "Fly direct")
     check("low VOT ($10/hr) prefers the cheaper split", r4lo["recommended"] == "Cheap + bus")
 
-    # Case 5: parsing robustness — $ and commas, bare 'cost hours' direct sugar.
+    # Case 5: parsing robustness - $ and commas, bare 'cost hours' direct sugar.
     o5 = parse_option("X | fly $1,240 6")
     check("parses $1,240 -> 1240.0", _approx(o5["cost"], 1240.0))
     s5 = parse_option(sugar_direct("620 5.5"))
@@ -574,7 +574,7 @@ def selftest():
     sr6 = next(o for o in r6["options"] if o["name"] == "Split")
     check("transfer buffer adds 1h to the 1-transfer split", _approx(sr6["hours_eff"], 7.0))
 
-    # Case 7: group math — trains scale per person, a rental doesn't; best split flips at n=4.
+    # Case 7: group math - trains scale per person, a rental doesn't; best split flips at n=4.
     check("scale_leg_cost: train ×4", _approx(scale_leg_cost("train", 75, 4), 300))
     check("scale_leg_cost: rental stays per-vehicle", _approx(scale_leg_cost("rental", 80, 4), 80))
     base7 = [parse_option("Fly direct | fly 620 5.5"),
@@ -588,7 +588,7 @@ def selftest():
     rb = next(o for o in r7b["options"] if o["name"] == "EGE + rental")
     check("group rental split total = 4×240 + 80 = $1,040", _approx(rb["cost"], 1040))
 
-    # Case 8: time budget — a qualifying but slow split is excluded under --max-hours.
+    # Case 8: time budget - a qualifying but slow split is excluded under --max-hours.
     opts8 = [parse_option("Fly direct | fly 620 5.5"),
              parse_option("Slow split | fly 210 3.0 ; train 75 6.0")]
     r8 = evaluate(opts8, threshold=200, max_hours=8.0)
@@ -621,7 +621,7 @@ def selftest():
 
     # Case 12: dominance must use the buffered (effective) hours, not raw hours. This split
     # is $70 cheaper (below the $200 rule) but its transfer buffer makes it 54 minutes SLOWER
-    # than direct — it must never be tagged "dominant"/"cheaper AND faster", and direct must
+    # than direct - it must never be tagged "dominant"/"cheaper AND faster", and direct must
     # stay recommended. Before this fix, _dominates() compared raw "hours" (2.5+2.4=4.9 <
     # 5.0), calling it dominant even though hours_eff (5.9, after +1h buffer) was slower.
     opts12 = [parse_option("Direct | fly 620 5.0"),

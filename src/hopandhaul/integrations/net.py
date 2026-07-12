@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-net.py — shared HTTP-JSON fetch for the provider adapters (duffel/geoapify/weather/providers).
+net.py - shared HTTP-JSON fetch for the provider adapters (duffel/geoapify/weather/providers).
 
 One retry/backoff/rate-limit implementation instead of four near-identical copies. Before this
 module, a single transient 429 or 5xx from any provider permanently downgraded a plan to
-estimate-only for the rest of the process — there was no retry anywhere in the integrations
+estimate-only for the rest of the process - there was no retry anywhere in the integrations
 layer. `fetch_json()` fixes that: retries on 429/5xx and on connection-level errors (timeout,
 reset, DNS), honors `Retry-After` when a provider sends one, and never retries a 4xx that isn't
 429 (a bad request replayed unchanged just fails the same way three more times).
@@ -15,7 +15,7 @@ rolled dict+lock copies scattered per module).
 
 Stdlib only: urllib, time, threading.
 
-Usage: this module has no CLI of its own — it's a library import for the four adapters.
+Usage: this module has no CLI of its own - it's a library import for the four adapters.
   python -m hopandhaul.integrations.net   # offline retry/backoff/rate-limit/cache selftest
 """
 from __future__ import annotations
@@ -38,7 +38,7 @@ class FetchError(Exception):
 
 
 # Status codes worth retrying: 429 (rate limited) and 5xx (upstream trouble). A plain 4xx
-# (bad request, 401, 404) means retrying the identical request will fail identically — surface
+# (bad request, 401, 404) means retrying the identical request will fail identically - surface
 # it immediately instead of burning the retry budget.
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
@@ -50,7 +50,7 @@ def fetch_json(url: str, *, data: bytes | None = None, headers: dict | None = No
     """GET/POST a URL, decode JSON, retrying transient failures with exponential backoff.
 
     Retries on: HTTP 429/5xx, and network-level errors (timeout, connection reset, DNS).
-    Does NOT retry other HTTP errors (401/403/404/422/...) — those are real, stable failures.
+    Does NOT retry other HTTP errors (401/403/404/422/...) - those are real, stable failures.
     `sleep` is injectable so the selftest can run the full backoff ladder with zero wall-clock
     delay.
     """
@@ -77,7 +77,7 @@ def fetch_json(url: str, *, data: bytes | None = None, headers: dict | None = No
             if attempt == max_retries:
                 raise FetchError(f"network error reaching {_host(url)}: {e}", cause=e) from e
             wait = _backoff(attempt, backoff_base, backoff_cap)
-        except ValueError as e:  # malformed JSON body — not transient, don't retry
+        except ValueError as e:  # malformed JSON body - not transient, don't retry
             raise FetchError(f"invalid JSON from {_host(url)}: {e}", cause=e) from e
         sleep(wait)
         attempt += 1
@@ -97,7 +97,7 @@ def _retry_after(e: urllib.error.HTTPError) -> float | None:
     try:
         return max(0.0, min(float(val), 30.0))  # clamp: never wait more than 30s on our say-so
     except ValueError:
-        return None  # HTTP-date form — fall back to our own backoff
+        return None  # HTTP-date form - fall back to our own backoff
 
 
 def _backoff(attempt: int, base: float, cap: float) -> float:
@@ -145,7 +145,7 @@ class TTLCache:
     sorting all entries by expiry and dropping the oldest half (O(n log n) on every write,
     and it deletes live entries early just because the dict got big). This evicts only what's
     actually expired, then falls back to dropping the single oldest entry if still over
-    capacity — O(n) worst case, O(1) typical.
+    capacity - O(n) worst case, O(1) typical.
     """
 
     def __init__(self, ttl_seconds: float, max_size: int = 512):
@@ -174,7 +174,7 @@ class TTLCache:
 
     def _evict(self, now: float) -> None:
         """Caller holds _lock. Drop expired entries first; if still over capacity, drop the
-        single oldest by expiry (not half the cache — the old scheme's real bug)."""
+        single oldest by expiry (not half the cache - the old scheme's real bug)."""
         expired = [k for k, (_, exp) in self._store.items() if exp < now]
         for k in expired:
             del self._store[k]

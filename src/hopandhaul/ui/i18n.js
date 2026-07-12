@@ -1,8 +1,8 @@
 // Runtime i18n: language registry, catalog loading with English fallback, and t().
-// Zero dependencies, no build step — plain fetch() of static JSON under ./i18n/.
+// Zero dependencies, no build step - plain fetch() of static JSON under ./i18n/.
 // en.json is the schema: every other catalog is a subset/superset of its keys, and any
 // key missing from a loaded catalog (or a catalog that fails to load at all) falls back
-// to the English string. That fallback must be silent — a translator's catalog landing
+// to the English string. That fallback must be silent - a translator's catalog landing
 // mid-week should never throw or log in a visitor's console.
 
 export const LANGS = [
@@ -66,7 +66,7 @@ function langInfo(code) {
 }
 
 const DEFAULT_LANG = "en";
-let enCatalog = null; // always loaded, always present — the fallback of last resort
+let enCatalog = null; // always loaded, always present - the fallback of last resort
 let activeCatalog = null; // === enCatalog when active language is "en"
 let activeCode = DEFAULT_LANG;
 
@@ -84,11 +84,11 @@ async function fetchCatalog(code) {
     catalogMemo.set(code, catalog);
     return catalog;
   } catch {
-    return null; // network error / bad JSON — degrade silently, caller falls back to English
+    return null; // network error / bad JSON - degrade silently, caller falls back to English
   }
 }
 
-/** Load en.json once (idempotent) — the fallback catalog underlying every other language.
+/** Load en.json once (idempotent) - the fallback catalog underlying every other language.
  * Only a successful load is cached; a failed fetch returns {} for that call but leaves
  * enCatalog unset so the next call retries instead of being stuck on an empty catalog
  * for the rest of the session. */
@@ -106,7 +106,7 @@ async function ensureEnglish() {
 let loadLangSeq = 0;
 
 /**
- * Load and activate a language. Always resolves (never rejects) — an unknown code, a 404,
+ * Load and activate a language. Always resolves (never rejects) - an unknown code, a 404,
  * or a network error all degrade to English with no console noise and no unhandled rejection.
  * Returns the resolved code that ended up active (useful if a caller wants to confirm the
  * catalog it asked for actually loaded vs. silently fell back). If a newer loadLang() call
@@ -124,10 +124,10 @@ export async function loadLang(code) {
     return DEFAULT_LANG;
   }
   // English (the fallback every t() call needs) and the target catalog don't depend on each
-  // other — fetch both in parallel instead of serializing two round-trips on every boot/switch.
+  // other - fetch both in parallel instead of serializing two round-trips on every boot/switch.
   const [, catalog] = await Promise.all([ensureEnglish(), fetchCatalog(code)]);
   if (!catalog) {
-    // Missing/broken catalog (translator hasn't landed it yet, or fetch failed) — fall back
+    // Missing/broken catalog (translator hasn't landed it yet, or fetch failed) - fall back
     // to English but keep the *chosen* code as active so t() still tries per-key lookups
     // against an empty catalog first (all misses) and per-key-falls-back to English.
     if (mySeq === loadLangSeq) {
@@ -160,7 +160,7 @@ const ALIASES = {
 };
 
 /** Resolve one BCP-47-ish navigator tag (e.g. "pt-BR", "en-US", "zh-CN") to a supported LANGS
- * code via alias/exact match only — no prefix fallback. Shared by both passes of detectLang()
+ * code via alias/exact match only - no prefix fallback. Shared by both passes of detectLang()
  * and by resolveTag()'s first step, so the alias table only lives in one place. */
 function resolveExact(tag) {
   const lower = tag.toLowerCase();
@@ -195,12 +195,12 @@ export function detectLang() {
       if (m) return m;
     }
   } catch {
-    // navigator access blocked or malformed — fall through to default
+    // navigator access blocked or malformed - fall through to default
   }
   return DEFAULT_LANG;
 }
 
-/** {x} interpolation — params values are stringified and inserted verbatim (caller is
+/** {x} interpolation - params values are stringified and inserted verbatim (caller is
  * responsible for escaping before this ever touches innerHTML; see format.js's esc()). */
 function interpolate(str, params) {
   if (!params) return str;

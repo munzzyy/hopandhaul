@@ -27,7 +27,7 @@ export function readUrlState() {
 }
 
 /**
- * Push the given state into the URL without adding a history entry or reloading —
+ * Push the given state into the URL without adding a history entry or reloading - 
  * this is what makes a plan link shareable (§ shareable trip URLs).
  */
 export function writeUrlState(state) {
@@ -53,7 +53,7 @@ export function shareUrl(state) {
   return `${location.origin}${location.pathname}?${q.toString()}`;
 }
 
-/** Shared localStorage read/write for the small set of non-shareable prefs (theme, language) —
+/** Shared localStorage read/write for the small set of non-shareable prefs (theme, language) - 
  * both silently no-op on failure (private browsing, storage disabled) since neither is fatal
  * to the app; the pref just won't persist. */
 function readPref(key) {
@@ -68,7 +68,7 @@ function writePref(key, val) {
   try {
     localStorage.setItem(key, val);
   } catch {
-    // storage disabled — pref just won't persist, not fatal
+    // storage disabled - pref just won't persist, not fatal
   }
 }
 
@@ -82,14 +82,14 @@ export function saveTheme(theme) {
   writePref(THEME_KEY, theme);
 }
 
-/** Drop back to "Auto" — no stored choice means prefers-color-scheme decides (theme-boot.js
+/** Drop back to "Auto" - no stored choice means prefers-color-scheme decides (theme-boot.js
  * and theme.js both already treat an absent key this way; this just makes clearing it explicit
  * instead of every caller reaching for localStorage.removeItem directly). */
 export function clearTheme() {
   try {
     localStorage.removeItem(THEME_KEY);
   } catch {
-    // storage disabled — nothing was persisted in the first place
+    // storage disabled - nothing was persisted in the first place
   }
 }
 

@@ -1,6 +1,6 @@
-// emissions.js — faithful JS port of hopandhaul/emissions.py's CO2e estimate. Same factor
+// emissions.js - faithful JS port of hopandhaul/emissions.py's CO2e estimate. Same factor
 // basis and honesty rules as the Python original (see emissions.py's module docstring for the
-// full DEFRA/EEA sourcing) — this file just needs to keep producing the identical number.
+// full DEFRA/EEA sourcing) - this file just needs to keep producing the identical number.
 import { pyRound } from "./pyround.js";
 
 const FLIGHT_SHORT_HAUL_KM = 1500.0;
@@ -33,7 +33,7 @@ export function flightGPerPkm(distanceKm, withRf = false) {
   return withRf ? g * FLIGHT_RF_MULTIPLIER : g;
 }
 
-/** kg CO2e for one leg, TOTAL for all travelers — mirrors emissions.co2e_for_leg(). */
+/** kg CO2e for one leg, TOTAL for all travelers - mirrors emissions.co2e_for_leg(). */
 export function co2eForLeg(mode, distanceKm, travelers = 1, withRf = false) {
   if (distanceKm <= 0 || travelers < 1) return 0.0;
   mode = (mode || "").toLowerCase();
@@ -48,7 +48,7 @@ export function co2eForLeg(mode, distanceKm, travelers = 1, withRf = false) {
   return pyRound((gPerPkm * distanceKm * travelers) / 1000.0, 2);
 }
 
-/** kg CO2e for a whole option (sum of its legs) — mirrors emissions.co2e_for_option(). Each
+/** kg CO2e for a whole option (sum of its legs) - mirrors emissions.co2e_for_option(). Each
  * leg needs 'mode' and a distance, checked in order distance_km, then road_km, then dist_km. */
 export function co2eForOption(legs, travelers = 1, withRf = false) {
   let total = 0.0;

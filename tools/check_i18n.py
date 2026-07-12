@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-check_i18n.py — CI gate for the locale catalogs in src/hopandhaul/ui/i18n/.
+check_i18n.py - CI gate for the locale catalogs in src/hopandhaul/ui/i18n/.
 
 en.json is the schema (see i18n.js). The runtime falls back to English silently for
 any key a catalog is missing, which is right for a visitor mid-week but wrong as a

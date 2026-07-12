@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-geoapify.py — geocoding for travel-scout via the Geoapify Geocoding API.
+geoapify.py - geocoding for travel-scout via the Geoapify Geocoding API.
 
 Turns a typed place ("Aspen, CO", "38 Upper Montagu Street, London", "Chamonix") into
 coordinates so the map/agent can plan to a name instead of only a click. Also reverse-geocodes

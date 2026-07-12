@@ -1,10 +1,10 @@
-// plan.js — the browser-native orchestrator. This is a faithful port of the ESTIMATE branch of
+// plan.js - the browser-native orchestrator. This is a faithful port of the ESTIMATE branch of
 // server.py's plan(): same option generation (direct + one split per discovered gateway),
-// same notes, same response shape — just with every live-network path (Duffel fares, OpenWeather,
+// same notes, same response shape - just with every live-network path (Duffel fares, OpenWeather,
 // Geoapify) removed, because none of those have a key on GitHub Pages and server.py's plan()
 // already degrades to this exact estimate path whenever allow_live=False. That's the contract
 // this file has to hold: `plan(...)` here must equal Python's `plan(..., allow_live=False,
-// fetch_weather=False)` for the same inputs — see tests/web_parity/.
+// fetch_weather=False)` for the same inputs - see tests/web_parity/.
 import * as geo from "./geo.js";
 import * as trip from "./trip.js";
 import * as emissions from "./emissions.js";
@@ -29,10 +29,10 @@ function gw(g) {
   return out;
 }
 
-/** Estimate-only flight leg pricing — mirrors server.py's _price_flight() with `session=None`
+/** Estimate-only flight leg pricing - mirrors server.py's _price_flight() with `session=None`
  * (i.e. the branch it always falls into once allow_live=False, which the Pages build always is).
  * Keeps `estimateDetail` (the outbound-leg estimate only, same as the Python side) so the
- * itinerary can narrate where the fare came from — never discarded just because the option
+ * itinerary can narrate where the fare came from - never discarded just because the option
  * string only needs the price. */
 function priceFlightEstimate(origin, dest, date, ret, travelers) {
   const est = geo.estimateFlight(origin, dest, date);
@@ -46,7 +46,7 @@ function priceFlightEstimate(origin, dest, date, ret, travelers) {
   return { price: pyRound(price, 2), hours: est.hours, source: "estimate", rt, estimate_detail: est };
 }
 
-/** itinerary.js leg spec for a flight leg — mirrors server.py's _flight_leg_spec(), estimate
+/** itinerary.js leg spec for a flight leg - mirrors server.py's _flight_leg_spec(), estimate
  * branch only (the Pages build never has a live provider). */
 function flightLegSpec(origin, dest, f, cost, date) {
   return {
@@ -57,7 +57,7 @@ function flightLegSpec(origin, dest, f, cost, date) {
   };
 }
 
-/** itinerary.js leg spec for a ground leg — mirrors server.py's _ground_leg_spec(); ground legs
+/** itinerary.js leg spec for a ground leg - mirrors server.py's _ground_leg_spec(); ground legs
  * are always an estimate (see README: no free, open multimodal fares API worth calling here). */
 function groundLegSpec(g, dest, cost, roadKm) {
   return {
@@ -112,7 +112,7 @@ export function plan({
 
   // Live-schedule injection (browser twin of server.py's Transitous enrichment): api.js runs
   // this plan once offline, fetches real timetables for the gateway legs it found, then runs
-  // it again with the results — a real door-to-door time replaces the leg's formula duration
+  // it again with the results - a real door-to-door time replaces the leg's formula duration
   // before ranking. Never set by the parity harness, so the offline contract is untouched.
   if (transitByIata) {
     for (const g of gws) {
@@ -162,7 +162,7 @@ export function plan({
       { type: "ground", mode: g.ground_mode, from: pt(g), to: pt(dest) },
     ];
     const flyKm = geo.haversineKm(origin.lat, origin.lng, g.lat, g.lng) * rtMult;
-    // A real-corridor ferry leg uses the actual port-to-port crossing distance — boats sail
+    // A real-corridor ferry leg uses the actual port-to-port crossing distance - boats sail
     // the strait, they don't follow a winding road. Mirrors server.py's plan().
     const groundKm = g.ferry
       ? g.ferry.crossing_km * rtMult
@@ -194,7 +194,7 @@ export function plan({
     ? clean.options.reduce((best, o) => (o.co2e_kg < best.co2e_kg ? o : best)).name
     : null;
 
-  // allow_live is always false on Pages — pricing_source is always "estimate", the same value
+  // allow_live is always false on Pages - pricing_source is always "estimate", the same value
   // server.py's plan() would produce when it can't (or won't) reach a live provider.
   const source = "estimate";
   const notes = [];
@@ -250,7 +250,7 @@ export function plan({
     gateways: gws.map(gw),
     direct: df,
     result: clean,
-    weather: null, // no OpenWeather key on Pages — the UI already treats a null weather block as "no data"
+    weather: null, // no OpenWeather key on Pages - the UI already treats a null weather block as "no data"
     notes,
   };
 }

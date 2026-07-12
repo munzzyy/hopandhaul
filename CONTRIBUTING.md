@@ -1,7 +1,7 @@
 # Contributing
 
 Thanks for looking at this. It's a small, single-purpose tool and contributions are welcome.
-Here's how to get set up and what gets a PR merged quickly.
+This covers setup and what gets a PR merged quickly.
 
 ## Setup
 
@@ -132,7 +132,7 @@ The UI catalogs live in `src/hopandhaul/ui/i18n/`, one flat JSON file per langua
 `en.json` is the source of truth. To fix a string: edit the value (never the key), keep
 `{placeholders}` exactly as they are, and check the file still parses. To add a language:
 copy `en.json`, translate the values, add an entry to the `LANGS` table in `ui/i18n.js`,
-and say in the PR whether you're a native speaker. Screen-reader strings (`legend.sr`,
+and say in the PR if you're a native speaker. Screen-reader strings (`legend.sr`,
 the `announce.*` keys) deserve extra care — someone will hear them read aloud.
 
 ## Pull requests

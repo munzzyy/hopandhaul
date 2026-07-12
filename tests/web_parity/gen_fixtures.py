@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-gen_fixtures.py — runs the real Python engine (hopandhaul.server.plan / hopandhaul.trip.evaluate)
+gen_fixtures.py - runs the real Python engine (hopandhaul.server.plan / hopandhaul.trip.evaluate)
 over every case in cases.json and writes each result to fixtures/<name>.json.
 
 This is one half of the web-parity gate: check.mjs (Node) runs the SAME cases through the JS
 port under src/hopandhaul/ui/engine/ and deep-equals the two. If they disagree, the JS is wrong
-— fix the JS to match this output, never the other way around.
+ - fix the JS to match this output, never the other way around.
 
 fixtures/ is regenerated every run (gitignored, not committed) rather than frozen: a couple of
 cases exercise geo.fare_date_multiplier's booking-lead-time curve, which reads the real
-system date when no explicit `today` is given (matching what plan() actually does — it has no
+system date when no explicit `today` is given (matching what plan() actually does - it has no
 `today` parameter to override). Regenerating fresh each run, immediately before check.mjs reads
 it, keeps both sides looking at "today" from the same few seconds of wall-clock time instead of
 whatever day the fixtures happened to be committed on.
@@ -59,7 +59,7 @@ def run_plan_case(case: dict) -> dict:
 def run_evaluate_case(case: dict) -> dict:
     travelers = case.get("travelers", 1)
     # Every real call site (server.py's plan(), trip.py's own CLI _run()) scales each option's
-    # leg costs by travelers BEFORE evaluate() ever sees them — evaluate()'s own `travelers`
+    # leg costs by travelers BEFORE evaluate() ever sees them - evaluate()'s own `travelers`
     # arg is metadata only, it doesn't re-price anything. Match that here so a case that sets
     # "travelers" actually exercises scale_option's group math, not just the metadata field.
     options = [trip.scale_option(trip.parse_option(build_option_string(o)), travelers)
@@ -97,7 +97,7 @@ def main() -> int:
     for case in cases:
         try:
             out = run_case(case)
-        except Exception as e:  # noqa: BLE001 — a fixture that can't generate is a hard failure
+        except Exception as e:  # noqa: BLE001 - a fixture that can't generate is a hard failure
             print(f"error generating fixture {case['name']!r}: {type(e).__name__}: {e}", file=sys.stderr)
             return 1
         with open(os.path.join(OUT_DIR, f"{case['name']}.json"), "w", encoding="utf-8") as f:

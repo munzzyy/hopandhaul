@@ -3,7 +3,7 @@
 // JS's Math.round() always rounds half away from zero (22.5 -> 23), but Python 3's builtin
 // round() rounds half to the nearest EVEN digit (22.5 -> 22, 23.5 -> 24). Every function ported
 // from trip.py/geo.py/emissions.py that calls Python's round() must use this instead of
-// Math.round()/toFixed() to stay in exact parity with the reference implementation — that's
+// Math.round()/toFixed() to stay in exact parity with the reference implementation - that's
 // the whole point of the web-parity test (see ../../../tests/web_parity/).
 //
 // CPython's round() does NOT use a floating-point epsilon: it works from the exact decimal
@@ -18,7 +18,7 @@
 // can tell a genuine tie from a near-tie the same way CPython does.
 //
 // ndigits omitted matches Python's round(x) with no second argument (used for geo.py's
-// "round(fare/5)*5" pattern) — returns an integer-valued number, never -0.
+// "round(fare/5)*5" pattern) - returns an integer-valued number, never -0.
 
 export function pyRound(x, ndigits) {
   if (!Number.isFinite(x)) return x;
@@ -32,7 +32,7 @@ export function pyRound(x, ndigits) {
   const abs = Math.abs(x);
 
   // Digits kept past the rounding point, purely to tell "exact tie" (all zeros beyond) from
-  // "not quite a tie" — not needed for precision itself, since a double is fully determined by
+  // "not quite a tie" - not needed for precision itself, since a double is fully determined by
   // ~17 significant digits.
   const extra = 40;
   const places = Math.min(100, digits + extra);

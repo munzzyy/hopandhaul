@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-geo.py — spatial + price-estimation layer for the travel-scout map UI.
+geo.py - spatial + price-estimation layer for the travel-scout map UI.
 
 Turns a lat/lng map click into: the nearest airport, a set of candidate "cheaper gateway
 airport + ground leg" splits (curated from gateways.json *and* auto-discovered from the airport
-DB anywhere on Earth), and — when no live API key is set — transparent distance-based fare and
+DB anywhere on Earth), and - when no live API key is set - transparent distance-based fare and
 ground estimates so the map still "calculates" instantly at $0.
 
 Real data raises the floor under those estimates: ferry legs only exist along real corridors
-(data/ferries.json — operators, crossing times, sourced fares), land legs never cross open sea
+(data/ferries.json - operators, crossing times, sourced fares), land legs never cross open sea
 (data/landgrid.json + sea_gap()), and US fares are clamped into the real BTS market band for
 the route (data/fareanchors.json). Everything else is labelled ESTIMATE everywhere it
-surfaces — a reasonable model, not a quote; the server upgrades flight legs to live Duffel
+surfaces - a reasonable model, not a quote; the server upgrades flight legs to live Duffel
 pricing when a key exists.
 
 Pure stdlib. Importable by server.py. Run `python geo.py --selftest`.
@@ -29,10 +29,10 @@ _DATA_PKG = "hopandhaul.data"
 # ---- fare model (ESTIMATE) -------------------------------------------------
 # Concave curve calibrated against real cheapest one-way economy fares (2025-26):
 #   fare ≈ 30 + 1.8·√km + 0.012·km
-# e.g. ~$65 LGA-BOS, ~$190 JFK-LAX, ~$230 JFK-LHR, ~$350 JFK-NRT — then adjusted for
+# e.g. ~$65 LGA-BOS, ~$190 JFK-LAX, ~$230 JFK-LHR, ~$350 JFK-NRT - then adjusted for
 # airport size (small/resort fields carry a premium, both ends), hub-to-hub competition,
 # the ROUTE MARKET (intra-Europe LCC saturation ≠ US domestic ≠ thin intra-Africa
-# competition — see ROUTE_MULT), and the travel DATE (booking lead time, seasonality,
+# competition - see ROUTE_MULT), and the travel DATE (booking lead time, seasonality,
 # day of week). Still an ESTIMATE.
 FLIGHT_CURVE = (30.0, 1.8, 0.012)          # (base, per_sqrt_km, per_km)
 FLIGHT_FLOOR = 45.0
@@ -42,7 +42,7 @@ HUB_COMPETITION_DISCOUNT = 0.92            # both ends tier-1: competitive trunk
 FLIGHT_FIXED_H = 1.1                       # per-flight ground/air overhead (hours)
 CONNECTION_H = 1.6                         # likely-connection time when a tiny field is far away
 
-# Route-market multiplier by (region, region) pair — competition/LCC density varies by
+# Route-market multiplier by (region, region) pair - competition/LCC density varies by
 # market far more than by distance. NA-NA = 1.0 is the calibration baseline. Keyed by
 # sorted region pair; pairs not listed: 1.15 if Africa is involved, else 1.0.
 ROUTE_MULT = {
@@ -77,7 +77,7 @@ def _route_mult(region_a: str, region_b: str) -> float:
         return 1.15          # thin competition on most unlisted Africa pairs
     return 1.0
 
-# lead-time booking curve: (max_days_out, fare multiplier) — walk-up fares are much dearer,
+# lead-time booking curve: (max_days_out, fare multiplier) - walk-up fares are much dearer,
 # ~3-6 weeks out is the sweet spot, ultra-early long-haul prices slightly high.
 LEAD_CURVE = [(3, 1.45), (6, 1.30), (13, 1.18), (20, 1.08), (45, 1.00),
               (90, 0.96), (180, 1.00), (99999, 1.05)]
@@ -87,12 +87,12 @@ DOW_MULT = {0: 1.00, 1: 0.96, 2: 0.96, 3: 1.00, 4: 1.06, 5: 1.00, 6: 1.06}  # Mo
 DATE_MULT_CLAMP = (0.75, 1.75)
 
 def _flight_speed_kmh(d: float) -> float:
-    """Effective block speed incl. taxi/climb — long-haul cruises faster."""
+    """Effective block speed incl. taxi/climb - long-haul cruises faster."""
     return 700.0 if d < 1500 else (800.0 if d < 6000 else 850.0)
 
 # ---- ground model (ESTIMATE) ----------------------------------------------
 ROAD_WINDING = 1.2          # straight-line -> road/rail distance factor
-GROUND = {   # default (rest of world) — mode: (speed_kmh, base_$, per_km_$)
+GROUND = {   # default (rest of world) - mode: (speed_kmh, base_$, per_km_$)
     "drive":   (85, 15, 0.20),
     "car":     (85, 15, 0.20),
     "rental":  (85, 20, 0.20),
@@ -136,7 +136,7 @@ _LANDGRID = None
 
 
 def _read_package_json(filename: str):
-    """Read a JSON file shipped as package data — works from a repo checkout AND a
+    """Read a JSON file shipped as package data - works from a repo checkout AND a
     zipped wheel install alike (importlib.resources resolves either)."""
     ref = importlib.resources.files(_DATA_PKG) / filename
     with ref.open("r", encoding="utf-8") as f:
@@ -159,7 +159,7 @@ def gateways_db() -> dict:
 
 def ferry_corridors() -> list[dict]:
     """Real passenger-ferry corridors (data/ferries.json): operators, typical crossing time,
-    real fare range, sailings/day — researched from operator/aggregator pages, each entry
+    real fare range, sailings/day - researched from operator/aggregator pages, each entry
     carrying its own source URL and as-of date. The engine never invents a boat: a ferry leg
     exists only when one of these corridors connects the two places."""
     global _FERRIES
@@ -174,7 +174,7 @@ _ANCHORS_ASOF = None
 
 def fare_anchors() -> list[dict]:
     """REAL average fares for the busiest US city-pair markets (data/fareanchors.json, from
-    the US DOT/BTS Consumer Airfare Report — public domain). Each anchor: city centroids a/b,
+    the US DOT/BTS Consumer Airfare Report - public domain). Each anchor: city centroids a/b,
     fare_avg (market average paid), fare_low (average on the lowest-fare carrier), pax_day."""
     global _ANCHORS, _ANCHORS_ASOF
     if _ANCHORS is None:
@@ -220,7 +220,7 @@ def haversine_km(lat1, lng1, lat2, lng2) -> float:
 
 NEAREST_SOFT_KM = 120     # dist_km above this: last-mile note (existing server.py behavior)
 NEAREST_WARN_KM = 400     # above this: stronger "this is a long way off" warning tier
-NEAREST_HARD_KM = 700     # above this: refuse — the click has no meaningfully "nearest" airport
+NEAREST_HARD_KM = 700     # above this: refuse - the click has no meaningfully "nearest" airport
 
 
 def nearest_airport(lat, lng, prefer_hub=False, max_km=NEAREST_HARD_KM) -> dict | None:
@@ -230,7 +230,7 @@ def nearest_airport(lat, lng, prefer_hub=False, max_km=NEAREST_HARD_KM) -> dict 
 
     Returns None if nothing is within max_km. Otherwise the airport dict plus dist_km and
     warn_tier: None (< NEAREST_SOFT_KM), "soft" (< NEAREST_WARN_KM), "hard" (>= NEAREST_WARN_KM
-    but still under max_km) — callers decide how loudly to surface each tier."""
+    but still under max_km) - callers decide how loudly to surface each tier."""
     best, best_score = None, None
     for a in airports():
         d = haversine_km(lat, lng, a["lat"], a["lng"])
@@ -250,14 +250,14 @@ def nearest_airport(lat, lng, prefer_hub=False, max_km=NEAREST_HARD_KM) -> dict 
 # --------------------------------------------------------------------------- regions
 def region_of(lat: float, lng: float) -> str:
     """Coarse region for ground-transport quality/cost and route-market pricing.
-    First match wins — order is load-bearing around the Mediterranean (Malta/Crete/
+    First match wins - order is load-bearing around the Mediterranean (Malta/Crete/
     Cyprus are EU; Morocco/Egypt AF; Levant/Gulf ME), Korea vs Japan, and Russia/Central
     Asia vs its CN/JP/EU neighbors (Vladivostok, Sakhalin, Kamchatka sit at JP-like
     longitudes but are RU; Mongolia/Kazakhstan sit at CN-like longitudes but aren't CN)."""
     if 41 <= lat <= 82 and 41 <= lng <= 180:
         return "RU"           # Urals through the Russian Far East (Vladivostok, Sakhalin,
                                # Kamchatka), plus Kazakhstan/Kyrgyzstan/Mongolia/China's far
-                               # northwest at these longitudes — checked before CN/JP so
+                               # northwest at these longitudes - checked before CN/JP so
                                # they don't claim this territory first
     if 41 <= lat <= 82 and -180 <= lng <= -169:
         return "RU"           # Chukotka, wrapped across the antimeridian
@@ -279,7 +279,7 @@ def region_of(lat: float, lng: float) -> str:
     if 12 <= lat <= 42 and 33 <= lng <= 63:
         return "ME"          # Levant + Arabian peninsula + Red Sea coasts + east Turkey
     if 27 <= lat <= 35.95 and -13 <= lng <= -1.5:
-        return "AF"          # Morocco (south of Tarifa — all of Spain stays EU)
+        return "AF"          # Morocco (south of Tarifa - all of Spain stays EU)
     if 21 <= lat <= 31.8 and 24 <= lng < 33:
         return "AF"          # Egypt interior/Nile (Red Sea resorts price like ME above)
     if (36 <= lat <= 72 and -11 <= lng <= 32) or (27 <= lat <= 40 and -32 <= lng < -13):
@@ -302,7 +302,7 @@ def region_of(lat: float, lng: float) -> str:
         return "AF"
     if -30 <= lat <= 24 and (-180 <= lng <= -134 or 130 <= lng <= 180):
         return "AU"          # scattered Pacific (Micronesia/French Polynesia/Samoa/Tonga/
-                              # Guam) not already caught by the SEA/AU boxes above — Oceania
+                              # Guam) not already caught by the SEA/AU boxes above - Oceania
                               # is the nearest real hub market for route-pricing purposes
     return "OTHER"
 
@@ -310,7 +310,7 @@ def region_of(lat: float, lng: float) -> str:
 # --------------------------------------------------------------------------- estimates
 def is_past_date(date_str: str | None, today: datetime.date | None = None) -> bool:
     """True if date_str parses to a real YYYY-MM-DD date strictly before today. A bad/
-    missing date isn't "past" here — that's a separate, already-handled invalid case."""
+    missing date isn't "past" here - that's a separate, already-handled invalid case."""
     if not date_str:
         return False
     try:
@@ -322,7 +322,7 @@ def is_past_date(date_str: str | None, today: datetime.date | None = None) -> bo
 
 def fare_date_multiplier(date_str: str | None, today: datetime.date | None = None) -> float:
     """Fare multiplier for a YYYY-MM-DD travel date: booking lead time × season × weekday.
-    1.0 when no/invalid/past date — a past date has no meaningful booking-lead-time curve,
+    1.0 when no/invalid/past date - a past date has no meaningful booking-lead-time curve,
     so this deliberately falls back to neutral rather than guessing; callers that care
     whether the date was actually in the past should check is_past_date() themselves
     (estimate_flight does, and flags it in its output). Deterministic when `today` is
@@ -347,7 +347,7 @@ def fare_date_multiplier(date_str: str | None, today: datetime.date | None = Non
 
 # US fare anchoring: bookable-cheapest sits between roughly 45% and 100% of the lowest-fare
 # carrier's AVERAGE paid fare (DB1B averages mix advance buys with walk-ups), so the anchor's
-# job is to BOUND the curve, not replace it — it catches the routes the formula misprices
+# job is to BOUND the curve, not replace it - it catches the routes the formula misprices
 # (thin regional monopolies it underprices) and leaves well-calibrated trunk routes alone.
 ANCHOR_MATCH_KM = 60.0        # airport must sit this close to the BTS city-market centroid
 ANCHOR_LO_FRAC = 0.45         # cheapest bookable is rarely below 45% of the low-carrier avg
@@ -378,7 +378,7 @@ def estimate_flight(orig: dict, dest: dict, date: str | None = None,
     d = haversine_km(orig["lat"], orig["lng"], dest["lat"], dest["lng"])
     base, per_sqrt, per_km = FLIGHT_CURVE
     fare = base + per_sqrt * math.sqrt(d) + per_km * d
-    # small/expensive airports raise fares — fully at the destination, half at the origin.
+    # small/expensive airports raise fares - fully at the destination, half at the origin.
     fare *= (1 + SMALL_AIRPORT_PREMIUM.get(dest["hub"], 0.0))
     fare *= (1 + 0.5 * SMALL_AIRPORT_PREMIUM.get(orig["hub"], 0.0))
     if orig["hub"] == 1 and dest["hub"] == 1:
@@ -404,7 +404,7 @@ def estimate_flight(orig: dict, dest: dict, date: str | None = None,
     floor = NA_SHORT_FLOOR if (r_o == r_d == "NA" and d < 400) else FLIGHT_FLOOR
     fare = max(floor, fare)
     hours = FLIGHT_FIXED_H + d / _flight_speed_kmh(d)
-    # a tiny field far from the origin almost always means one connection — count it.
+    # a tiny field far from the origin almost always means one connection - count it.
     connects = d > 2000 and (orig["hub"] == 3 or dest["hub"] == 3)
     if connects:
         hours += CONNECTION_H
@@ -418,7 +418,7 @@ def estimate_flight(orig: dict, dest: dict, date: str | None = None,
     if dm != 1.0:
         out["date_mult"] = dm
     if is_past_date(date, today):
-        out["past_date"] = True   # date_mult was left neutral — there's no real lead-time
+        out["past_date"] = True   # date_mult was left neutral - there's no real lead-time
                                    # curve for a date that's already gone; callers should warn
     return out
 
@@ -436,7 +436,7 @@ MODE_BREAKS = {
 # real cost/time curves actually cross, which barely moves for a few km of distance either
 # way, instead of at a fixed km figure that flips instantly regardless of how close the two
 # options actually were. Blending the two modes' raw numbers together (rather than picking
-# one) was tried and rejected — train and bus diverge enough in speed/cost over a long haul
+# one) was tried and rejected - train and bus diverge enough in speed/cost over a long haul
 # that averaging them invents a fake third option instead of smoothing a real one.
 MODE_TIE_BAND_KM = 25
 SHADOW_VOT_USD_PER_HOUR = 15.0
@@ -468,7 +468,7 @@ def pick_ground_mode(dist_km: float, region: str = "OTHER") -> str:
     """Sensible default ground mode by distance for auto-discovered gateways.
     Region-aware: strong-rail regions train much farther; the US mostly drives/buses.
     Within MODE_TIE_BAND_KM of a breakpoint, defers to whichever neighboring mode scores
-    lower on cost+time instead of snapping on the exact km figure — see MODE_TIE_BAND_KM."""
+    lower on cost+time instead of snapping on the exact km figure - see MODE_TIE_BAND_KM."""
     breaks = _mode_breaks(region)
     limits = [b[0] for b in breaks if b[0] is not None]
     modes_in_order = [b[1] for b in breaks]
@@ -560,7 +560,7 @@ def landmass_of(a: dict) -> str:
 
 # --------------------------------------------------------------------------- open water
 # The landmass labels above catch islands, but not two mainland airports separated by a gulf
-# (Helsinki-Tallinn, Bari-Patras) — straight-line "train" legs across open sea were this
+# (Helsinki-Tallinn, Bari-Patras) - straight-line "train" legs across open sea were this
 # engine's worst fiction. data/landgrid.json is a 0.25-degree land/water bitmap (Natural Earth
 # 1:50m, public domain, tools/build_land_grid.py) sampled along the great-circle path. Coastal
 # cells are deliberately land-biased in the grid build, so only genuinely open water registers.
@@ -590,7 +590,7 @@ FIXED_LINKS = [
 ]
 # Deliberately NOT listed: bridges over straits too narrow for the grid to flag anyway
 # (Oresund is listed only because the Great Belt pairs need it; Oland, Pontchartrain and
-# similar never trigger) — every extra entry is a chance to falsely rescue a big crossing
+# similar never trigger) - every extra entry is a chance to falsely rescue a big crossing
 # whose midpoint happens to fall nearby, which is exactly how an Oland entry once "bridged"
 # Gdansk to Stockholm.
 
@@ -659,7 +659,7 @@ def _bearing_rad(lat1, lng1, lat2, lng2) -> float:
 
 
 def _offset_point(lat, lng, theta_rad, dist_km) -> tuple:
-    """Destination point `dist_km` away on bearing theta — used to shift a path sideways."""
+    """Destination point `dist_km` away on bearing theta - used to shift a path sideways."""
     d = dist_km / 6371.0
     p1, l1 = math.radians(lat), math.radians(lng)
     p2 = math.asin(math.sin(p1) * math.cos(d) + math.cos(p1) * math.sin(d) * math.cos(theta_rad))
@@ -674,13 +674,13 @@ def sea_gap(a: dict, b: dict) -> bool:
 
     Three chances to stay a land leg, each anchored in something real:
       1. the direct path's longest open-water run is short (bridged straits, river mouths);
-      2. a path shifted WATER_OFFSET_KM to either side is nearly water-free — the chord just
+      2. a path shifted WATER_OFFSET_KM to either side is nearly water-free - the chord just
          cut across a bay the real road hugs (Barcelona-Valencia, Auckland-Wellington);
       3. a known FIXED_LINK (bridge/tunnel) sits near the blocked water (Channel Tunnel).
     Only when all three fail is the pair truly sea-separated. The rescue threshold is
-    deliberately tighter than the trigger — a parallel path that still crosses the gulf a
+    deliberately tighter than the trigger - a parallel path that still crosses the gulf a
     little further along is not a detour. Thresholds calibrated against a corpus of real
-    pairs — see selftest()."""
+    pairs - see selftest()."""
     stats = water_path_stats(a["lat"], a["lng"], b["lat"], b["lng"])
     if stats["max_run_km"] < WATER_RUN_MIN_KM:
         return False
@@ -714,7 +714,7 @@ _PORT_LANDMASS_CACHE: dict = {}
 def _port_landmass(port: dict) -> str:
     """A port's landmass, inferred from its nearest airport's label. The grid can't resolve
     narrow straits (they're deliberately land-biased), so this is what stops an island airport
-    from "bussing" to a port on the far shore. Cached — a port's landmass never changes."""
+    from "bussing" to a port on the far shore. Cached - a port's landmass never changes."""
     key = (port["lat"], port["lng"])
     lm = _PORT_LANDMASS_CACHE.get(key)
     if lm is None:
@@ -725,7 +725,7 @@ def _port_landmass(port: dict) -> str:
 
 
 def _access_ok(airport: dict, port: dict) -> bool:
-    """The overland transfer from an airport to its matched port must actually be overland —
+    """The overland transfer from an airport to its matched port must actually be overland - 
     without this, an island airport (Friday Harbor) "matched" a port on the far shore of the
     strait and the engine priced a bus ride across open water. Two independent guards: the
     port must be on the airport's own landmass, and the path to it must not cross open sea."""
@@ -740,7 +740,7 @@ def _access_ok(airport: dict, port: dict) -> bool:
 def ferry_corridor_for(a: dict, b: dict, max_port_km: float = PORT_MATCH_KM) -> dict | None:
     """Best real ferry corridor connecting the areas around two airports, either orientation.
     Returns the corridor plus which port serves which side and the access/crossing distances,
-    or None — in which case there is no boat and the engine must not invent one."""
+    or None - in which case there is no boat and the engine must not invent one."""
     best = None
     for c in ferry_corridors():
         pa, pb = c["port_a"], c["port_b"]
@@ -768,7 +768,7 @@ def ferry_corridor_for(a: dict, b: dict, max_port_km: float = PORT_MATCH_KM) -> 
 def ferry_leg_from_corridor(match: dict, region: str) -> dict:
     """Cost/time for a gateway ferry leg built from a REAL corridor: a transit estimate for the
     airport->port transfer, then the corridor's published crossing time and real fare floor.
-    The fare is the only non-estimate number in the ground table — flagged so provenance can
+    The fare is the only non-estimate number in the ground table - flagged so provenance can
     say which part is real."""
     access = estimate_ground(match["a_access_km"], "bus", region)
     fare_lo = match.get("price_usd_lo")
@@ -849,7 +849,7 @@ def discover_gateways(dest: dict, origin: dict | None = None, max_ground_h: floa
         # Water honesty, three rules. The engine never invents a boat and never runs a train
         # over open sea:
         #   1. a real ferry corridor spanning most of the leg IS the connection (Helsinki-
-        #      Tallinn) — real fare, real crossing time, regardless of landmass labels;
+        #      Tallinn) - real fare, real crossing time, regardless of landmass labels;
         #   2. different landmasses with no corridor -> no leg at all (there is no Oahu-Maui
         #      ferry, however close the islands are);
         #   3. same landmass but open sea on the path with no land detour (sea_gap) -> no leg
@@ -939,14 +939,14 @@ def selftest():
           lon["iata"] in {"LHR", "LCY", "LGW", "STN", "LTN"})
 
     # nearest to central Paris must land on CDG/ORY (scheduled airline service), not Le
-    # Bourget (LBG — business aviation only; used to carry hub tier 1, outranking the real
+    # Bourget (LBG - business aviation only; used to carry hub tier 1, outranking the real
     # commercial fields under prefer_hub's scoring).
     par = nearest_airport(48.86, 2.35, prefer_hub=True)
     check(f"nearest to Paris is CDG/ORY, not LBG (got {par['iata']})",
           par["iata"] in {"CDG", "ORY"})
 
     # general-aviation/business-aviation fields with no scheduled airline service must never
-    # outrank a real commercial airport under prefer_hub — confirm each was actually demoted.
+    # outrank a real commercial airport under prefer_hub - confirm each was actually demoted.
     for code in ("LBG", "TEB", "PDK", "FTW", "OPF", "BED"):
         a = by_iata(code)
         check(f"{code} is tiered as no-scheduled-service (hub 3), not a real hub",
@@ -966,7 +966,7 @@ def selftest():
     check("gateways carry ground_mode/hours/cost",
           all("ground_mode" in g and g["ground_hours"] > 0 for g in gws))
     # itinerary.py's leg labels need a full airport name+city for every gateway, curated and
-    # auto alike — not just the bare code discover_gateways used to leave off "city" for.
+    # auto alike - not just the bare code discover_gateways used to leave off "city" for.
     check("every gateway (curated and auto) carries a city, for itinerary display",
           all("city" in g and g["city"] for g in gws))
 
@@ -994,7 +994,7 @@ def selftest():
     check("close-in dated estimate prices above undated", fd["price"] > fx["price"])
 
     # a past date gets flagged rather than silently treated as a normal neutral-multiplier
-    # date — fare_date_multiplier still returns 1.0 (no honest curve for a date that's
+    # date - fare_date_multiplier still returns 1.0 (no honest curve for a date that's
     # already gone), but estimate_flight's output says so explicitly
     check("past date -> neutral multiplier but still flagged",
           fare_date_multiplier("2026-06-01", today=t0) == 1.0
@@ -1027,7 +1027,7 @@ def selftest():
           and region_of(28.04, -16.57) == "EU")
 
     # regression: the Tierra del Fuego box used to read "-44 <= lat <= -59", which can never
-    # be true (lat can't be both >= -44 and <= -59) — an always-false condition that silently
+    # be true (lat can't be both >= -44 and <= -59) - an always-false condition that silently
     # fell through to the later, wider LATAM box. Harmless in that one case (same answer either
     # way), but worth a direct check since it's exactly the kind of dead conditional that's
     # easy to reintroduce.
@@ -1159,7 +1159,7 @@ def selftest():
                             and "real ferry" in g["notes"] for g in ferry_gws))
 
     # ROUTE_MULT regression guard: CN-EU and AF-EU used to be dead/inverted (unsorted keys
-    # that _route_mult's sorted lookup could never hit) — confirm both directions now agree
+    # that _route_mult's sorted lookup could never hit) - confirm both directions now agree
     # with each other and with the module-load assertion that keeps them sorted
     check("ROUTE_MULT lookup is direction-independent for CN-EU and AF-EU",
           _route_mult("EU", "CN") == _route_mult("CN", "EU") == 0.90
@@ -1168,7 +1168,7 @@ def selftest():
           all(k == tuple(sorted(k)) for k in ROUTE_MULT))
 
     # nearest_airport cap: a click deep in Mongolia used to silently resolve to Beijing,
-    # ~1163km away, with no warning — it must now either land on a real nearby field (thanks
+    # ~1163km away, with no warning - it must now either land on a real nearby field (thanks
     # to the OurAirports floor) or be refused outright by the hard cap, never silently
     # return something implausibly far with no signal
     mongolia_hit = nearest_airport(47.9, 106.9)
@@ -1203,7 +1203,7 @@ def selftest():
           and region_of(13.48, 144.79) != "OTHER" and region_of(21.31, -157.86) == "NA")
 
     # pick_ground_mode smoothing: a small step near a distance breakpoint must not swing
-    # cost or time by an amount bigger than a same-mode step would — the old hard cliffs
+    # cost or time by an amount bigger than a same-mode step would - the old hard cliffs
     # (drive/train at 80km EU, drive/bus at 250km NA) could flip a recommendation on 2km
     for region, lo, hi in (("EU", 78, 82), ("NA", 248, 252)):
         g_lo = estimate_ground(lo, pick_ground_mode(lo, region), region)

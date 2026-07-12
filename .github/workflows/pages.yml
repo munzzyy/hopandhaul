@@ -1,11 +1,11 @@
 name: Deploy web UI to Pages
 
-# Publishes src/hopandhaul/ui/ (the in-browser port of hopandhaul — see
+# Publishes src/hopandhaul/ui/ (the in-browser port of hopandhaul - see
 # src/hopandhaul/ui/engine/) to GitHub Pages. The app is fully static and runs client-side
-# (no build, no bundler) — this job's only real work is staging the airport/gateway data JSON
+# (no build, no bundler) - this job's only real work is staging the airport/gateway data JSON
 # into the published directory before upload; everything else is a file copy.
 #
-# Cole enables Pages and cuts the release after a security gate — this workflow existing does
+# Cole enables Pages and cuts the release after a security gate - this workflow existing does
 # not turn Pages on by itself (see repo Settings > Pages, and the `environment:` block below,
 # which only starts creating deployments once that's configured).
 
@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Stage the airport/gateway data JSON into the published site
-        # engine/data.js fetches these as "./data/<file>" relative to ui/ — same two files
+        # engine/data.js fetches these as "./data/<file>" relative to ui/ - same two files
         # server.py's geo.py reads, copied here instead of duplicated in git (single source of
         # truth stays src/hopandhaul/data/). This is a plain file copy, not a build step.
         run: |

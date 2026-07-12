@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""hopandhaul CLI dispatcher — `hopandhaul <subcommand> ...` / `python -m hopandhaul ...`.
+"""hopandhaul CLI dispatcher - `hopandhaul <subcommand> ...` / `python -m hopandhaul ...`.
 
 Thin routing layer only: every subcommand is a real module with its own argparse
 parser and --selftest, reachable standalone via `python -m hopandhaul.trip` etc.
@@ -56,7 +56,7 @@ def main(argv=None) -> int:
     if module_name == "duffel":
         from . import duffel
         return duffel.main(rest)
-    return 2  # unreachable — every _SUBCOMMANDS value is handled above
+    return 2  # unreachable - every _SUBCOMMANDS value is handled above
 
 
 if __name__ == "__main__":

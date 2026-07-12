@@ -1,5 +1,5 @@
 // Theme picker: a small keyboard-accessible listbox popup over a fixed THEMES registry,
-// extending the original light/dark toggle rather than replacing its mechanism — still one
+// extending the original light/dark toggle rather than replacing its mechanism - still one
 // `data-theme` attribute on <html>, still the same localStorage key (via state.js), still the
 // same prefers-color-scheme fallback when nothing is stored. "Auto" isn't a real theme: it's
 // what you get when THEME_KEY is simply absent, matching theme-boot.js's own pre-paint logic.
@@ -8,7 +8,7 @@ import { t } from "./i18n.js";
 import { setMapTheme, redrawLastPlan } from "./map.js";
 import { esc } from "./format.js";
 
-// Every theme rides one of map.js's two existing tile variants (dark_all / voyager) — no new
+// Every theme rides one of map.js's two existing tile variants (dark_all / voyager) - no new
 // tile style, no new external request. `base` picks which one via setMapTheme(base).
 export const THEMES = [
   { code: "dark", base: "dark" },
@@ -47,19 +47,19 @@ let launcher, list;
 let isOpen = false;
 
 function apply(code) {
-  // theme-boot.js already set data-theme pre-paint on first load — this keeps every
+  // theme-boot.js already set data-theme pre-paint on first load - this keeps every
   // subsequent change (picker choice, OS-preference change while on Auto) in sync: the map
   // tiles/route colors, and the browser-chrome theme-color meta.
   document.documentElement.setAttribute("data-theme", code);
   setMapTheme(baseOf(code));
-  // Route/reference-line colors are snapshotted at draw time, not live-bound like the pins —
+  // Route/reference-line colors are snapshotted at draw time, not live-bound like the pins - 
   // redraw even when the tile base (and so setMapTheme) had nothing to do, e.g. switching
   // between two dark-based themes.
   redrawLastPlan();
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
     // Read --bg live off the just-applied data-theme rather than keeping a second copy of
-    // 8 themes' colors in JS — the palette lives in styles.css; this is the one place a
+    // 8 themes' colors in JS - the palette lives in styles.css; this is the one place a
     // theme's actual bg value is needed outside CSS.
     const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
     if (bg) meta.setAttribute("content", bg);
@@ -82,7 +82,7 @@ function rowHtml(code, nameKey, descKey, activeCode) {
 
 function renderList() {
   const saved = savedOrNull();
-  // null (nothing saved) means Auto itself is the active choice, not "no selection" — normalize
+  // null (nothing saved) means Auto itself is the active choice, not "no selection" - normalize
   // to "auto" so the same equality check in rowHtml marks exactly one row, Auto included.
   const activeCode = saved ?? "auto";
   const rows = [rowHtml("auto", "theme.name.auto", "theme.desc.auto", activeCode)];
@@ -143,7 +143,7 @@ function focusEdge(first) {
 }
 
 /** Apply a picked code (or clear back to Auto), swapping under a view-transition when the
- * browser supports one and the visitor hasn't asked for reduced motion — same polish the old
+ * browser supports one and the visitor hasn't asked for reduced motion - same polish the old
  * binary toggle had, now shared by every theme-to-theme change, not just light<->dark. */
 function choose(code) {
   const run = () => {
@@ -176,7 +176,7 @@ function onKeydown(e) {
   }
 }
 
-// Re-render the launcher/menu strings after a language change re-renders static text —
+// Re-render the launcher/menu strings after a language change re-renders static text - 
 // applyStatic() only walks data-i18n(-attr) elements, not this dynamically-built listbox.
 export function refreshThemeLabel() {
   if (isOpen) renderList();
@@ -199,7 +199,7 @@ export function initTheme() {
     if (li) choose(li.dataset.code);
   });
 
-  // theme-boot.js already set data-theme before first paint — just sync the map/theme-color
+  // theme-boot.js already set data-theme before first paint - just sync the map/theme-color
   // meta to whatever it landed on, no re-decision needed here.
   apply(effectiveTheme());
 
