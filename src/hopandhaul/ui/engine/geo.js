@@ -174,6 +174,11 @@ export function nearestAirport(lat, lng, { preferHub = false, maxKm = NEAREST_HA
 /** Coarse region for ground-transport quality/cost and route-market pricing - mirrors
  * geo.region_of's if/elif chain exactly, including its comments on why order matters. */
 export function regionOf(lat, lng) {
+  // Hokkaido carve-out, checked before the RU box below - RU's box is wide
+  // enough to otherwise swallow all of Hokkaido. The 145.3E east bound sits
+  // between the easternmost Hokkaido field (Nakashibetsu, 144.96E) and the
+  // RU-administered Kuril Islands (Yuzhno-Kurilsk, 145.69E) so those stay RU.
+  if (lat >= 41 && lat <= 45.6 && lng >= 139 && lng <= 145.3) return "JP";
   if (lat >= 41 && lat <= 82 && lng >= 41 && lng <= 180) return "RU";
   if (lat >= 41 && lat <= 82 && lng >= -180 && lng <= -169) return "RU";
   if (lat >= 55 && lat <= 82 && lng >= 30 && lng < 41) return "RU";
