@@ -79,6 +79,36 @@ pip install -e .
 What changed in each version is in the
 [release notes](https://github.com/munzzyy/hopandhaul/releases).
 
+## Multi-city trips
+
+Visiting several cities on one trip? `hopandhaul multicity` works out a good order to hit
+them in, pricing every leg with the same fly-cheaper-hub-then-ground logic and $200 rule as
+everything else here, then prints the ordered itinerary and a total:
+
+```
+hopandhaul multicity --home JFK --visit "Aspen,Boston,Chicago" --threshold 50
+```
+
+```
+MULTI-CITY TOUR: JFK -> ASE -> ORD -> BOS -> JFK
+round trip, 4 stops, solved via held-karp (exact)
+
+ITINERARY:
+  1. JFK -> ASE     $215    9h54  multimodal (fly $140 + bus $75)
+  2. ASE -> ORD     $170    3h06  direct     (fly $170)
+  3. ORD -> BOS     $105    3h06  direct     (fly $105)
+  4. BOS -> JFK      $70    1h30  direct     (fly $70)
+
+TOTAL: $560 across 4 legs
+```
+
+That first leg is the point: at a $50 threshold, flying into Denver and taking a bus the
+rest of the way to Aspen beats a direct flight, so the tour routes through DEN instead of
+pricing every leg as a straight flight. `--open` ends the tour at the last stop instead of
+looping back home, and `--travelers N` scales group costs the same way the rest of the
+engine does. Up to about 9 cities it solves exactly (Held-Karp); past that it switches to a
+nearest-neighbor-plus-2-opt heuristic and says so in the output.
+
 ## What's real vs estimated
 
 More of this tool is real data than you'd guess for something with zero keys:
@@ -119,6 +149,9 @@ More of this tool is real data than you'd guess for something with zero keys:
   Blue Star boat to Santorini), and a land/water grid that stops the engine from routing a
   train across open sea when no bridge or tunnel exists
 - `hopandhaul go A B` — the whole pipeline in one terminal command, zero keys
+- `hopandhaul multicity` — order N cities into one trip (exact for small N, a
+  nearest-neighbor + 2-opt heuristic beyond that), reusing the same split-vs-direct pricing
+  leg by leg
 - Deterministic split-vs-direct engine with the $200 rule (configurable threshold and value
   of time)
 - Group-aware costs (per-person fares scale by travelers; a rental car doesn't)
@@ -166,6 +199,9 @@ Native speaker and you spot something off? A translation fix in
 - `transit.py`: real ground schedules via Transitous (keyless). `places.py`: place search,
   Photon by default (keyless), Geoapify when keyed. `weather.py`: Open-Meteo (keyless).
 - `go.py`: the one-shot CLI — resolve places, plan, print the report and itineraries.
+- `multicity.py`: the multi-city tour optimizer — a plain TSP solver (Held-Karp, exact, for
+  small city counts; nearest-neighbor + 2-opt above that) over a cost matrix built by pricing
+  every leg through `geo.py`/`trip.py`, the same way `go.py`/`server.py` price one.
 - `server.py`: the stdlib `http.server` app. Serves the UI and the JSON API, nothing else.
 - `data/`: the bundled real-world datasets — 4,175 airports (OurAirports), 85 ferry corridors
   (researched, sourced per entry), a 0.25° land/water grid (Natural Earth), and real US
@@ -190,6 +226,7 @@ python -m hopandhaul.places --selftest
 python -m hopandhaul.transit --selftest
 python -m hopandhaul.weather --selftest
 python -m hopandhaul.go --selftest
+python -m hopandhaul.multicity --selftest
 ```
 
 ## Configuration (all optional)

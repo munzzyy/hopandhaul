@@ -30,6 +30,7 @@ python -m hopandhaul.places --selftest
 python -m hopandhaul.transit --selftest
 python -m hopandhaul.weather --selftest
 python -m hopandhaul.go --selftest
+python -m hopandhaul.multicity --selftest
 python -m hopandhaul.integrations.net
 ```
 
