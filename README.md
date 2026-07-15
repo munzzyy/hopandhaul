@@ -8,22 +8,22 @@ train ride from there is worth it.**
 [![License: Prosperity 3.0.0](https://img.shields.io/badge/license-Prosperity--3.0.0-blue.svg)](LICENSE)
 ![zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 
+> **Try it live:** [munzzyy.github.io/hopandhaul](https://munzzyy.github.io/hopandhaul/).
+> No install, no keys, runs entirely in your browser.
+
 ![Click a destination and the recommendation card answers with the math: cost, time, CO2 per option, the $200 rule applied](docs/media/app-dark.png)
 
 Click anywhere on the map and a recommendation card slides in — cost, time, and a CO2
 estimate for every option side by side. A copy-link button turns the plan into a URL you
-can send someone. That's a live screenshot, not a mockup:
-**[open the app in your browser](https://munzzyy.github.io/hopandhaul/)** and click a
-destination, or run it locally with no API keys (about 30 seconds, below), then open
+can send someone. That's a live screenshot, not a mockup: click a destination in the app
+above, or run it locally with no API keys (about 30 seconds, below), then open
 `http://127.0.0.1:8770/?lat=39.1911&lng=-106.8175&place=Aspen,+CO&origin=JFK`
 to reproduce a trip like it.
 
-<details>
-<summary><b>20-second demo — plan a trip, switch the UI to French, then flip the whole layout to Arabic</b></summary>
+**20-second demo — plan a trip, switch the UI to French, then flip the whole layout to
+Arabic:**
 
 ![Animated demo: planning a trip, then switching the UI language to French and Arabic with full RTL mirroring](docs/media/demo.gif)
-
-</details>
 
 ## The idea
 
@@ -32,9 +32,11 @@ nearby hub where flights are cheap and plentiful, then covering the last leg by 
 ferry, or rental car.
 
 Google Flights and Kayak will search nearby airports for you. None of them tell you whether
-the split is actually worth it once you account for the extra hours. Hop and Haul does
-exactly that one thing: prices the direct flight, prices every reasonable
-fly-into-a-cheaper-hub-then-ground alternative, and applies one rule.
+the split is actually worth it once you account for the extra hours. Rome2Rio will show you
+every possible multimodal combination between two points, but it doesn't tell you which one
+actually beats flying direct. Hop and Haul does exactly that one thing: prices the direct
+flight, prices every reasonable fly-into-a-cheaper-hub-then-ground alternative, and applies
+one rule.
 
 **The $200 rule:** only recommend the split if it saves $200 or more (this is a flag, change
 it), unless the split is flatly better on both cost and time, or the extra hours are worth it
@@ -43,6 +45,13 @@ at your own stated value of time (`--vot`, $/hour).
 If a split doesn't clear that bar, it recommends flying direct, even if the split
 "technically" saved money. Marginal savings for hours of your day isn't a deal, and the tool
 says so instead of just showing you the cheapest number.
+
+## What this isn't
+
+Not a booking site. It points you at the real flight/train/bus booking pages and stops
+there. Not a price-prediction or buy-or-wait tool. Not a points/miles optimizer. Not a
+hidden-city fare finder. No AI in the runtime path: the recommendation is deterministic math
+you can read in `trip.py`, not a model's guess.
 
 ## Try it in your browser
 
@@ -266,13 +275,6 @@ The bundled datasets and keyless services this tool leans on, with licenses:
 - **[frankfurter.dev](https://frankfurter.dev)** — daily ECB exchange rates for converting
   non-USD live fares; the bundled approximate table is the offline fallback.
 - **[CARTO](https://carto.com/attributions)** basemap tiles © OpenStreetMap contributors.
-
-## What this isn't
-
-Not a booking site. It points you at the real flight/train/bus booking pages and stops
-there. Not a price-prediction or buy-or-wait tool. Not a points/miles optimizer. Not a
-hidden-city fare finder. No AI in the runtime path: the recommendation is deterministic math
-you can read in `trip.py`, not a model's guess.
 
 ## Contributing / License / Security
 
