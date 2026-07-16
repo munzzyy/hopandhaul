@@ -249,6 +249,10 @@
     {"dest": "St. Barts", "dest_airport": "SBH",
       "gateways": [
         {"hub": "St. Maarten", "hub_airport": "SXM", "ground_mode": "ferry", "ground_time_h": 1.2, "ground_cost_usd": 95, "notes": "Voyager/Great Bay ferry; SBH puddle-jumpers are $$$ and daylight-only"}
+      ]},
+    {"dest": "Punta del Este, Uruguay", "dest_airport": "PDP",
+      "gateways": [
+        {"hub": "Montevideo", "hub_airport": "MVD", "ground_mode": "bus", "ground_time_h": 2.25, "ground_cost_usd": 12, "notes": "COT from Tres Cruces terminal, every 30 min in season; PDP is mostly Aerolineas Argentinas puddle-jumpers from Buenos Aires, MVD has the real international schedule"}
       ]}
   ],
   "asia_pacific": [
