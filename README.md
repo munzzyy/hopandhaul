@@ -118,6 +118,44 @@ looping back home, and `--travelers N` scales group costs the same way the rest 
 engine does. Up to about 9 cities it solves exactly (Held-Karp); past that it switches to a
 nearest-neighbor-plus-2-opt heuristic and says so in the output.
 
+## Which date is actually cheapest
+
+Every other command here prices one `--date`. `hopandhaul dates` checks several at once and
+tells you which one wins, pricing each candidate the exact same way `hopandhaul duffel`
+prices a single day — nothing is reimplemented, it's the same engine called once per date:
+
+```
+hopandhaul dates --from JFK --to ASE --date 2026-08-15 --window 3 --auto-gateways
+```
+
+```
+CHEAPEST DATE SWEEP: JFK -> ASE
+anchor 2026-08-15 +/- 3 day(s) (7 date(s) checked; dates already past are skipped)
+
+   2026-08-12       $610     6h12   live       Fly direct to ASE
+   2026-08-13       $590     6h12   live       Fly direct to ASE
+   2026-08-14       $605     6h12   live       Fly direct to ASE
+ → 2026-08-15       $455     8h54   live       DEN + bus
+   2026-08-16       $620     6h12   live       Fly direct to ASE
+   2026-08-17       $640     6h12   live       Fly direct to ASE
+   2026-08-18       $600     6h12   live       Fly direct to ASE
+
+CHEAPEST: 2026-08-15 - $455 via DEN + bus (live-priced)
+```
+
+With a `DUFFEL_API_KEY` set, every date is a real fare lookup. With no key, every date runs
+through the same calibrated distance estimate the rest of the tool falls back to. Either way
+each row is tagged with its basis: `live`, `estimate`, or `mixed` for a date whose
+recommended option has one flight leg priced live and another (a thin gateway route Duffel
+has nothing for that day, say) fell back, so a model number never gets mistaken for a
+checked fare. The window centers on `--date`, 3 days each side by default, `--window` caps
+out at 7, so a plain run won't fire off dozens of live lookups by accident. Repeat or
+overlapping sweeps ride `hopandhaul duffel`'s own per-date cache, so checking the same date
+twice costs nothing extra. `--return-date` shifts along with each candidate departure, so a
+round trip's length stays fixed while its placement in the window moves. Takes the same
+`--gateway` / `--auto-gateways` / `--adults` / `--cabin` / `--nonstop` / `--threshold` /
+`--vot` flags as `hopandhaul duffel`.
+
 ## What's real vs estimated
 
 More of this tool is real data than you'd guess for something with zero keys:
@@ -161,6 +199,8 @@ More of this tool is real data than you'd guess for something with zero keys:
 - `hopandhaul multicity` — order N cities into one trip (exact for small N, a
   nearest-neighbor + 2-opt heuristic beyond that), reusing the same split-vs-direct pricing
   leg by leg
+- `hopandhaul dates` — sweep a bounded window of dates and find the actually cheapest one to
+  fly, live-priced when a Duffel key is set, labeled per date so you know which
 - Deterministic split-vs-direct engine with the $200 rule (configurable threshold and value
   of time)
 - Group-aware costs (per-person fares scale by travelers; a rental car doesn't)
@@ -205,6 +245,9 @@ Native speaker and you spot something off? A translation fix in
   longitude-based guess is a real timezone — see the module docstring for the honesty rules.
 - `duffel.py`: live flight pricing (optional key). `flights.py` is the thin interface
   server.py talks to.
+- `dates.py`: sweeps a bounded window of dates through `duffel.py`'s own
+  `build_and_evaluate()` — one call per candidate date, no separate pricing logic — and
+  reports whichever one is actually cheapest.
 - `transit.py`: real ground schedules via Transitous (keyless). `places.py`: place search,
   Photon by default (keyless), Geoapify when keyed. `weather.py`: Open-Meteo (keyless).
 - `go.py`: the one-shot CLI — resolve places, plan, print the report and itineraries.
@@ -236,6 +279,7 @@ python -m hopandhaul.transit --selftest
 python -m hopandhaul.weather --selftest
 python -m hopandhaul.go --selftest
 python -m hopandhaul.multicity --selftest
+python -m hopandhaul.dates --selftest
 ```
 
 ## Configuration (all optional)

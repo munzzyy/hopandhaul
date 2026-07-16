@@ -54,6 +54,7 @@ jobs:
           python -m hopandhaul.weather --selftest
           python -m hopandhaul.go --selftest
           python -m hopandhaul.multicity --selftest
+          python -m hopandhaul.dates --selftest
           python -m hopandhaul.integrations.net
 
   # The GitHub Pages build (src/hopandhaul/ui/engine/) ships its own JS port of the estimate

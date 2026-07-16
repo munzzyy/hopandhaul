@@ -19,6 +19,7 @@ _SUBCOMMANDS = {
     "geocode": "places",
     "weather": "weather",
     "duffel": "duffel",
+    "dates": "dates",     # sweep a date window and report the cheapest one: `hopandhaul dates ...`
 }
 
 
@@ -60,6 +61,9 @@ def main(argv=None) -> int:
     if module_name == "duffel":
         from . import duffel
         return duffel.main(rest)
+    if module_name == "dates":
+        from . import dates
+        return dates.main(rest)
     return 2  # unreachable - every _SUBCOMMANDS value is handled above
 
 
