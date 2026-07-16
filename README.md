@@ -281,3 +281,7 @@ The bundled datasets and keyless services this tool leans on, with licenses:
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to run tests and the code-style/voice
 expectations, [LICENSE](LICENSE) (Prosperity Public License, free for noncommercial use), and [SECURITY.md](SECURITY.md) for the security
 posture and how to report a vulnerability.
+
+## Support
+
+If hopandhaul found you a cheaper way there, [sponsoring](https://github.com/sponsors/munzzyy) is what keeps the airport data fresh.
