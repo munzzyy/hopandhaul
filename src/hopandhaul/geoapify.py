@@ -73,7 +73,18 @@ def geocode(text: str, limit: int = 5, lang: str = "en", timeout: int = 15) -> l
 
 
 def reverse(lat: float, lng: float, lang: str = "en", timeout: int = 15) -> dict | None:
-    """Reverse geocode a coordinate -> a single human label."""
+    """Reverse geocode a coordinate -> a single human label.
+
+    No caller in server.py or the UI (see issue #1) - left that way on purpose, not because
+    nobody looked. The one real candidate is server.py's plan() "no_airport_near_point"
+    error (an ocean/middle-of-nowhere click): naming the spot instead of just printing lat/
+    lng would be a nice touch. But that error path is one of the cases tests/web_parity
+    holds to exact Python/JS agreement (error_ocean_click_no_airport), and the JS engine has
+    no equivalent geocoding call to mirror it with - wiring this in means either the two
+    engines disagreeing on that one message or standing up a client-side reverse-geocode
+    path just to word an error better. Not worth it. The CLI's --reverse flag is a real
+    caller today; this stays a tested public utility, not a dead function waiting for one.
+    """
     if not have_keys():
         return None
     cache_key = ("rev", round(lat, 5), round(lng, 5), lang)
