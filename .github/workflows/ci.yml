@@ -28,7 +28,7 @@ jobs:
         run: pip install -e .
 
       - name: Install ruff
-        run: pip install ruff
+        run: pip install ruff==0.14.0
 
       - name: Lint
         run: ruff check .
