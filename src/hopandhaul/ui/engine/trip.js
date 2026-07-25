@@ -195,6 +195,13 @@ export function evaluate(options, {
     if (fits.length) {
       timeBudgetBinding = fits.length < eligible.length;
       eligible = fits;
+    } else if (rows.some((r) => !r.over_time_budget)) {
+      // nothing that clears the $ rule fits the budget, but something in the FULL set does
+      // (e.g. a pricier direct that was never eligible on cost) - a hard time budget beats the
+      // $ rule, so widen the pool instead of recommending an eligible option that blows the
+      // time the user asked for. Mirrors trip.py evaluate()'s elif branch (Case 13).
+      eligible = rows.filter((r) => !r.over_time_budget);
+      timeBudgetBinding = true;
     }
   }
   const recommended = vot

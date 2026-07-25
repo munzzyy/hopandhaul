@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 
 DEFAULT_THRESHOLD = 200.0  # Cole's rule: a split must beat direct by >= this to be worth it.
@@ -55,10 +56,33 @@ def num(tok: str) -> float:
     cleaned = tok.strip().lstrip("$").replace(",", "").replace("$", "")
     if cleaned.endswith("h"):
         cleaned = cleaned[:-1]
-    return float(cleaned)
+    v = float(cleaned)
+    # float() happily parses 'inf'/'nan'; those aren't real fares/durations. inf later crashes
+    # _fmt_money's round()->int, and NaN silently wins min() (every NaN comparison is False) and
+    # prints a "NaN" literal that isn't valid JSON. Reject here, matching the JS port's
+    # Number.isFinite guard (ui/engine/trip.js num()); ValueError exits 2 cleanly.
+    if not math.isfinite(v):
+        raise ValueError(f"not a finite number: {tok!r}")
+    return v
 
 
 _num = num  # back-compat alias; duffel.py/providers.py called this before it went public
+
+
+def _sum_lr(values) -> float:
+    """Plain left-to-right float accumulation - NOT builtins sum().
+
+    CPython 3.12+ gives sum() a compensated (Neumaier) summation for floats, so the same
+    prices add up a ULP differently than on 3.10/3.11 or in the JS port (ui/engine/trip.js),
+    which uses a naive reduce. That ULP can flip round(cost, 2) by a cent and, right on the
+    $200 rule, flip the recommendation. The web-parity gate holds both engines to exact
+    numeric agreement, so this side must add the same naive way. Load-bearing - don't
+    "simplify" back to sum().
+    """
+    total = 0.0
+    for v in values:
+        total += v
+    return total
 
 
 def parse_leg(text: str) -> dict:
@@ -98,8 +122,8 @@ def parse_option(text: str, min_legs: int = 1) -> dict:
         raise ValueError(
             f"expected at least {min_legs} legs, got {len(leg_strs)}: {text!r}")
     legs = [parse_leg(s) for s in leg_strs]
-    cost = sum(leg["cost"] for leg in legs)
-    hours = sum(leg["hours"] for leg in legs)
+    cost = _sum_lr(leg["cost"] for leg in legs)
+    hours = _sum_lr(leg["hours"] for leg in legs)
     if not name:
         name = " → ".join(leg["mode"] for leg in legs)
     return {
@@ -148,7 +172,7 @@ def scale_option(opt: dict, travelers: int) -> dict:
         return opt
     legs = [{**leg, "cost": round(scale_leg_cost(leg["mode"], leg["cost"], travelers), 2)}
             for leg in opt["legs"]]
-    return {**opt, "legs": legs, "cost": round(sum(leg["cost"] for leg in legs), 2)}
+    return {**opt, "legs": legs, "cost": round(_sum_lr(leg["cost"] for leg in legs), 2)}
 
 
 def sugar_split(text: str) -> str:
@@ -672,7 +696,29 @@ def selftest():
     check("uber/rideshare are known ground modes too",
           not any(leg["mode_unknown"] for leg in o14b["legs"]))
 
-    n_cases = 14
+    # Case 15: num() rejects non-finite tokens. float('inf') used to reach _fmt_money and crash
+    # the CLI with a raw OverflowError; float('nan') silently won min() (all NaN comparisons are
+    # False) and printed an unparseable "NaN" JSON literal. Both must raise a clean ValueError
+    # now, matching the JS port's Number.isFinite guard.
+    for bad in ("inf", "-inf", "nan", "Infinity"):
+        try:
+            num(bad)
+            check(f"num({bad!r}) rejected as non-finite", False)
+        except ValueError:
+            check(f"num({bad!r}) rejected as non-finite", True)
+    rc_inf = main(["--to", "Aspen", "--direct", "fly inf 5.5",
+                   "--split", "DEN: fly 210 3 + train 75 4"])
+    check("a non-finite fare exits 2 cleanly instead of crashing", rc_inf == 2)
+
+    # Case 16: leg costs are summed left-to-right (_sum_lr), NOT builtins sum(). CPython 3.12+
+    # gives sum() a compensated summation that lands this 3-leg total a cent above what a naive
+    # add (and the JS port's reduce) produce - flipping the $200 rule right on the boundary. The
+    # web-parity gate pins this too (eval_float_noise_sum_on_threshold).
+    noisy = parse_option("Split | bus 243.5 3.0 ; fly 163.17499999999998 2.0 ; train 632.86 4.0")
+    check("3-leg float-noise total sums naively to 1039.53, not compensated 1039.54",
+          noisy["cost"] == 1039.53)
+
+    n_cases = 16
     print(f"\n{'ALL PASS' if not failures else str(len(failures)) + ' FAILED'} "
           f"({n_cases} cases)")
     return 1 if failures else 0

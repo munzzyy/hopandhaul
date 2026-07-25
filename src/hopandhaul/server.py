@@ -511,7 +511,12 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
                 f.cancel()
                 target = fmap[f]
                 local = {"live_error": True}
-                priced.append((_price_flight(origin, target, None, None, travelers,
+                # session=None -> _price_flight can't touch the network (the live branch requires
+                # a truthy session), so this is pure estimation and won't block past the deadline.
+                # Pass the real date/ret so the fallback estimate stays on the same date-adjusted,
+                # round-trip basis as every other priced leg - not an undated one-way that
+                # silently mixes bases in one comparison.
+                priced.append((_price_flight(origin, target, date, ret, travelers,
                                              None, local, deadline), local))
         ex.shutdown(wait=False, cancel_futures=True)
     else:
@@ -1050,6 +1055,43 @@ def selftest():
           out_budget.get("ok") is True)
     check("pricing degrades to estimate when the deadline is hit before any live result",
           out_budget.get("pricing_source") == "estimate")
+
+    # ---- deadline-fallback re-pricing must keep the SAME date basis. When a gateway leg's live
+    # lookup misses the budget, plan() re-prices it as an estimate - and that estimate has to be
+    # date-adjusted on the user's real date, not an undated one-way silently mixed into a
+    # comparison against the date-adjusted direct. Before the fix line 514 passed date=None.
+    # Mock: the direct (ASE) leg prices live fast; every gateway leg sleeps past a 1s budget so
+    # it falls through to the estimate branch.
+    def _fast_direct_slow_gateways(session, origin_iata, dest_iata, date, adults=1, return_date=None):
+        if dest_iata == "ASE":
+            return {"price": 600.0, "hours": 5.5, "stops": 0, "carrier": "United Airlines",
+                    "currency": "USD", "converted": False, "source": "duffel", "rt": False,
+                    "native_price": 600.0, "segments": []}
+        _time.sleep(3.0)
+        return None
+    _fb_origin = geo.by_iata("JFK")
+    with _mock.patch.object(flights, "have_keys", return_value=True), \
+         _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
+         _mock.patch.object(flights, "search_cheapest", side_effect=_fast_direct_slow_gateways), \
+         _mock.patch.object(_this_module, "PLAN_TIME_BUDGET_S", 1.0):
+        out_fb = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15",
+                      fetch_weather=False, allow_live=True, allow_transit=False)
+    with _OFFER_CACHE_LOCK:            # don't leak this run's mocked ASE offer into later checks
+        _OFFER_CACHE.clear()
+    checked_a_dated_gateway = False
+    for opt in out_fb["result"]["options"]:
+        legs = opt.get("itinerary", {}).get("legs", [])
+        if len(legs) < 2 or legs[0]["mode"] != "fly" or legs[0]["is_live"]:
+            continue    # only the estimate-fallback gateway flight legs
+        gw = geo.by_iata(legs[0]["to"]["iata"])
+        dated = round(geo.estimate_flight(_fb_origin, gw, date="2026-08-15")["price"], 2)
+        undated = round(geo.estimate_flight(_fb_origin, gw, date=None)["price"], 2)
+        if dated != undated:                        # a gateway whose date actually moves the fare
+            checked_a_dated_gateway = True
+            check(f"deadline-fallback gateway leg to {gw['iata']} keeps the DATED estimate "
+                  f"(${legs[0]['cost']} == dated ${dated}, not undated ${undated})",
+                  abs(legs[0]["cost"] - dated) < 0.01)
+    check("at least one gateway exercised the date-adjusted fallback path", checked_a_dated_gateway)
 
     # ---- a successful live offer must produce a "live" itinerary leg: real segment times/
     # carrier from Duffel, not the synthetic 08:00-anchored example schedule.

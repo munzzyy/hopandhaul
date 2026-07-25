@@ -559,6 +559,22 @@ def main(argv=None):
     if args.selftest:
         return selftest()
 
+    # Validate the date shape at the CLI boundary (same rule the HTTP surface enforces in
+    # server.parse_plan_params). A malformed --date used to be passed straight through and
+    # silently ignored by the fare estimator while the output still implied a date-adjusted
+    # price - reject it here so the user gets an error, not a wrong fare.
+    from . import server
+    try:
+        if args.date:
+            args.date = server._v_date(args.date, "date")
+        if args.return_date:
+            args.return_date = server._v_date(args.return_date, "return date")
+        if args.date and args.return_date and args.return_date < args.date:
+            raise server.ValidationError("return date must be on or after the depart date")
+    except server.ValidationError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
     if args.probe:
         if not have_keys():
             print_setup_help()
@@ -828,6 +844,15 @@ def selftest():
 
     check("rate limiter is sized off Duffel's 120 req/60s free-tier limit",
           isinstance(_RATE_LIMIT, net.TokenBucket) and _RATE_LIMIT.rate == 120 / 60)
+
+    # CLI-boundary date validation: a malformed --date used to be passed through and silently
+    # ignored by the estimator. It must exit 2 cleanly now, like the HTTP surface. These return
+    # at validation, before any network or key check.
+    check("duffel rejects a malformed --date (exit 2), not silently ignored",
+          main(["--from", "JFK", "--to", "ASE", "--date", "2026-8-15"]) == 2)
+    check("duffel rejects a return date before departure",
+          main(["--from", "JFK", "--to", "ASE", "--date", "2026-08-15",
+                "--return-date", "2026-08-01"]) == 2)
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (offline checks)")
     return 1 if fails else 0

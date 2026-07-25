@@ -104,6 +104,24 @@ def main(argv=None) -> int:
     if not (args.origin and args.dest):
         p.error("give an origin and a destination, e.g.  hopandhaul go JFK TLL")
 
+    # Validate at the CLI boundary, the same way the HTTP surface does (server.parse_plan_params).
+    # A malformed --date used to slip through and get silently ignored while the report still
+    # claimed the fare was "date-adjusted"; travelers was silently clamped to 9; a return date
+    # before the departure date planned anyway. Reject them here instead.
+    try:
+        if args.date:
+            args.date = server._v_date(args.date, "date")
+        if args.ret:
+            args.ret = server._v_date(args.ret, "return date")
+        if args.date and args.ret and args.ret < args.date:
+            raise server.ValidationError("return date must be on or after the depart date")
+        if not (1 <= args.travelers <= server.MAX_TRAVELERS):
+            raise server.ValidationError(
+                f"travelers must be between 1 and {server.MAX_TRAVELERS}")
+    except server.ValidationError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
     origin, o_others = resolve_airport(args.origin)
     if not origin:
         print(f"error: no airport matches {args.origin!r} — try an IATA code", file=sys.stderr)
@@ -212,6 +230,21 @@ def selftest() -> int:
     check("itineraries render with provenance", "ITINERARIES" in itin and "estimate" in itin)
     check("Santorini plan carries a real ferry option",
           any(g.get("ferry") for g in out["gateways"]))
+
+    # CLI-boundary validation: the go surface used to silently ignore a malformed date (while
+    # still claiming a "date-adjusted" fare), silently clamp travelers to 9, and plan a
+    # return-before-departure trip. All three must now exit 2 cleanly, matching the HTTP surface.
+    check("a malformed --date is rejected (exit 2), not silently ignored",
+          main(["JFK", "ASE", "--date", "2026-8-15", "--offline"]) == 2)
+    check("--date banana is rejected",
+          main(["JFK", "ASE", "--date", "banana", "--offline"]) == 2)
+    check("--travelers above the max is rejected, not silently clamped to 9",
+          main(["JFK", "ASE", "--travelers", "50", "--offline"]) == 2)
+    check("--travelers below 1 is rejected",
+          main(["JFK", "ASE", "--travelers", "0", "--offline"]) == 2)
+    check("a return date before the departure date is rejected",
+          main(["JFK", "ASE", "--date", "2026-08-15", "--return-date", "2026-08-01",
+                "--offline"]) == 2)
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (offline checks)")
     return 1 if fails else 0

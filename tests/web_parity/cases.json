@@ -859,5 +859,85 @@
       "dest_lng": -110.74,
       "origin_iata": "DFW"
     }
+  },
+  {
+    "name": "eval_float_noise_sum_on_threshold",
+    "type": "evaluate",
+    "options": [
+      {
+        "name": "Direct",
+        "legs": [
+          {
+            "mode": "fly",
+            "cost": 1239.53,
+            "hours": 5.0
+          }
+        ]
+      },
+      {
+        "name": "Split",
+        "legs": [
+          {
+            "mode": "bus",
+            "cost": 243.5,
+            "hours": 3.0
+          },
+          {
+            "mode": "fly",
+            "cost": 163.17499999999998,
+            "hours": 2.0
+          },
+          {
+            "mode": "train",
+            "cost": 632.86,
+            "hours": 4.0
+          }
+        ]
+      }
+    ],
+    "threshold": 200
+  },
+  {
+    "name": "eval_time_budget_widens_past_eligible",
+    "type": "evaluate",
+    "options": [
+      {
+        "name": "Cheap direct",
+        "legs": [
+          {
+            "mode": "fly",
+            "cost": 620,
+            "hours": 20.0
+          }
+        ]
+      },
+      {
+        "name": "Dominant split",
+        "legs": [
+          {
+            "mode": "fly",
+            "cost": 200,
+            "hours": 12.0
+          },
+          {
+            "mode": "train",
+            "cost": 85,
+            "hours": 6.0
+          }
+        ]
+      },
+      {
+        "name": "Compliant direct",
+        "legs": [
+          {
+            "mode": "fly",
+            "cost": 700,
+            "hours": 5.0
+          }
+        ]
+      }
+    ],
+    "threshold": 200,
+    "max_hours": 8.0
   }
 ]
