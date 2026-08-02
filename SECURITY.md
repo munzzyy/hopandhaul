@@ -54,7 +54,7 @@ same rule. If you add a new endpoint, keep this invariant: nothing that touches
 `_secrets.get(...)` should ever appear in a response body.
 
 Keys themselves resolve through `_secrets.py`: environment variable first, then a
-gitignored `secrets.local.json` in the package directory. Never commit a real key —
+gitignored `secrets.local.json` in the package directory. Never commit a real key:
 `secrets.local.json` is in `.gitignore`, and a `secrets.local.example.json` with
 placeholder values ships instead so you can see the expected shape.
 
@@ -75,7 +75,7 @@ rate limit. A wall-clock time budget bounds the whole concurrent per-gateway pri
 fan-out inside `/api/plan`, so one slow upstream degrades that gateway to a distance
 estimate instead of holding every request thread open for its full individual timeout.
 
-Neither of these is a defense against a malicious high-volume client — this is a
+Neither of these is a defense against a malicious high-volume client. This is a
 single-user localhost tool with no auth, and that's an intentional scope limit (see
 above). They exist for reliability against a slow/unstable third-party API, not as a
 DoS control.
@@ -87,21 +87,21 @@ reaches any application logic: numeric fields are type- and range-checked (lat/l
 real coordinate bounds, traveler count 1-9, threshold and time-budget fields non-negative
 with a sane ceiling), string fields are length-capped, and dates are checked against a
 real calendar rather than a regex shape. A malformed request gets a 400 with a specific,
-safe message — never a stack trace, never a silent wrong answer.
+safe message, never a stack trace and never a silent wrong answer.
 
 ## Reporting a vulnerability
 
 Please don't open a public GitHub issue for a security problem. Use GitHub's private
 [Security Advisory](../../security/advisories/new) reporting form on this repo, or email
 the address listed on the maintainer's GitHub profile. Include what you found and how to
-reproduce it — you don't need a full writeup or a patch.
+reproduce it. You don't need a full writeup or a patch.
 
-**Never paste a real API key into an issue, PR, or advisory** — even a "just testing,
+**Never paste a real API key into an issue, PR, or advisory**, even a "just testing,
 revoked already" key. If you think a key of yours leaked, rotate it at the provider first
 and mention that it happened; don't paste the value anywhere on GitHub.
 
 This is a solo-maintained project. Expect an initial response within a few days, not a
-contractual SLA — but a real one, and a real fix, not a "thanks, wontfix."
+contractual SLA, but a real one, and a real fix, not a "thanks, wontfix."
 
 ## Scope
 
@@ -110,8 +110,8 @@ In scope: this repo's server (`src/hopandhaul/server.py`), key-handling
 `src/hopandhaul/{duffel,geoapify,places,transit,weather,flights}.py`.
 
 Out of scope: vulnerabilities in Duffel, Geoapify, Transitous, Photon, Open-Meteo,
-frankfurter, or any other upstream provider's own API or infrastructure — report those to
-the provider directly. Also out of
-scope: the consequences of running `hopandhaul-serve` with a manually-flipped bind address
-or behind your own reverse proxy without the TLS/auth/rate-limiting called out above —
-that's a deployment choice this project explicitly doesn't make for you.
+frankfurter, or any other upstream provider's own API or infrastructure. Report those to
+the provider directly. Also out of scope: the consequences of running `hopandhaul-serve`
+with a manually-flipped bind address or behind your own reverse proxy without the
+TLS/auth/rate-limiting called out above, which is a deployment choice this project
+explicitly doesn't make for you.

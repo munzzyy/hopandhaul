@@ -13,14 +13,14 @@ train ride from there is worth it.**
 
 ![Click a destination and the recommendation card answers with the math: cost, time, CO2 per option, the $200 rule applied](docs/media/app-dark.png)
 
-Click anywhere on the map and a recommendation card slides in — cost, time, and a CO2
+Click anywhere on the map and a recommendation card slides in: cost, time, and a CO2
 estimate for every option side by side. A copy-link button turns the plan into a URL you
 can send someone. That's a live screenshot, not a mockup: click a destination in the app
 above, or run it locally with no API keys (about 30 seconds, below), then open
 `http://127.0.0.1:8770/?lat=39.1911&lng=-106.8175&place=Aspen,+CO&origin=JFK`
 to reproduce a trip like it.
 
-**20-second demo — plan a trip, switch the UI to French, then flip the whole layout to
+**20-second demo: plan a trip, switch the UI to French, then flip the whole layout to
 Arabic:**
 
 ![Animated demo: planning a trip, then switching the UI language to French and Arabic with full RTL mirroring](docs/media/demo.gif)
@@ -55,7 +55,7 @@ you can read in `trip.py`, not a model's guess.
 
 ## Try it in your browser
 
-**[munzzyy.github.io/hopandhaul](https://munzzyy.github.io/hopandhaul/)** — the whole app,
+**[munzzyy.github.io/hopandhaul](https://munzzyy.github.io/hopandhaul/)** is the whole app,
 running client-side on GitHub Pages. Nothing to install, no keys, no server. It's the same
 estimate engine ported to JS, and CI holds the port to exact numeric agreement with the
 Python one.
@@ -63,9 +63,13 @@ Python one.
 ## Quick start
 
 ```
-pip install hopandhaul
+pipx install git+https://github.com/munzzyy/hopandhaul
 hopandhaul-serve
 ```
+
+(`pip install git+https://github.com/munzzyy/hopandhaul` works the same if you'd rather not
+use pipx. The published PyPI package is behind at 0.7.0 and does not have `multicity` or
+`dates` yet, so install from the repo until the next release lands.)
 
 Then open `http://127.0.0.1:8770` and click anywhere on the map. Or skip the map entirely:
 
@@ -74,7 +78,7 @@ hopandhaul go JFK "Tallinn" --date 2026-08-15
 ```
 
 No API keys needed for any of that. Weather, place search, real ferry routes, real US fare
-data, and real ground-transport timetables all work out of the box — the free sources below.
+data, and real ground-transport timetables all work out of the box, from the free sources listed below.
 A Duffel key adds live airfares; nothing else needs one.
 
 Hacking on the code instead? Clone and dev-install:
@@ -122,7 +126,7 @@ nearest-neighbor-plus-2-opt heuristic and says so in the output.
 
 Every other command here prices one `--date`. `hopandhaul dates` checks several at once and
 tells you which one wins, pricing each candidate the exact same way `hopandhaul duffel`
-prices a single day — nothing is reimplemented, it's the same engine called once per date:
+prices a single day. Nothing is reimplemented, it's the same engine called once per date:
 
 ```
 hopandhaul dates --from JFK --to ASE --date 2026-08-15 --window 3 --auto-gateways
@@ -161,26 +165,26 @@ round trip's length stays fixed while its placement in the window moves. Takes t
 More of this tool is real data than you'd guess for something with zero keys:
 
 - **Ferry legs are real routes.** The engine ships a researched database of 85 passenger-ferry
-  corridors — actual ports, operators, crossing times, sailing frequencies, and fare bands
+  corridors: actual ports, operators, crossing times, sailing frequencies, and fare bands
   checked against operator/aggregator pages (each entry cites its source and date). A boat
-  only appears if it exists: there's no Helsinki–Tallinn train over the Baltic here, and no
+  only appears if it exists: there's no Helsinki-to-Tallinn train over the Baltic here, and no
   ferry to Maui, because there is no ferry to Maui.
 - **Ground-transport schedules are real timetables** when [Transitous](https://transitous.org)
   (a community-run journey planner over worldwide GTFS, keyless) knows the route: real
   operators, real departures, real door-to-door times, labeled "live schedule" per leg. Fares
-  on those legs are still estimates — schedules are open data, ticket prices mostly aren't.
+  on those legs are still estimates, because schedules are open data and ticket prices mostly aren't.
 - **US fares are anchored to what passengers actually paid.** The bundled
   [BTS Consumer Airfare Report](https://data.transportation.gov/d/yj5y-b2ir) extract (public
   domain) carries real average fares for ~4,100 US city-pair markets; the model is clamped
   into each route's real band, and the itinerary shows the real market numbers next to the
   estimate.
-- **Live airfares (Duffel)**: actual priced itineraries when you set `DUFFEL_API_KEY` — real
+- **Live airfares (Duffel)**: actual priced itineraries when you set `DUFFEL_API_KEY`: real
   carrier, flight number, and clock times, labeled "live" instead of "example." No key falls
   back to the labeled estimate automatically. (The old Amadeus fallback is gone: Amadeus shut
   its self-service API down in July 2026.)
 - **Everything else is a labeled ESTIMATE**: a deterministic formula (distance, route-market
   competition, airport size, booking date) calibrated against real fares. Every estimate says
-  so — `"pricing_source": "estimate"` in the API, plain English in the UI, per-leg provenance
+  so: `"pricing_source": "estimate"` in the API, plain English in the UI, per-leg provenance
   in the itinerary. It's a model, not a promise; verify before booking.
 - **Weather ([Open-Meteo](https://open-meteo.com))** and **place search
   ([Photon](https://photon.komoot.io))** are real, live, and keyless. A Geoapify key upgrades
@@ -190,37 +194,37 @@ More of this tool is real data than you'd guess for something with zero keys:
 
 - Every priced option shows its work: a leg-by-leg itinerary with real airport names, an
   example clock schedule (or the real one, once a live fare is priced), what each leg's price
-  is based on, and a one-click link to check it — Google Flights for a flight leg, Rome2Rio for
+  is based on, and a one-click link to check it, Google Flights for a flight leg and Rome2Rio for
   ground. No number without a way to check it.
 - Boats, honestly: real ferry corridors as first-class legs (fly to Athens, take the real
   Blue Star boat to Santorini), and a land/water grid that stops the engine from routing a
   train across open sea when no bridge or tunnel exists
-- `hopandhaul go A B` — the whole pipeline in one terminal command, zero keys
-- `hopandhaul multicity` — order N cities into one trip (exact for small N, a
+- `hopandhaul go A B` runs the whole pipeline in one terminal command, zero keys
+- `hopandhaul multicity` orders N cities into one trip (exact for small N, a
   nearest-neighbor + 2-opt heuristic beyond that), reusing the same split-vs-direct pricing
   leg by leg
-- `hopandhaul dates` — sweep a bounded window of dates and find the actually cheapest one to
+- `hopandhaul dates` sweeps a bounded window of dates and finds the actually cheapest one to
   fly, live-priced when a Duffel key is set, labeled per date so you know which
 - Deterministic split-vs-direct engine with the $200 rule (configurable threshold and value
   of time)
 - Group-aware costs (per-person fares scale by travelers; a rental car doesn't)
 - Round-trip aware (real return pricing when the provider supports it, a stated estimate
   otherwise)
-- Gateway discovery — curated hub suggestions plus geometric fallback search, worldwide
+- Gateway discovery: curated hub suggestions plus geometric fallback search, worldwide
 - Click-anywhere map UI (Leaflet self-hosted; map tiles stream from CARTO's servers)
 - UI in 46 languages, four of them fully right-to-left, behind a hand-rolled i18n runtime
-  instead of a framework — pick yours from the globe button
+  instead of a framework. Pick yours from the globe button
 - Eight themes plus Auto, picked from the header: Departure Board, Boarding Pass, Night
   Flight (OLED), a CRT-amber Terminal, High Contrast, Rail Poster, Old Map, and Coastal
 - Destination weather for the date you're planning
 - Cheapest vs greenest: a rough CO2 estimate per option, with the lowest-carbon one flagged
-  separately from the recommendation — estimates, not a certified footprint, and never used to
+  separately from the recommendation. Estimates, not a certified footprint, and never used to
   pick a winner for you
-- Zero runtime dependencies — pure Python standard library, no `npm install`, no build step
+- Zero runtime dependencies: pure Python standard library, no `npm install`, no build step
 
 ## Speaks your language
 
-The whole UI ships in 46 languages — the big ones, plus Catalan, Icelandic, Swahili,
+The whole UI ships in 46 languages: the big ones, plus Catalan, Icelandic, Swahili,
 Filipino, and both Chinese scripts. Arabic, Hebrew, Persian, and Urdu mirror the entire
 layout right-to-left, map panels included. Detection follows your browser, your pick
 sticks in localStorage, and a language whose catalog fails to load falls back to English
@@ -239,23 +243,23 @@ Native speaker and you spot something off? A translation fix in
   why.
 - `geo.py`: the estimation model. Nearest airport, gateway discovery, and the distance-based
   fare/ground formulas.
-- `itinerary.py`: turns a priced option into a leg-by-leg timeline — real airport names, an
+- `itinerary.py`: turns a priced option into a leg-by-leg timeline with real airport names, an
   example (or, with a live fare, real) clock schedule, per-leg price provenance, and a verify
   link. No invented flight numbers, no fake departure-time precision, no pretending a
-  longitude-based guess is a real timezone — see the module docstring for the honesty rules.
+  longitude-based guess is a real timezone. See the module docstring for the honesty rules.
 - `duffel.py`: live flight pricing (optional key). `flights.py` is the thin interface
   server.py talks to.
 - `dates.py`: sweeps a bounded window of dates through `duffel.py`'s own
-  `build_and_evaluate()` — one call per candidate date, no separate pricing logic — and
+  `build_and_evaluate()`, one call per candidate date with no separate pricing logic, and
   reports whichever one is actually cheapest.
 - `transit.py`: real ground schedules via Transitous (keyless). `places.py`: place search,
   Photon by default (keyless), Geoapify when keyed. `weather.py`: Open-Meteo (keyless).
-- `go.py`: the one-shot CLI — resolve places, plan, print the report and itineraries.
-- `multicity.py`: the multi-city tour optimizer — a plain TSP solver (Held-Karp, exact, for
+- `go.py`: the one-shot CLI. Resolve places, plan, print the report and itineraries.
+- `multicity.py`: the multi-city tour optimizer. A plain TSP solver (Held-Karp, exact, for
   small city counts; nearest-neighbor + 2-opt above that) over a cost matrix built by pricing
   every leg through `geo.py`/`trip.py`, the same way `go.py`/`server.py` price one.
 - `server.py`: the stdlib `http.server` app. Serves the UI and the JSON API, nothing else.
-- `data/`: the bundled real-world datasets — 4,175 airports (OurAirports), 85 ferry corridors
+- `data/`: the bundled real-world datasets. 4,175 airports (OurAirports), 85 ferry corridors
   (researched, sourced per entry), a 0.25° land/water grid (Natural Earth), and real US
   market fares (BTS). `tools/` has the scripts that regenerate them.
 
@@ -264,7 +268,7 @@ black box. See `docs/api.md` for the exact HTTP contract.
 
 ## Self-tests
 
-Every module ships an offline self-test — no keys, no network, under a second total:
+Every module ships an offline self-test. No keys, no network, a few seconds for all 13:
 
 ```
 python -m hopandhaul.trip --selftest
@@ -288,10 +292,10 @@ Weather, place search, ferry data, US fare anchors, and live ground schedules ne
 configuration at all. Two keys exist, both optional, both read from env vars (which work for
 a repo checkout and a real `pip install` alike):
 
-- **`DUFFEL_API_KEY`** — live airfares. [app.duffel.com/join](https://app.duffel.com/join),
+- **`DUFFEL_API_KEY`** buys live airfares. [app.duffel.com/join](https://app.duffel.com/join),
   instant sandbox access, no card required. A test-mode key (`duffel_test_...`) exercises the
   live-pricing code path against Duffel's test airline; real fares need a live key.
-- **`GEOAPIFY_API_KEY`** — upgrades place search from Photon to full address-level geocoding.
+- **`GEOAPIFY_API_KEY`** upgrades place search from Photon to full address-level geocoding.
   [geoapify.com](https://www.geoapify.com/), free without a card, 3,000 requests/day.
 
 If you're working from a repo checkout (not a wheel install), there's also a
@@ -302,21 +306,21 @@ instead. It's a convenience for local dev only: it isn't packaged into the wheel
 
 The bundled datasets and keyless services this tool leans on, with licenses:
 
-- **[OurAirports](https://ourairports.com/data/)** — the 4,175-airport database (public
+- **[OurAirports](https://ourairports.com/data/)**: the 4,175-airport database (public
   domain).
-- **[Natural Earth](https://www.naturalearthdata.com/)** — the land/water grid is rasterized
+- **[Natural Earth](https://www.naturalearthdata.com/)**: the land/water grid is rasterized
   from their 1:50m land polygons (public domain).
-- **[US DOT/BTS Consumer Airfare Report](https://data.transportation.gov/d/yj5y-b2ir)** —
+- **[US DOT/BTS Consumer Airfare Report](https://data.transportation.gov/d/yj5y-b2ir)**:
   real US city-pair market fares (US government work, public domain).
-- **Ferry corridors** — researched by hand from operator and aggregator pages; every entry in
+- **Ferry corridors**: researched by hand from operator and aggregator pages; every entry in
   `data/ferries.json` carries its own source URL and as-of date.
-- **[Transitous](https://transitous.org/sources/)** — community-run journey planning over
+- **[Transitous](https://transitous.org/sources/)**: community-run journey planning over
   worldwide GTFS feeds and OpenStreetMap data; free for non-commercial/open-source use.
-- **[Photon](https://photon.komoot.io)** by komoot — keyless geocoding over OpenStreetMap
+- **[Photon](https://photon.komoot.io)** by komoot: keyless geocoding over OpenStreetMap
   data. Map data on both: © OpenStreetMap contributors,
   [ODbL](https://www.openstreetmap.org/copyright).
-- **[Open-Meteo](https://open-meteo.com)** — weather, CC-BY 4.0, free for non-commercial use.
-- **[frankfurter.dev](https://frankfurter.dev)** — daily ECB exchange rates for converting
+- **[Open-Meteo](https://open-meteo.com)**: weather, CC-BY 4.0, free for non-commercial use.
+- **[frankfurter.dev](https://frankfurter.dev)**: daily ECB exchange rates for converting
   non-USD live fares; the bundled approximate table is the offline fallback.
 - **[CARTO](https://carto.com/attributions)** basemap tiles © OpenStreetMap contributors.
 
