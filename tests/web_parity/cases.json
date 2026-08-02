@@ -1119,6 +1119,77 @@
     }
   },
   {
+    "name": "validate_date_embedded_newline",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "date": "123\n-01-15"
+    }
+  },
+  {
+    "name": "validate_date_embedded_newline_in_month",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "date": "2026-0\n-15"
+    }
+  },
+  {
+    "name": "validate_date_embedded_carriage_return",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "date": "123\r-01-15"
+    }
+  },
+  {
+    "name": "validate_date_embedded_tab",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "date": "123\t-01-15"
+    }
+  },
+  {
+    "name": "validate_date_trailing_newline_trimmed",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "date": "2026-08-15\n"
+    }
+  },
+  {
+    "name": "validate_lat_trailing_newline_trimmed",
+    "type": "validate",
+    "params": {
+      "lat": "39.19\n",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_travelers_trailing_newline_trimmed",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "travelers": "3\n"
+    }
+  },
+  {
+    "name": "validate_origin_embedded_newline",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "origin": "JF\nK"
+    }
+  },
+  {
     "name": "validate_date_wrong_shape",
     "type": "validate",
     "params": {
