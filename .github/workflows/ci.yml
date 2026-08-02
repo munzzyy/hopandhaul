@@ -10,10 +10,19 @@ permissions:
 
 jobs:
   lint-and-selftest:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12"]
+        # trip.py's _force_utf8() exists because Windows consoles default to cp1252 and
+        # choke on the arrows and check marks the CLI prints. That guard was never once
+        # executed in CI. One Windows job on the newest supported Python proves it, and
+        # covers server.py's realpath traversal check against backslash paths too.
+        include:
+          - os: windows-latest
+            python-version: "3.12"
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -45,7 +54,11 @@ jobs:
       - name: CLI help (every usage line is copy-runnable)
         run: python tools/check_cli_help.py
 
+      # shell: bash on purpose. The Windows default is pwsh, which only reports the exit
+      # code of the LAST line of a multi-line run block, so a module failing anywhere above
+      # `integrations.net` would go green. bash runs with -e and stops at the first failure.
       - name: Self-test every module (offline, no keys required)
+        shell: bash
         run: |
           python -m hopandhaul.trip --selftest
           python -m hopandhaul.geo --selftest
