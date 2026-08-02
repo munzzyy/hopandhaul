@@ -363,10 +363,10 @@ def format_report(res: dict, origin: str | None, dest: str | None) -> str:
     if res["transfer_buffer"]:
         L.append(f"Transfer buffer: +{_fmt_hours(res['transfer_buffer'])} added per connection.")
     if res.get("travelers", 1) > 1:
-        L.append(f"Travelers: {res['travelers']} — costs are GROUP TOTALS "
+        L.append(f"Travelers: {res['travelers']}, costs are GROUP TOTALS "
                  f"(per-person fares ×{res['travelers']}; drive/rental legs are per vehicle).")
     if res.get("max_hours") is not None:
-        L.append(f"Time budget: {_fmt_hours(res['max_hours'])} door-to-door — slower options are "
+        L.append(f"Time budget: {_fmt_hours(res['max_hours'])} door-to-door; slower options are "
                  f"excluded from the recommendation.")
     L.append("")
 
@@ -386,9 +386,9 @@ def format_report(res: dict, origin: str | None, dest: str | None) -> str:
         sub = f"       ({legs})"
         if not o["is_baseline"]:
             if o["savings_vs_baseline"] > 0:
-                sub += f"  — saves {_fmt_money(o['savings_vs_baseline'])}"
+                sub += f"  saves {_fmt_money(o['savings_vs_baseline'])}"
             elif o["savings_vs_baseline"] < 0:
-                sub += f"  — costs {_fmt_money(-o['savings_vs_baseline'])} more"
+                sub += f"  costs {_fmt_money(-o['savings_vs_baseline'])} more"
             if o["extra_hours_vs_baseline"] > 0:
                 sub += f", +{_fmt_hours(o['extra_hours_vs_baseline'])}"
             elif o["extra_hours_vs_baseline"] < 0:
@@ -405,19 +405,19 @@ def format_report(res: dict, origin: str | None, dest: str | None) -> str:
         L.append(f"  (the {_fmt_hours(res['max_hours'])} time budget excluded at least one "
                  f"otherwise-qualifying option)")
     if rec["is_baseline"]:
-        why_base = (f"no alternative clears the {_fmt_money(res['threshold'])} rule "
+        why_base = (f"No alternative clears the {_fmt_money(res['threshold'])} rule "
                     f"(or beats it on time)")
         if res.get("time_budget_binding"):
             why_base += f" within the {_fmt_hours(res['max_hours'])} time budget"
-        L.append(f"  → RECOMMENDED: {rec['name']} — {why_base}, so fly direct.")
+        L.append(f"  → RECOMMENDED: {rec['name']}. {why_base}, so fly direct.")
     else:
         why = []
         if rec["dominant"]:
-            why.append("it is both cheaper and faster than flying direct")
+            why.append("It is both cheaper and faster than flying direct")
         elif rec["status"] in ("split_qualifies", "alt_qualifies"):
-            why.append(f"it saves {_fmt_money(rec['savings_vs_baseline'])} "
+            why.append(f"It saves {_fmt_money(rec['savings_vs_baseline'])} "
                        f"(≥ {_fmt_money(res['threshold'])} rule)")
-        L.append(f"  → RECOMMENDED: {rec['name']} — {', '.join(why)}.")
+        L.append(f"  → RECOMMENDED: {rec['name']}. {', '.join(why)}.")
         # trade-off / break-even reasoning
         if rec["extra_hours_vs_baseline"] > 0 and rec["breakeven_vot"] is not None:
             L.append(f"    It adds {_fmt_hours(rec['extra_hours_vs_baseline'])} vs direct for "
@@ -430,15 +430,15 @@ def format_report(res: dict, origin: str | None, dest: str | None) -> str:
                 L.append(f"    At your {_fmt_money(res['vot'])}/hr, the split is {verdict} by "
                          f"{_fmt_money(abs(delta))} after valuing the extra time.")
         elif rec["extra_hours_vs_baseline"] <= 0:
-            L.append("    …and it is no slower than flying direct — a clean win.")
+            L.append("    …and it is no slower than flying direct, a clean win.")
 
     L.append("")
     L.append("CAUTIONS:")
     if any(o["is_split"] and not o["is_baseline"] for o in res["options"]):
-        L.append("  • Split legs booked separately are NOT protected — a delayed flight can forfeit a")
+        L.append("  • Split legs booked separately are NOT protected: a delayed flight can forfeit a")
         L.append("    non-refundable train/bus. Leave a real buffer, or book a flexible ground fare.")
     L.append("  • Prices/times are the inputs supplied; re-verify live before booking (fares move fast).")
-    L.append("  • This is one direction — run the return separately; round-trip fares can flip the math.")
+    L.append("  • This is one direction, so run the return separately; round-trip fares can flip the math.")
     return "\n".join(L)
 
 
@@ -523,7 +523,7 @@ def _run(args) -> int:
         print(json.dumps(out, indent=2))
     else:
         for m in unknown_modes:
-            print(f"WARN  unrecognized leg mode '{m}' — priced anyway, check for a typo", file=sys.stderr)
+            print(f"WARN  unrecognized leg mode '{m}', priced anyway, check for a typo", file=sys.stderr)
         print(format_report(res, args.origin, args.dest))
     return 0
 

@@ -125,11 +125,11 @@ def main(argv=None) -> int:
 
     origin, o_others = resolve_airport(args.origin)
     if not origin:
-        print(f"error: no airport matches {args.origin!r} — try an IATA code", file=sys.stderr)
+        print(f"error: no airport matches {args.origin!r}, try an IATA code", file=sys.stderr)
         return 2
     dest, d_others = resolve_airport(args.dest)
     if not dest:
-        print(f"error: no airport matches {args.dest!r} — try an IATA code", file=sys.stderr)
+        print(f"error: no airport matches {args.dest!r}, try an IATA code", file=sys.stderr)
         return 2
     # Destination point: the airport is the fallback, but when the user typed a PLACE and
     # we're online, the town itself is the honest target - plan() resolves its own nearest
@@ -185,7 +185,7 @@ def main(argv=None) -> int:
         print(itin)
     wx = out.get("weather")
     if wx and wx.get("temp") is not None:
-        line = f"\nWEATHER AT DESTINATION: {wx['emoji']} {wx['temp']}{wx['units']} — {wx['desc']}"
+        line = f"\nWEATHER AT DESTINATION: {wx['emoji']} {wx['temp']}{wx['units']}, {wx['desc']}"
         fc = wx.get("forecast")
         if fc:
             line += f"  (on {fc['date']}: {fc['emoji']} {fc['temp']}{fc['units']}, {fc['desc']})"

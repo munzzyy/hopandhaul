@@ -66,7 +66,7 @@ ROUTE_MULT = {
     ("EU", "RU"): 0.95, ("CN", "RU"): 0.95, ("RU", "SEA"): 1.05,
 }
 assert all(k == tuple(sorted(k)) for k in ROUTE_MULT), \
-    "ROUTE_MULT keys must be pre-sorted — _route_mult only ever looks up a sorted tuple"
+    "ROUTE_MULT keys must be pre-sorted: _route_mult only ever looks up a sorted tuple"
 
 
 def _route_mult(region_a: str, region_b: str) -> float:
@@ -1163,10 +1163,10 @@ def selftest():
           and hel_gw["ferry"]["fare_is_real"] and hel_gw["ferry"]["price_usd_lo"] >= 10
           and 2.0 <= hel_gw["ground_hours"] <= 5.0)
     check("no Baltic train fictions to Tallinn (Turku/Lappeenranta/Mariehamn/Vaasa/Oulu all "
-          "dropped — sea gap, no corridor)",
+          "dropped: sea gap, no corridor)",
           not any(g["iata"] in ("TKU", "LPP", "MHQ", "VAA", "OUL") for g in tll_gws))
     ogg_gws = discover_gateways(by_iata("OGG"), origin=by_iata("LAX"))
-    check("Maui gets NO Honolulu gateway at all — the inter-island ferry shut down in 2009 "
+    check("Maui gets NO Honolulu gateway at all: the inter-island ferry shut down in 2009 "
           "and the engine no longer pretends otherwise",
           not any(g["iata"] == "HNL" for g in ogg_gws))
     ferry_gws = [g for g in tll_gws + jtr_gws + yyj_gws if g.get("ferry")]
@@ -1247,4 +1247,4 @@ if __name__ == "__main__":
     import sys
     if "--selftest" in sys.argv:
         sys.exit(selftest())
-    print("geo.py — import me, or run with --selftest")
+    print("geo.py: import me, or run with --selftest")

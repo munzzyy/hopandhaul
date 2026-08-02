@@ -107,7 +107,7 @@ export function flightProvenanceEstimate(detail, date) {
     // a REAL number rides along with the model: what this route's passengers actually paid
     const held = an.adjusted ? "estimate adjusted into that band" : "estimate already inside that band";
     bits.push(`real market check (BTS ${an.asof ?? ""}): avg paid $${pyG(an.fare_avg)}`
-      + `, lowest-fare carrier $${pyG(an.fare_low)} — ${held}`);
+      + `, lowest-fare carrier $${pyG(an.fare_low)}, ${held}`);
   }
   if (detail.date_mult) bits.push(`date factor ×${detail.date_mult.toFixed(2)}`);
   if (detail.likely_connection) bits.push("fare priced assuming a connecting flight (small/remote airport)");
@@ -116,7 +116,7 @@ export function flightProvenanceEstimate(detail, date) {
 
 export function flightProvenanceLive(live) {
   const carrier = live.carrier || "an airline";
-  const bits = [`live fare — ${carrier}`];
+  const bits = [`live fare from ${carrier}`];
   if (live.native_price != null && live.currency && live.currency !== "USD") {
     const conv = live.converted ? " (converted to USD, verify at booking)" : "";
     bits.push(`priced ${live.native_price} ${live.currency}${conv}`);
@@ -156,7 +156,7 @@ export function groundProvenance(gw, roadKm) {
     base = ferryProvenance(gw.ferry);
   } else if (gw.source === "curated") {
     const note = gw.notes;
-    base = `curated gateway estimate${note ? " — " + note : ""}`;
+    base = `curated gateway estimate${note ? ": " + note : ""}`;
   } else {
     const km = roadKm != null ? `~${Math.trunc(roadKm)}km` : "distance-based";
     base = `ground estimate (${km} road/rail distance, regional rate table)`;

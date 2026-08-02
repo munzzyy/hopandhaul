@@ -448,7 +448,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     # floor and recommends it with full confidence.
     if dest["iata"] == origin["iata"]:
         return {"ok": False,
-                "error": "that point resolves to your origin airport — no flight needed",
+                "error": "that point resolves to your origin airport, so there is no flight to plan",
                 "code": "origin_is_destination"}
 
     travelers = max(1, min(9, int(travelers)))
@@ -627,16 +627,16 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     if source == "estimate":
         note = ("Fares are distance-based ESTIMATES"
                 + (" (date-adjusted for booking window/season)" if date else "")
-                + " — add a date for live fares. Verify before booking.")
+                + ". Add a date for live fares, and verify before booking.")
         notes.append(note)
     if ctx.get("live_error"):
         notes.append("Some live flight lookups failed and fell back to estimates.")
     if ctx.get("fx_used"):
-        notes.append("Some fares were converted to USD at an approximate rate — verify at booking.")
+        notes.append("Some fares were converted to USD at an approximate rate; verify at booking.")
     if ctx.get("fx_unknown"):
         notes.append(f"A fare priced in {ctx['fx_unknown']} had no USD rate and is shown as-is.")
     if travelers > 1:
-        notes.append(f"Costs are GROUP TOTALS for {travelers} travelers — per-person fares "
+        notes.append(f"Costs are GROUP TOTALS for {travelers} travelers: per-person fares "
                      f"×{travelers}; drive/rental legs are per vehicle.")
     if roundtrip:
         if ret and ctx["live_used"]:
@@ -650,17 +650,17 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
                          "RT pricing. Times are for the outbound leg.")
     if any(g.get("ferry") for g in gws):
         notes.append("Ferry legs are REAL corridors (bundled research, operators + typical "
-                     "fares + sailings/day as of the data's date) — schedules vary by day and "
+                     "fares + sailings/day as of the data's date). Schedules vary by day and "
                      "season, so check the operator before relying on a connection.")
     if any(g.get("transit") for g in gws):
         notes.append("Ground legs marked 'live schedule' use real timetables via Transitous "
-                     "(transitous.org — community GTFS/OSM data): real operators, departures "
+                     "(transitous.org, community GTFS/OSM data): real operators, departures "
                      "and door-to-door times. Fares on those legs are still estimates.")
     if dest.get("dist_km", 0) > 120:
         notes.append(f"Nearest airport {dest['iata']} is ~{int(dest['dist_km'])} km from the "
-                     f"clicked point — the last mile to your exact spot isn't included.")
+                     f"clicked point, so the last mile to your exact spot isn't included.")
     notes.append("co2e_kg per option is a rough ESTIMATE from flight/ground distance, not a "
-                 "certified footprint — see docs/api.md for the factor basis. The lowest-carbon "
+                 "certified footprint; see docs/api.md for the factor basis. The lowest-carbon "
                  "option is flagged as 'greenest' but never auto-recommended over the cheapest.")
 
     # destination weather - best-effort, never blocks a plan (weather is at the clicked point)

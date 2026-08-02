@@ -178,7 +178,7 @@ def for_point(lat: float, lng: float, date: str | None = None, units: str = "imp
             fc = None
         out["forecast"] = fc
         if fc is None:
-            out["forecast_note"] = (f"Beyond the {FORECAST_DAYS}-day forecast — "
+            out["forecast_note"] = (f"Beyond the {FORECAST_DAYS}-day forecast: "
                                     "showing current conditions.")
     return out
 
@@ -208,12 +208,12 @@ def main(argv=None):
     if args.json:
         print(json.dumps(wx, indent=2, ensure_ascii=False))
     else:
-        print(f"{wx['emoji']}  {wx['temp']}{wx['units']} (feels {wx['feels']}{wx['units']}) "
-              f"— {wx['desc']}")
+        print(f"{wx['emoji']}  {wx['temp']}{wx['units']} "
+              f"(feels {wx['feels']}{wx['units']}), {wx['desc']}")
         fc = wx.get("forecast")
         if fc:
             lo = f"/{fc['temp_lo']}{fc['units']}" if fc.get("temp_lo") is not None else ""
-            print(f"{fc['emoji']}  {fc['date']}: {fc['temp']}{fc['units']}{lo} — {fc['desc']}")
+            print(f"{fc['emoji']}  {fc['date']}: {fc['temp']}{fc['units']}{lo}, {fc['desc']}")
         elif wx.get("forecast_note"):
             print(wx["forecast_note"])
     return 0
@@ -228,7 +228,7 @@ def selftest():
         if not cond:
             fails.append(name)
 
-    check("weather is keyless now — available()/have_keys() are True with no env at all",
+    check("weather is keyless now: available()/have_keys() are True with no env at all",
           available() is True and have_keys() is True)
     check("WMO code map: clear/overcast/rain/snow/thunder all resolve",
           _wmo(0)[0] == "clear sky" and _wmo(3)[0] == "overcast"

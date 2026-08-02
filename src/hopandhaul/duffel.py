@@ -446,7 +446,7 @@ def build_and_evaluate(origin, dest, date, gateways, adults, cabin, nonstop,
     if direct["source"] == "estimate":
         warnings.append(f"No live Duffel offer {origin}->{dest}; priced with a distance ESTIMATE.")
     elif not direct["fx_ok"]:
-        warnings.append(f"Direct fare in {direct['currency']} — no FX rate, treated as USD.")
+        warnings.append(f"Direct fare in {direct['currency']}: no FX rate, treated as USD.")
     elif direct["converted"]:
         warnings.append(f"Direct fare converted {direct['currency']}->USD (approx).")
 
@@ -475,7 +475,7 @@ def build_and_evaluate(origin, dest, date, gateways, adults, cabin, nonstop,
 
 
 def print_setup_help():
-    print("Duffel key not set — live flight pricing is unavailable.\n")
+    print("Duffel key not set, so live flight pricing is unavailable.\n")
     print("Get one free:")
     print("  1) https://app.duffel.com  -> Developers -> Access tokens -> create a TEST token")
     print("  2) store it (either works):")
@@ -509,11 +509,11 @@ def _format_itinerary_block(option: dict) -> str:
         return ""
     lines = [f"    {option['name']}:"]
     if itin.get("example_day"):
-        lines.append("      (example schedule, not a real booking — see 'verify' links below)")
+        lines.append("      (example schedule, not a real booking; see 'verify' links below)")
     for i, leg in enumerate(legs, 1):
         frm, to = leg["from"], leg["to"]
         tag = "LIVE" if leg["is_live"] else "est."
-        carrier = f" — {leg['carrier']}" + (f" {leg['flight_number']}" if leg.get("flight_number") else "") \
+        carrier = f", {leg['carrier']}" + (f" {leg['flight_number']}" if leg.get("flight_number") else "") \
             if leg.get("carrier") else ""
         lines.append(
             f"      {i}. {leg['mode'].upper():<6} {_airport_label(frm)} -> {_airport_label(to)}")
@@ -612,7 +612,7 @@ def main(argv=None):
         p.error("--from, --to and --date are required")
 
     if not have_keys():
-        print("(No DUFFEL_API_KEY configured — flight legs priced with distance ESTIMATES, "
+        print("(No DUFFEL_API_KEY configured, so flight legs are priced with distance ESTIMATES, "
               "same as the map UI with no key. See README.md for how to add one.)\n")
 
     gateways = [parse_gateway_arg(g) for g in args.gateway]
@@ -633,7 +633,7 @@ def main(argv=None):
     for w in warnings:
         print(f"WARN  {w}")
     if res is None:
-        print("No priceable options — nothing to recommend.")
+        print("No priceable options, nothing to recommend.")
         return 1
     rt_note = " · ROUND-TRIP fares (times shown = outbound)" if args.return_date else ""
     flights_src = (f"Duffel {'LIVE' if is_live_key() else 'TEST'}" if have_keys() else "ESTIMATE")

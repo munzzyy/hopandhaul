@@ -220,7 +220,7 @@ def main(argv=None):
         p.error("--from, --to and --date are required")
 
     if not duffel.have_keys():
-        print("(No DUFFEL_API_KEY configured — every date below is priced with distance "
+        print("(No DUFFEL_API_KEY configured, so every date below is priced with distance "
               "ESTIMATES, same as `hopandhaul duffel` with no key. See README.md.)\n")
 
     gateways = [duffel.parse_gateway_arg(g) for g in args.gateway]

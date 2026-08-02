@@ -129,7 +129,7 @@ def flight_provenance_estimate(detail: dict | None, date: str | None) -> str:
         held = ("estimate adjusted into that band" if an.get("adjusted")
                 else "estimate already inside that band")
         bits.append(f"real market check (BTS {an.get('asof', '')}): avg paid ${an['fare_avg']:g}"
-                    f", lowest-fare carrier ${an['fare_low']:g} — {held}")
+                    f", lowest-fare carrier ${an['fare_low']:g}, {held}")
     if detail.get("date_mult"):
         bits.append(f"date factor ×{detail['date_mult']:.2f}")
     if detail.get("likely_connection"):
@@ -140,7 +140,7 @@ def flight_provenance_estimate(detail: dict | None, date: str | None) -> str:
 def flight_provenance_live(live: dict) -> str:
     """'where this number comes from' for a LIVE (Duffel) flight leg."""
     carrier = live.get("carrier") or "an airline"
-    bits = [f"live fare — {carrier}"]
+    bits = [f"live fare from {carrier}"]
     native = live.get("native_price")
     cur = live.get("currency")
     if native is not None and cur and cur != "USD":
@@ -184,7 +184,7 @@ def ground_provenance(gw: dict, road_km: float | None) -> str:
         base = ferry_provenance(gw["ferry"])
     elif gw.get("source") == "curated":
         note = gw.get("notes")
-        base = f"curated gateway estimate{(' — ' + note) if note else ''}"
+        base = f"curated gateway estimate{(': ' + note) if note else ''}"
     else:
         km = f"~{int(road_km)}km" if road_km is not None else "distance-based"
         base = f"ground estimate ({km} road/rail distance, regional rate table)"
@@ -423,7 +423,7 @@ def selftest() -> int:
     # re-anchors to the live leg's real arrival instead of the synthetic 08:00-based clock.
     live_leg = [{
         "mode": "fly", "cost": 241.5, "hours": 5.5, "from": jfk, "to": den, "is_live": True,
-        "price_basis": "live fare — United Airlines", "verify_url": "https://x",
+        "price_basis": "live fare from United Airlines", "verify_url": "https://x",
         "segments": [{
             "from": jfk, "to": den,
             "depart_at": datetime.datetime(2026, 8, 15, 14, 5),
@@ -442,7 +442,7 @@ def selftest() -> int:
           and live_row["flight_number"] == "UA1234")
     check("live leg is flagged is_live=True and any_live is set",
           live_row["is_live"] is True and tl4["any_live"] is True)
-    check("a mixed live+estimate timeline is STILL example_day — one real fare must not "
+    check("a mixed live+estimate timeline is STILL example_day: one real fare must not "
           "let the block claim the whole day is real while the ground leg is an estimate",
           tl4["example_day"] is True and next_row["is_live"] is False)
     check("the live leg's own checkin_by is ~2h before its REAL departure (12:05), not the synthetic anchor",
@@ -465,4 +465,4 @@ if __name__ == "__main__":
     import sys
     if "--selftest" in sys.argv:
         sys.exit(selftest())
-    print("itinerary.py — import me, or run with --selftest")
+    print("itinerary.py: import me, or run with --selftest")

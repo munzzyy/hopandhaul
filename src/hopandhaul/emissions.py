@@ -210,4 +210,4 @@ if __name__ == "__main__":
     import sys
     if "--selftest" in sys.argv:
         sys.exit(selftest())
-    print("emissions.py — import me, or run with --selftest")
+    print("emissions.py: import me, or run with --selftest")
