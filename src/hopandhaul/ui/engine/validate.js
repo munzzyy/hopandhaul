@@ -29,7 +29,9 @@ export const MAX_VOT = 10_000.0;
 // One number grammar for both engines. Number() takes "0x10", " " and "Infinity" that
 // Python's float() rejects; float() takes "nan", "1_0" and non-ASCII decimal digits that
 // Number() rejects. Pin both to plain ASCII decimal so the same input never gets two
-// answers. Mirrors server.py's _NUM_RE / _INT_RE / _DIGITS_RE.
+// answers. Mirrors server.py's _NUM_RE / _INT_RE / _DIGITS_RE, which spell the anchors \A
+// and \Z because Python's $ also matches just before a trailing newline and this one does
+// not. Keep that difference in mind before copying either set of patterns to the other side.
 const NUM_RE = /^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$/;
 const INT_RE = /^[+-]?[0-9]+$/;
 const DIGITS_RE = /^[0-9]+$/;

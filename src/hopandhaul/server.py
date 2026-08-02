@@ -146,9 +146,14 @@ def _optional(q: dict, name: str) -> str | None:
 # same query string could be accepted here and rejected in ui/engine/validate.js. Pin
 # every numeric param to plain ASCII decimal on both sides. Written out as [0-9] on
 # purpose: Python's \d matches Unicode digits, JavaScript's does not.
-_NUM_RE = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
-_INT_RE = re.compile(r"^[+-]?[0-9]+$")
-_DIGITS_RE = re.compile(r"^[0-9]+$")
+#
+# Anchored with \A and \Z, not ^ and $. Python's $ also matches just before a trailing
+# newline, JavaScript's $ (no /m) does not, so "123\n" passes ^[0-9]+$ here and fails the
+# same-looking regex in ui/engine/validate.js. _v_date slices the date into fields, and a
+# slice can end in that newline even after the whole string is stripped.
+_NUM_RE = re.compile(r"\A[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\Z")
+_INT_RE = re.compile(r"\A[+-]?[0-9]+\Z")
+_DIGITS_RE = re.compile(r"\A[0-9]+\Z")
 
 
 def _ascii_float(raw, field: str) -> float:
@@ -1217,6 +1222,20 @@ def selftest():
             check(f"plan: {label} digits in date rejected", False)
         except ValidationError:
             check(f"plan: {label} digits in date rejected", True)
+
+    # Control characters inside a date. raw.strip() cleans the ends but not the middle, and
+    # _v_date slices the string into year/month/day, so an interior newline lands at the end
+    # of a slice. Python's $ matches there and JavaScript's does not, which is how
+    # "123\n-01-15" was accepted here and rejected by ui/engine/validate.js.
+    for label, bad_date in (("embedded newline in year", "123\n-01-15"),
+                            ("embedded newline in month", "2026-0\n-15"),
+                            ("embedded carriage return", "123\r-01-15"),
+                            ("embedded tab", "123\t-01-15")):
+        try:
+            parse_plan_params(qs(lat="39.19", lng="-106.82", date=bad_date))
+            check(f"plan: {label} in date rejected", False)
+        except ValidationError as e:
+            check(f"plan: {label} in date rejected", str(e) == "date must be YYYY-MM-DD")
 
     # Same class one layer down: float()/int() take these, the browser's Number() does not.
     for field, bad_number in (("lat", "nan"), ("lat", "inf"), ("lat", "1_0"),
