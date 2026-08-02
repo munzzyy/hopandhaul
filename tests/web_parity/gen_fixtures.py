@@ -30,7 +30,7 @@ OUT_DIR = os.path.join(HERE, "fixtures")
 sys.path.insert(0, os.path.join(HERE, "..", "..", "src"))
 
 from hopandhaul import trip  # noqa: E402
-from hopandhaul.server import plan  # noqa: E402
+from hopandhaul.server import ValidationError, parse_plan_params, plan  # noqa: E402
 
 
 def build_option_string(opt: dict) -> str:
@@ -75,11 +75,28 @@ def run_evaluate_case(case: dict) -> dict:
     return {k: v for k, v in res.items() if not k.startswith("_")}
 
 
+def run_validate_case(case: dict) -> dict:
+    """The trust boundary: raw pre-validation strings in, normalized params or an error out.
+
+    server.parse_plan_params() and ui/engine/validate.js parsePlanParams() are hand-kept
+    mirrors guarding untrusted input (a query string here, a hand-edited share URL in the
+    browser). Comparing them here means a divergence like the Unicode-digit date one is a
+    red CI job instead of two engines quietly disagreeing about what is valid.
+    """
+    q = {k: [v] for k, v in case["params"].items()}
+    try:
+        return {"ok": True, "params": parse_plan_params(q)}
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
+
+
 def run_case(case: dict) -> dict:
     if case["type"] == "plan":
         return run_plan_case(case)
     if case["type"] == "evaluate":
         return run_evaluate_case(case)
+    if case["type"] == "validate":
+        return run_validate_case(case)
     raise ValueError(f"unknown case type {case['type']!r} in {case.get('name')!r}")
 
 

@@ -939,5 +939,356 @@
     ],
     "threshold": 200,
     "max_hours": 8.0
+  },
+  {
+    "name": "validate_baseline_full",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "origin": "jfk",
+      "date": "2026-08-15",
+      "ret": "2026-08-22",
+      "vot": "30",
+      "threshold": "250",
+      "maxGroundH": "8",
+      "round": "1",
+      "travelers": "3",
+      "buffer": "1.5"
+    }
+  },
+  {
+    "name": "validate_defaults_minimal",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_empty_strings_use_defaults",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "origin": "",
+      "date": "",
+      "ret": "",
+      "vot": "",
+      "threshold": "",
+      "maxGroundH": "",
+      "round": "",
+      "travelers": "",
+      "buffer": ""
+    }
+  },
+  {
+    "name": "validate_missing_lat",
+    "type": "validate",
+    "params": {
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_missing_lng",
+    "type": "validate",
+    "params": {
+      "lat": "39.19"
+    }
+  },
+  {
+    "name": "validate_lat_not_a_number",
+    "type": "validate",
+    "params": {
+      "lat": "not-a-number",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_lat_nan",
+    "type": "validate",
+    "params": {
+      "lat": "nan",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_lat_inf",
+    "type": "validate",
+    "params": {
+      "lat": "inf",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_lat_infinity_word",
+    "type": "validate",
+    "params": {
+      "lat": "Infinity",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_lat_underscore_separator",
+    "type": "validate",
+    "params": {
+      "lat": "1_0",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_lat_hex_literal",
+    "type": "validate",
+    "params": {
+      "lat": "0x10",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_lat_whitespace_only",
+    "type": "validate",
+    "params": {
+      "lat": " ",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_lat_arabic_indic_digits",
+    "type": "validate",
+    "params": {
+      "lat": "\u0663\u0669.\u0661\u0669",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_lat_out_of_range",
+    "type": "validate",
+    "params": {
+      "lat": "200",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_lng_out_of_range",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-200"
+    }
+  },
+  {
+    "name": "validate_lat_leading_plus",
+    "type": "validate",
+    "params": {
+      "lat": "+39.19",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_lat_exponent_notation",
+    "type": "validate",
+    "params": {
+      "lat": "3.919e1",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_lat_trailing_dot",
+    "type": "validate",
+    "params": {
+      "lat": "39.",
+      "lng": "-106.82"
+    }
+  },
+  {
+    "name": "validate_date_arabic_indic_digits",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "date": "\u0662\u0660\u0662\u0666-\u0660\u0668-\u0661\u0665"
+    }
+  },
+  {
+    "name": "validate_date_fullwidth_digits",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "date": "\uff12\uff10\uff12\uff16-\uff10\uff18-\uff11\uff15"
+    }
+  },
+  {
+    "name": "validate_date_wrong_shape",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "date": "2026-8-15"
+    }
+  },
+  {
+    "name": "validate_date_not_a_real_day",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "date": "2026-13-40"
+    }
+  },
+  {
+    "name": "validate_ret_before_date",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "date": "2026-08-15",
+      "ret": "2026-08-01"
+    }
+  },
+  {
+    "name": "validate_ret_equals_date",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "date": "2026-08-15",
+      "ret": "2026-08-15"
+    }
+  },
+  {
+    "name": "validate_origin_over_length",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "origin": "THISISWAYTOOLONG"
+    }
+  },
+  {
+    "name": "validate_origin_with_a_digit",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "origin": "J3K"
+    }
+  },
+  {
+    "name": "validate_origin_unicode_letter",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "origin": "J\u0130K"
+    }
+  },
+  {
+    "name": "validate_threshold_negative",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "threshold": "-5"
+    }
+  },
+  {
+    "name": "validate_threshold_over_cap",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "threshold": "100001"
+    }
+  },
+  {
+    "name": "validate_threshold_arabic_indic_digits",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "threshold": "\u0662\u0660\u0660"
+    }
+  },
+  {
+    "name": "validate_travelers_over_cap",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "travelers": "50"
+    }
+  },
+  {
+    "name": "validate_travelers_zero",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "travelers": "0"
+    }
+  },
+  {
+    "name": "validate_travelers_float_string",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "travelers": "2.0"
+    }
+  },
+  {
+    "name": "validate_travelers_leading_plus",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "travelers": "+4"
+    }
+  },
+  {
+    "name": "validate_vot_over_cap",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "vot": "10001"
+    }
+  },
+  {
+    "name": "validate_max_ground_h_over_cap",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "maxGroundH": "49"
+    }
+  },
+  {
+    "name": "validate_buffer_over_cap",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "buffer": "25"
+    }
+  },
+  {
+    "name": "validate_round_flag_yes",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "round": "yes"
+    }
+  },
+  {
+    "name": "validate_round_flag_unrecognized",
+    "type": "validate",
+    "params": {
+      "lat": "39.19",
+      "lng": "-106.82",
+      "round": "banana"
+    }
   }
 ]

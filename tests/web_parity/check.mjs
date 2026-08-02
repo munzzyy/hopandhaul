@@ -25,6 +25,7 @@ const engineUrl = (f) => pathToFileURL(path.join(ENGINE_DIR, f)).href;
 const { plan } = await import(engineUrl("plan.js"));
 const trip = await import(engineUrl("trip.js"));
 const { loadData } = await import(engineUrl("data.js"));
+const { parsePlanParams, ValidationError } = await import(engineUrl("validate.js"));
 
 // Node has no browser fetch()-a-local-file story worth relying on here - read the same two
 // JSON files geo.py reads, straight off disk. Same bytes, same array order, so nearest_airport/
@@ -80,9 +81,21 @@ function runEvaluateCase(c) {
   return stripPrivate(res);
 }
 
+// The trust boundary: raw pre-validation strings in, normalized params or an error out.
+// See the matching comment on gen_fixtures.py's run_validate_case().
+function runValidateCase(c) {
+  try {
+    return { ok: true, params: parsePlanParams(c.params) };
+  } catch (e) {
+    if (e instanceof ValidationError) return { ok: false, error: e.message };
+    throw e;
+  }
+}
+
 function runCase(c) {
   if (c.type === "plan") return runPlanCase(c);
   if (c.type === "evaluate") return runEvaluateCase(c);
+  if (c.type === "validate") return runValidateCase(c);
   throw new Error(`unknown case type ${JSON.stringify(c.type)} in ${c.name}`);
 }
 
@@ -117,7 +130,7 @@ function diff(a, b, at = "$") {
 
 async function main() {
   if (!existsSync(FIXTURES_DIR)) {
-    console.error(`no fixtures at ${FIXTURES_DIR} — run: python tests/web_parity/gen_fixtures.py`);
+    console.error(`no fixtures at ${FIXTURES_DIR}. Run: python tests/web_parity/gen_fixtures.py`);
     process.exit(1);
   }
   await loadData(nodeLoader);
@@ -132,7 +145,7 @@ async function main() {
     if (!existsSync(fixturePath)) {
       fail++;
       console.log(`FAIL  ${c.name}`);
-      console.log(`      no fixture at ${fixturePath} — run gen_fixtures.py first`);
+      console.log(`      no fixture at ${fixturePath}. Run gen_fixtures.py first`);
       failures.push({ name: c.name, d: "missing fixture" });
       continue;
     }
@@ -152,8 +165,11 @@ async function main() {
       failures.push({ name: c.name, d, js, py });
     } else {
       pass++;
-      const tag = c.type === "plan" ? (js.ok ? js.result.recommended : `error:${js.code}`) : js.recommended;
-      console.log(`ok    ${c.name}  (${c.type}, recommended: ${tag})`);
+      let tag;
+      if (c.type === "plan") tag = js.ok ? `recommended: ${js.result.recommended}` : `error: ${js.code}`;
+      else if (c.type === "validate") tag = js.ok ? "accepted" : `rejected: ${js.error}`;
+      else tag = `recommended: ${js.recommended}`;
+      console.log(`ok    ${c.name}  (${c.type}, ${tag})`);
     }
   }
 
