@@ -16,6 +16,7 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
 import urllib.parse
@@ -103,10 +104,8 @@ def reverse(lat: float, lng: float, lang: str = "en", timeout: int = 15) -> dict
 
 # --------------------------------------------------------------------------- CLI
 def main(argv=None):
-    try:
+    with contextlib.suppress(AttributeError, ValueError):
         sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, ValueError):
-        pass
     p = argparse.ArgumentParser(prog="python -m hopandhaul.geoapify",
                                 description="Geoapify geocoding for travel-scout.")
     p.add_argument("query", nargs="*", help="place/address to geocode")

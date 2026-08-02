@@ -20,6 +20,7 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
 import urllib.parse
@@ -184,10 +185,8 @@ def for_point(lat: float, lng: float, date: str | None = None, units: str = "imp
 
 # --------------------------------------------------------------------------- CLI
 def main(argv=None):
-    try:
+    with contextlib.suppress(AttributeError, ValueError):
         sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, ValueError):
-        pass
     p = argparse.ArgumentParser(prog="hopandhaul weather",
                                 description="Destination weather via Open-Meteo (keyless).")
     p.add_argument("coords", nargs="*", help="LAT LNG")

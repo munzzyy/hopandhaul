@@ -30,24 +30,25 @@ import threading
 import time
 import urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 from . import __version__, emissions, geo, itinerary, trip
 from .integrations import net
+
 try:
-    from . import flights     # live flight pricing (Duffel, optional key)
+    from . import flights  # live flight pricing (Duffel, optional key)
 except Exception:  # pragma: no cover
     flights = None
 try:
-    from . import places      # geocoding: Photon keyless, Geoapify when keyed
+    from . import places  # geocoding: Photon keyless, Geoapify when keyed
 except Exception:  # pragma: no cover
     places = None
 try:
-    from . import weather      # destination conditions (Open-Meteo, keyless)
+    from . import weather  # destination conditions (Open-Meteo, keyless)
 except Exception:  # pragma: no cover
     weather = None
 try:
-    from . import transit      # real ground schedules (Transitous, keyless)
+    from . import transit  # real ground schedules (Transitous, keyless)
 except Exception:  # pragma: no cover
     transit = None
 
@@ -202,7 +203,7 @@ def _v_date(raw: str, field: str) -> str:
     try:
         datetime.date(int(year), int(month), int(day))
     except ValueError:
-        raise ValidationError(f"{field} is not a real calendar date")
+        raise ValidationError(f"{field} is not a real calendar date") from None
     return v
 
 
@@ -499,7 +500,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     # each live offer-request is a slow, independent round-trip, so a click stays responsive.
     # A shared deadline bounds the whole fan-out: one slow provider degrades to estimates
     # instead of holding every thread for its own full per-call timeout.
-    flight_targets = [dest] + list(gws)
+    flight_targets = [dest, *gws]
     deadline = time.monotonic() + PLAN_TIME_BUDGET_S
 
     def _price(target):
@@ -519,8 +520,8 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         futures = [ex.submit(_price, t) for t in flight_targets]
         priced = []
         remaining = max(0.0, deadline - time.monotonic())
-        done, not_done = concurrent.futures.wait(futures, timeout=remaining)
-        fmap = dict(zip(futures, flight_targets))
+        done, _not_done = concurrent.futures.wait(futures, timeout=remaining)
+        fmap = dict(zip(futures, flight_targets, strict=False))
         for f in futures:
             if f in done:
                 priced.append(f.result())
@@ -565,7 +566,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
 
     # splits (fly to a cheaper hub, then ground it) - ground legs are one-way per-person
     # estimates: scale per-person modes ×travelers (vehicles stay flat) and ×2 on a round-trip.
-    for g, (gf, _local) in zip(gws, priced[1:]):
+    for g, (gf, _local) in zip(gws, priced[1:], strict=False):
         g["fly"] = gf
         ground_cost = trip.scale_leg_cost(g["ground_mode"], g["ground_cost"], travelers) * rt_mult
         fly_cost = _flight_cost(gf)
@@ -586,7 +587,8 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         if g.get("ferry"):
             ground_km = g["ferry"]["crossing_km"] * rt_mult
         else:
-            ground_km = geo.haversine_km(g["lat"], g["lng"], dest["lat"], dest["lng"]) * geo.ROAD_WINDING * rt_mult
+            ground_km = (geo.haversine_km(g["lat"], g["lng"], dest["lat"], dest["lng"])
+                         * geo.ROAD_WINDING * rt_mult)
         emissions_legs_by_name[name] = [
             {"mode": "fly", "distance_km": fly_km},
             {"mode": g["ground_mode"], "road_km": ground_km},
@@ -861,7 +863,8 @@ class Handler(BaseHTTPRequestHandler):
             _log_exc("/api/plan", e)
             return self._send_err(200, "internal_error", "internal error planning that route")
         if not out.get("ok"):
-            return self._send_err(200, out.get("code", "plan_failed"), out.get("error", "could not plan that route"))
+            return self._send_err(200, out.get("code", "plan_failed"),
+                                  out.get("error", "could not plan that route"))
         return self._send(200, out)
 
 
@@ -904,7 +907,8 @@ def selftest():
 
     # end-to-end plan for a click on Aspen, origin JFK - estimate mode, no network.
     # (allow_live+allow_transit False -> no provider or Transitous calls; fetch_weather=False -> offline)
-    out = plan(39.19, -106.82, origin_iata="JFK", vot=30, fetch_weather=False, allow_live=False, allow_transit=False)
+    out = plan(39.19, -106.82, origin_iata="JFK", vot=30, fetch_weather=False,
+               allow_live=False, allow_transit=False)
     check("plan ok", out.get("ok") is True)
     check("dest resolved to ASE", out["dest"]["iata"] == "ASE")
     check("pricing source is estimate (no date)", out["pricing_source"] == "estimate")
@@ -984,7 +988,8 @@ def selftest():
 
     # clicking on your own origin airport must be refused, not priced as a real "direct
     # flight" to itself off the NA short-hop floor.
-    same_origin = plan(40.64, -73.78, origin_iata="JFK", fetch_weather=False, allow_live=False, allow_transit=False)
+    same_origin = plan(40.64, -73.78, origin_iata="JFK", fetch_weather=False,
+                       allow_live=False, allow_transit=False)
     check("clicking your own origin airport is refused, not priced as a same-airport flight",
           (not same_origin["ok"]) and same_origin.get("code") == "origin_is_destination")
 
@@ -1205,8 +1210,8 @@ def selftest():
 
     # Non-ASCII digits: str.isdigit() and int() both accept these, so they used to reach
     # the engine and come back out inside verify links and price_basis text with ok:true.
-    for label, bad_date in (("Arabic-Indic", "٢٠٢٦-٠٨-١٥"),
-                            ("fullwidth", "２０２６-０８-１５")):
+    for label, bad_date in (("Arabic-Indic", "٢٠٢٦-٠٨-١٥"),  # noqa: RUF001
+                            ("fullwidth", "２０２６-０８-１５")):  # noqa: RUF001
         try:
             parse_plan_params(qs(lat="39.19", lng="-106.82", date=bad_date))
             check(f"plan: {label} digits in date rejected", False)

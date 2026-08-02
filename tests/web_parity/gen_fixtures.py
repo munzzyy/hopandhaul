@@ -101,7 +101,7 @@ def run_case(case: dict) -> dict:
 
 
 def main() -> int:
-    with open(CASES_PATH, "r", encoding="utf-8") as f:
+    with open(CASES_PATH, encoding="utf-8") as f:
         cases = json.load(f)
 
     names = [c["name"] for c in cases]
@@ -114,7 +114,7 @@ def main() -> int:
     for case in cases:
         try:
             out = run_case(case)
-        except Exception as e:  # noqa: BLE001 - a fixture that can't generate is a hard failure
+        except Exception as e:
             print(f"error generating fixture {case['name']!r}: {type(e).__name__}: {e}", file=sys.stderr)
             return 1
         with open(os.path.join(OUT_DIR, f"{case['name']}.json"), "w", encoding="utf-8") as f:

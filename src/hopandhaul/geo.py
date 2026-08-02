@@ -604,8 +604,8 @@ FIXED_LINKS = [
 
 def is_land(lat: float, lng: float) -> bool:
     g = _landgrid()
-    row = min(g["h"] - 1, max(0, int(math.floor((90.0 - lat) / g["res"]))))
-    col = min(g["w"] - 1, max(0, int(math.floor((lng + 180.0) / g["res"]))))
+    row = min(g["h"] - 1, max(0, math.floor((90.0 - lat) / g["res"])))
+    col = min(g["w"] - 1, max(0, math.floor((lng + 180.0) / g["res"])))
     i = row * g["w"] + col
     return bool(g["bits"][i >> 3] & (0x80 >> (i & 7)))
 
@@ -802,7 +802,7 @@ def _ferry_note(match: dict) -> str:
 # --------------------------------------------------------------------------- gateway discovery
 def curated_gateways(dest_iata: str) -> list[dict]:
     out = []
-    for region, entries in gateways_db().items():
+    for _region, entries in gateways_db().items():
         if not isinstance(entries, list):
             continue
         for e in entries:

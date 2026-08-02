@@ -37,6 +37,7 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import math
 import sys
@@ -452,7 +453,7 @@ def build_options(args) -> list[dict]:
     for o in args.option or []:
         raw.append((o, 1))
     if args.json_in:
-        with open(args.json_in, "r", encoding="utf-8") as f:
+        with open(args.json_in, encoding="utf-8") as f:
             data = json.load(f)
         for item in data:
             if isinstance(item, str):
@@ -467,10 +468,8 @@ def build_options(args) -> list[dict]:
 def _force_utf8():
     """Windows consoles default to cp1252 and choke on ✅ ≈ and the like; make stdout/stderr UTF-8."""
     for stream in (sys.stdout, sys.stderr):
-        try:
+        with contextlib.suppress(AttributeError, ValueError):
             stream.reconfigure(encoding="utf-8")  # py3.7+
-        except (AttributeError, ValueError):
-            pass
 
 
 def _build_parser(prog: str = "hopandhaul plan") -> argparse.ArgumentParser:
@@ -486,7 +485,8 @@ def _build_parser(prog: str = "hopandhaul plan") -> argparse.ArgumentParser:
     p.add_argument("--split", action="append", help="sugar: 'NAME: fly 210 3.0 + train 75 4.0'")
     p.add_argument("--json-in", help="read options from a JSON file (list of strings or {name,legs})")
     p.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD,
-                   help=f"min $ a split must save vs direct to be recommended (default {DEFAULT_THRESHOLD:g})")
+                   help="min $ a split must save vs direct to be recommended "
+                        f"(default {DEFAULT_THRESHOLD:g})")
     p.add_argument("--vot", type=float, default=None, help="value of time in $/hr (ranks cash vs hours)")
     p.add_argument("--transfer-buffer", type=float, default=0.0,
                    help="hours added per connection to model missed-connection risk")
@@ -600,7 +600,8 @@ def selftest():
     o5 = parse_option("X | fly $1,240 6")
     check("parses $1,240 -> 1240.0", _approx(o5["cost"], 1240.0))
     s5 = parse_option(sugar_direct("620 5.5"))
-    check("bare 'cost hours' sugars to a fly leg", s5["legs"][0]["mode"] == "fly" and _approx(s5["cost"], 620))
+    check("bare 'cost hours' sugars to a fly leg",
+          s5["legs"][0]["mode"] == "fly" and _approx(s5["cost"], 620))
     sp5 = parse_option(sugar_split("DEN via rail: fly 210 3 + train 75 4"))
     check("split sugar names + splits legs", sp5["name"] == "DEN via rail" and sp5["nlegs"] == 2)
 

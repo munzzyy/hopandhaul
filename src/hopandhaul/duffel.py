@@ -34,7 +34,6 @@ import os
 import re
 import sys
 import urllib.parse
-
 from datetime import datetime
 
 from . import _secrets, geo, itinerary, trip  # deterministic engine + report
@@ -512,7 +511,8 @@ def _format_itinerary_block(option: dict) -> str:
             f"         {leg['depart_day']} {leg['depart_clock']} -> {leg['arrive_day']} {leg['arrive_clock']}"
             f"  ({leg['duration_h']:g}h)  {tag}{carrier}")
         if leg.get("checkin_by"):
-            lines.append(f"         be at the airport by {leg['checkin_by']['day']} {leg['checkin_by']['clock']}")
+            checkin = leg["checkin_by"]
+            lines.append(f"         be at the airport by {checkin['day']} {checkin['clock']}")
         lines.append(f"         {_fmt_money(leg['cost'])} · {leg['price_basis']}")
         lines.append(f"         verify: {leg['verify_url']}")
     return "\n".join(lines)

@@ -33,7 +33,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date as _date, timedelta
+from datetime import date as _date
+from datetime import timedelta
 
 from . import duffel, trip
 from .integrations import net

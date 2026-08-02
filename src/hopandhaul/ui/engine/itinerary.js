@@ -132,7 +132,7 @@ export function ferryProvenance(ferry) {
   const lo = ferry.price_usd_lo, hi = ferry.price_usd_hi;
   const asof = ferry.price_asof || "n/a";
   if (ferry.fare_is_real && lo != null) {
-    const band = (hi != null && hi !== lo) ? `$${pyG(lo)}–$${pyG(hi)}` : `from $${pyG(lo)}`;
+    const band = (hi != null && hi !== lo) ? `$${pyG(lo)} to $${pyG(hi)}` : `from $${pyG(lo)}`;
     bits.push(`real ferry fare ${band} (${ops}; as of ${asof})`);
   } else {
     bits.push(`ferry fare estimate (${ops})`);
@@ -145,7 +145,7 @@ export function ferryProvenance(ferry) {
     bits.push("seasonal service");
   }
   if (ferry.access_cost != null) {
-    bits.push(`+ ~$${pyG(ferry.access_cost)} airport–port transfer estimate`);
+    bits.push(`+ ~$${pyG(ferry.access_cost)} airport-to-port transfer estimate`);
   }
   return bits.join("; ");
 }

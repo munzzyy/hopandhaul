@@ -236,8 +236,8 @@ def plan_multicity(home_query: str, visit_queries: list[str], *, round_trip: boo
     if len(airports) < 3:
         raise ValueError("need a home base plus at least 2 distinct cities to route a tour")
 
-    price_kwargs = dict(travelers=travelers, threshold=threshold, vot=vot,
-                        transfer_buffer=transfer_buffer, max_ground_h=max_ground_h)
+    price_kwargs = {"travelers": travelers, "threshold": threshold, "vot": vot,
+                    "transfer_buffer": transfer_buffer, "max_ground_h": max_ground_h}
     matrix, legs = build_cost_matrix(airports, **price_kwargs)
     solved = solve_tour(matrix, round_trip=round_trip)
     order = solved["order"]
@@ -454,7 +454,7 @@ def selftest() -> int:
     # split (cheaper) while BOS (a well-served major hub with no useful gateway) stays
     # direct - and running the same inputs twice must produce the identical tour and cost.
     bos = geo.by_iata("BOS")
-    matrix, legs = build_cost_matrix([jfk, ase, bos], threshold=50)
+    _matrix, legs = build_cost_matrix([jfk, ase, bos], threshold=50)
     check("build_cost_matrix prices every directed pair (3x3 minus the diagonal = 6 legs)",
           len(legs) == 6)
     check("ASE legs take the split at this threshold, BOS legs don't (no useful gateway)",
