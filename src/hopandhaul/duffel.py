@@ -36,8 +36,13 @@ import sys
 import urllib.parse
 from datetime import datetime
 
-from . import _secrets, geo, itinerary, trip  # deterministic engine + report
+from . import __version__, _secrets, geo, itinerary, trip  # deterministic engine + report
 from .integrations import net
+
+# Same identifying agent string transit.py/places.py/weather.py send. Every keyless
+# provider this repo touches asks for one, and it is what lets an operator tell our
+# traffic apart from an anonymous scraper if they ever need to.
+UA = f"hopandhaul/{__version__} (https://github.com/munzzyy/hopandhaul)"
 
 BASE = os.environ.get("DUFFEL_BASE", "https://api.duffel.com")
 DUFFEL_VERSION = os.environ.get("DUFFEL_VERSION", "v2")
@@ -90,6 +95,10 @@ FX_USD = {
 # static table stays as the offline fallback and for the long tail of currencies the ECB set
 # doesn't carry. to_usd() reports which source priced a conversion so provenance can say so.
 _FX_LIVE = {"rates": None, "tried": False}
+# Pinned to /v1 deliberately. frankfurter.dev now documents a v2 API alongside it, but
+# v2 is a different path scheme (/v2/latest is a 404), and v1 is still the supported
+# endpoint with no deprecation announced. Verify /v1/latest still answers 200 before
+# anyone "upgrades" this string.
 _FRANKFURTER = "https://api.frankfurter.dev/v1/latest?base=USD"
 
 
@@ -98,7 +107,8 @@ def _live_rates() -> dict | None:
     if not _FX_LIVE["tried"]:
         _FX_LIVE["tried"] = True
         try:
-            out = net.fetch_json(_FRANKFURTER, headers={"Accept": "application/json"},
+            out = net.fetch_json(_FRANKFURTER,
+                                 headers={"User-Agent": UA, "Accept": "application/json"},
                                  timeout=6, max_retries=0)
             rates = out.get("rates") or {}
             # frankfurter answers units-per-USD; invert to USD-per-unit like FX_USD
@@ -668,6 +678,27 @@ def selftest():
     check("a live ECB rate takes precedence over the bundled table when present",
           to_usd(100.0, "GBP") == (130.0, True) and "frankfurter" in fx_source())
     _FX_LIVE["rates"] = None
+
+    # Every keyless provider this repo calls wants an identifying User-Agent, and frankfurter
+    # was the one call still going out anonymous. Spy on the request instead of making it.
+    seen = {}
+
+    def _spy(url, headers=None, **kw):
+        seen["url"], seen["headers"] = url, headers or {}
+        return {"rates": {"EUR": 0.86}, "date": "2026-08-02"}
+
+    real_fetch = net.fetch_json
+    net.fetch_json = _spy
+    try:
+        _FX_LIVE["tried"] = False
+        _live_rates()
+    finally:
+        net.fetch_json = real_fetch
+        _FX_LIVE["tried"], _FX_LIVE["rates"] = True, None
+    check("frankfurter call sends the identifying User-Agent",
+          seen.get("headers", {}).get("User-Agent", "").startswith("hopandhaul/"))
+    check("frankfurter stays pinned to the v1 path (v2 is a different scheme)",
+          "/v1/latest" in seen.get("url", ""))
 
     o = _parse_offer({"total_amount": "241.50", "total_currency": "USD",
                       "owner": {"iata_code": "AA"},
