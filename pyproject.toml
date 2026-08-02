@@ -4,7 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hopandhaul"
-version = "0.7.1"
+# Single source of truth is src/hopandhaul/__init__.py, which is what /healthz and the
+# User-Agent strings report. Two hand-kept copies drift; this one cannot.
+dynamic = ["version"]
 description = "Flies you into the cheap airport, then tells you honestly whether the train ride is worth it."
 readme = "README.md"
 license = { text = "Prosperity Public License 3.0.0" }
@@ -48,6 +50,9 @@ select = [
 # recommendation away from what ui/engine/trip.js computes. Rewriting that loop as sum()
 # is exactly the "simplification" that breaks the web-parity gate, so it stays exempt.
 "src/hopandhaul/trip.py" = ["SIM110", "SIM111"]
+
+[tool.setuptools.dynamic]
+version = { attr = "hopandhaul.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
