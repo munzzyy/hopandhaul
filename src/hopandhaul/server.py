@@ -24,6 +24,7 @@ import datetime
 import importlib.resources
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -139,21 +140,39 @@ def _optional(q: dict, name: str) -> str | None:
     return vals[0]
 
 
+# One number grammar for both engines. float()/int() are far more permissive than the
+# browser's Number(): they take "nan", "inf", "1_0" and non-ASCII decimal digits, so the
+# same query string could be accepted here and rejected in ui/engine/validate.js. Pin
+# every numeric param to plain ASCII decimal on both sides. Written out as [0-9] on
+# purpose: Python's \d matches Unicode digits, JavaScript's does not.
+_NUM_RE = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
+_INT_RE = re.compile(r"^[+-]?[0-9]+$")
+_DIGITS_RE = re.compile(r"^[0-9]+$")
+
+
+def _ascii_float(raw, field: str) -> float:
+    v = str(raw).strip()
+    if not _NUM_RE.match(v):
+        raise ValidationError(f"{field} must be a number")
+    return float(v)
+
+
+def _ascii_int(raw, field: str) -> int:
+    v = str(raw).strip()
+    if not _INT_RE.match(v):
+        raise ValidationError(f"{field} must be a whole number")
+    return int(v)
+
+
 def _v_lat(raw: str) -> float:
-    try:
-        v = float(raw)
-    except (TypeError, ValueError):
-        raise ValidationError("lat must be a number")
+    v = _ascii_float(raw, "lat")
     if not (-90.0 <= v <= 90.0):
         raise ValidationError("lat must be between -90 and 90")
     return v
 
 
 def _v_lng(raw: str) -> float:
-    try:
-        v = float(raw)
-    except (TypeError, ValueError):
-        raise ValidationError("lng must be a number")
+    v = _ascii_float(raw, "lng")
     if not (-180.0 <= v <= 180.0):
         raise ValidationError("lng must be between -180 and 180")
     return v
@@ -174,7 +193,11 @@ def _v_date(raw: str, field: str) -> str:
     if len(v) != 10 or v[4] != "-" or v[7] != "-":
         raise ValidationError(f"{field} must be YYYY-MM-DD")
     year, month, day = v[:4], v[5:7], v[8:10]
-    if not (year.isdigit() and month.isdigit() and day.isdigit()):
+    # ASCII 0-9 only. str.isdigit() also accepts Unicode decimal digits (Arabic-Indic,
+    # fullwidth, and friends) which int() then happily parses, so a date like the one in
+    # the self-test below used to sail through here and get echoed back into verify links
+    # and price_basis text. Same guard _v_iata uses against Unicode letters.
+    if not (_DIGITS_RE.match(year) and _DIGITS_RE.match(month) and _DIGITS_RE.match(day)):
         raise ValidationError(f"{field} must be YYYY-MM-DD")
     try:
         datetime.date(int(year), int(month), int(day))
@@ -184,20 +207,14 @@ def _v_date(raw: str, field: str) -> str:
 
 
 def _v_float_range(raw: str, field: str, lo: float, hi: float) -> float:
-    try:
-        v = float(raw)
-    except (TypeError, ValueError):
-        raise ValidationError(f"{field} must be a number")
+    v = _ascii_float(raw, field)
     if not (lo <= v <= hi):
         raise ValidationError(f"{field} must be between {lo} and {hi}")
     return v
 
 
 def _v_int_range(raw: str, field: str, lo: int, hi: int) -> int:
-    try:
-        v = int(raw)
-    except (TypeError, ValueError):
-        raise ValidationError(f"{field} must be a whole number")
+    v = _ascii_int(raw, field)
     if not (lo <= v <= hi):
         raise ValidationError(f"{field} must be between {lo} and {hi}")
     return v
@@ -1185,6 +1202,26 @@ def selftest():
         check("plan: invalid calendar date rejected", False)
     except ValidationError:
         check("plan: invalid calendar date rejected", True)
+
+    # Non-ASCII digits: str.isdigit() and int() both accept these, so they used to reach
+    # the engine and come back out inside verify links and price_basis text with ok:true.
+    for label, bad_date in (("Arabic-Indic", "٢٠٢٦-٠٨-١٥"),
+                            ("fullwidth", "２０２６-０８-１５")):
+        try:
+            parse_plan_params(qs(lat="39.19", lng="-106.82", date=bad_date))
+            check(f"plan: {label} digits in date rejected", False)
+        except ValidationError:
+            check(f"plan: {label} digits in date rejected", True)
+
+    # Same class one layer down: float()/int() take these, the browser's Number() does not.
+    for field, bad_number in (("lat", "nan"), ("lat", "inf"), ("lat", "1_0"),
+                              ("threshold", "٢٠٠"), ("travelers", "2.0"),
+                              ("vot", "0x10"), ("maxGroundH", " ")):
+        try:
+            parse_plan_params(qs(**{"lat": "39.19", "lng": "-106.82", field: bad_number}))
+            check(f"plan: {field}={bad_number!r} rejected (ASCII decimal only)", False)
+        except ValidationError:
+            check(f"plan: {field}={bad_number!r} rejected (ASCII decimal only)", True)
 
     good = parse_plan_params(qs(lat="39.19", lng="-106.82", origin="jfk", travelers="4"))
     check("plan: valid params parsed and normalized (origin upper-cased)",
