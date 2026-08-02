@@ -532,7 +532,8 @@ def format_itineraries(res: dict) -> str:
 # --------------------------------------------------------------------------- CLI
 def main(argv=None):
     trip._force_utf8()
-    p = argparse.ArgumentParser(description="Live Duffel flight fetch -> trip.py ($200 rule).")
+    p = argparse.ArgumentParser(prog="hopandhaul duffel",
+                                description="Live Duffel flight fetch -> trip.py ($200 rule).")
     p.add_argument("--from", dest="origin", help="origin airport IATA (e.g. JFK)")
     p.add_argument("--to", dest="dest", help="final destination airport IATA (e.g. ASE)")
     p.add_argument("--date", help="departure date YYYY-MM-DD")

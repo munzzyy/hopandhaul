@@ -107,7 +107,8 @@ def main(argv=None):
         sys.stdout.reconfigure(encoding="utf-8")
     except (AttributeError, ValueError):
         pass
-    p = argparse.ArgumentParser(description="Geoapify geocoding for travel-scout.")
+    p = argparse.ArgumentParser(prog="python -m hopandhaul.geoapify",
+                                description="Geoapify geocoding for travel-scout.")
     p.add_argument("query", nargs="*", help="place/address to geocode")
     p.add_argument("--reverse", nargs=2, metavar=("LAT", "LNG"), help="reverse geocode a point")
     p.add_argument("--limit", type=int, default=5)

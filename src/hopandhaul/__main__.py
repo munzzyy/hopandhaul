@@ -22,10 +22,43 @@ _SUBCOMMANDS = {
     "dates": "dates",     # sweep a date window and report the cheapest one: `hopandhaul dates ...`
 }
 
+# One line each, in the order a new user should meet them rather than alphabetically.
+_DESCRIPTIONS = [
+    ("go", "plan one trip start to finish, origin and destination as codes or place names"),
+    ("serve", "open the click-the-map UI on localhost"),
+    ("dates", "sweep a window of departure dates and report the cheapest one"),
+    ("multicity", "order N cities into one tour, cheapest hop by hop"),
+    ("plan", "score routes you type in yourself (same command as `trip`)"),
+    ("trip", "alias for `plan`"),
+    ("geocode", "look up a place name and get coordinates"),
+    ("weather", "destination forecast for a travel date"),
+    ("duffel", "price real flights (needs a Duffel API key; everything else does not)"),
+]
+
+
+_UNDOCUMENTED = sorted(set(_SUBCOMMANDS) - {name for name, _ in _DESCRIPTIONS})
+if _UNDOCUMENTED:  # adding a subcommand without a help line should break, not go quiet
+    raise RuntimeError(f"_DESCRIPTIONS is missing a line for: {', '.join(_UNDOCUMENTED)}")
+
 
 def _usage() -> str:
-    names = ", ".join(sorted(_SUBCOMMANDS))
-    return f"usage: hopandhaul <subcommand> [args...]\nsubcommands: {names}"
+    width = max(len(name) for name, _ in _DESCRIPTIONS)
+    lines = [f"  {name.ljust(width)}  {desc}" for name, desc in _DESCRIPTIONS]
+    return "\n".join([
+        "usage: hopandhaul <subcommand> [args...]",
+        "",
+        "Flies you into the cheap airport, then tells you honestly whether the ground leg",
+        "is worth it. No API key needed for anything but `duffel`.",
+        "",
+        "subcommands:",
+        *lines,
+        "",
+        "examples:",
+        '  hopandhaul go JFK "Tallinn" --date 2026-08-15',
+        "  hopandhaul-serve",
+        "",
+        "Every subcommand takes --help. Every module has an offline --selftest.",
+    ])
 
 
 def main(argv=None) -> int:
@@ -42,7 +75,7 @@ def main(argv=None) -> int:
 
     if module_name == "trip":
         from . import trip
-        return trip.main(rest)
+        return trip.main(rest, prog=f"hopandhaul {cmd}")
     if module_name == "go":
         from . import go
         return go.main(rest)

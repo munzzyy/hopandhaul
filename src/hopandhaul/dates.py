@@ -184,6 +184,7 @@ def _json_summary(out: dict) -> dict:
 def main(argv=None):
     trip._force_utf8()
     p = argparse.ArgumentParser(
+        prog="hopandhaul dates",
         description="Sweep dates around --date and report the actual cheapest one to fly "
                     "- same per-date pricing `hopandhaul duffel` uses.")
     p.add_argument("--from", dest="origin", help="origin airport IATA (e.g. JFK)")

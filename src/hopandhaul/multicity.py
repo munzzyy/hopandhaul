@@ -302,8 +302,9 @@ def _split_visits(raw: list[str]) -> list[str]:
     return out
 
 
-def _build_parser() -> argparse.ArgumentParser:
+def _build_parser(prog: str = "hopandhaul multicity") -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
+        prog=prog,
         description="Multi-city tour optimizer: order N cities into one trip, "
                     "flight+ground leg by leg, with the $200 fly-then-train rule per hop.")
     p.add_argument("--home", help="home base airport code or city, e.g. DEN")

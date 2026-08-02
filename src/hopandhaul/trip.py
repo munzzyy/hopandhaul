@@ -473,8 +473,12 @@ def _force_utf8():
             pass
 
 
-def _build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Cheapest-route engine with the $200 fly-then-train rule.")
+def _build_parser(prog: str = "hopandhaul plan") -> argparse.ArgumentParser:
+    # prog is threaded in because this one parser backs two subcommand names ("plan" and
+    # "trip"); without it argparse infers "hopandhaul" from argv[0] and prints a usage line
+    # that fails the moment anyone copies it.
+    p = argparse.ArgumentParser(prog=prog,
+                                description="Cheapest-route engine with the $200 fly-then-train rule.")
     p.add_argument("--to", dest="dest", help="final destination (label only)")
     p.add_argument("--from", dest="origin", help="origin (label only)")
     p.add_argument("-o", "--option", action="append", help="canonical option: 'NAME | mode cost hours ; ...'")
@@ -524,9 +528,9 @@ def _run(args) -> int:
     return 0
 
 
-def main(argv=None):
+def main(argv=None, prog: str = "hopandhaul plan"):
     _force_utf8()
-    p = _build_parser()
+    p = _build_parser(prog)
     args = p.parse_args(argv)
 
     if args.selftest:

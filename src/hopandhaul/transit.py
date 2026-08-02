@@ -163,7 +163,8 @@ def describe(t: dict) -> str:
 
 # --------------------------------------------------------------------------- CLI
 def main(argv=None):
-    p = argparse.ArgumentParser(description="Real ground schedules via Transitous (keyless).")
+    p = argparse.ArgumentParser(prog="python -m hopandhaul.transit",
+                                description="Real ground schedules via Transitous (keyless).")
     p.add_argument("coords", nargs="*", help="FROM_LAT FROM_LNG TO_LAT TO_LNG")
     p.add_argument("--date", default=None, help="YYYY-MM-DD")
     p.add_argument("--mode", default=None, help="prefer itineraries whose main mode matches")

@@ -83,6 +83,7 @@ def _with_private_rows(result: dict) -> dict:
 def main(argv=None) -> int:
     trip._force_utf8()
     p = argparse.ArgumentParser(
+        prog="hopandhaul go",
         description="One-shot trip plan with the $200 fly-then-ground rule. Zero keys needed.")
     p.add_argument("origin", nargs="?", help="origin airport code or city (e.g. JFK, 'New York')")
     p.add_argument("dest", nargs="?", help="destination code or place (e.g. TLL, 'Santorini')")

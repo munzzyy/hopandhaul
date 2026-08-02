@@ -188,7 +188,8 @@ def main(argv=None):
         sys.stdout.reconfigure(encoding="utf-8")
     except (AttributeError, ValueError):
         pass
-    p = argparse.ArgumentParser(description="Destination weather via Open-Meteo (keyless).")
+    p = argparse.ArgumentParser(prog="hopandhaul weather",
+                                description="Destination weather via Open-Meteo (keyless).")
     p.add_argument("coords", nargs="*", help="LAT LNG")
     p.add_argument("--date", default=None, help="travel date YYYY-MM-DD")
     p.add_argument("--metric", action="store_true")

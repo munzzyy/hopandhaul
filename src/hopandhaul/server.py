@@ -1270,10 +1270,13 @@ def selftest():
     return 1 if fails else 0
 
 
-def main(argv=None) -> int:
+def main(argv=None, prog: str = "hopandhaul serve") -> int:
     """Console-script entry point (`hopandhaul-serve`)."""
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=DEFAULT_PORT)
+    ap = argparse.ArgumentParser(
+        prog=prog,
+        description="Serve the click-the-map UI on 127.0.0.1. No keys needed.")
+    ap.add_argument("--port", type=int, default=DEFAULT_PORT,
+                    help=f"port to bind on localhost (default {DEFAULT_PORT})")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
     if args.selftest:

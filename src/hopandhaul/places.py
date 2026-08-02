@@ -95,7 +95,8 @@ def main(argv=None):
         sys.stdout.reconfigure(encoding="utf-8")
     except (AttributeError, ValueError):
         pass
-    p = argparse.ArgumentParser(description="Place search (Photon keyless; Geoapify when keyed).")
+    p = argparse.ArgumentParser(prog="hopandhaul geocode",
+                                description="Place search (Photon keyless; Geoapify when keyed).")
     p.add_argument("query", nargs="*", help="place to search")
     p.add_argument("--limit", type=int, default=5)
     p.add_argument("--json", action="store_true")

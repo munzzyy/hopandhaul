@@ -40,6 +40,11 @@ jobs:
       - name: i18n catalogs (parse, key parity, placeholders)
         run: python tools/check_i18n.py
 
+      # Every subcommand builds its own parser, so a missing prog= silently prints a usage
+      # line that fails when copied. See tools/check_cli_help.py.
+      - name: CLI help (every usage line is copy-runnable)
+        run: python tools/check_cli_help.py
+
       - name: Self-test every module (offline, no keys required)
         run: |
           python -m hopandhaul.trip --selftest
