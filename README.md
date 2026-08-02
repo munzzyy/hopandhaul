@@ -63,13 +63,11 @@ Python one.
 ## Quick start
 
 ```
-pipx install git+https://github.com/munzzyy/hopandhaul
+pipx install hopandhaul
 hopandhaul-serve
 ```
 
-(`pip install git+https://github.com/munzzyy/hopandhaul` works the same if you'd rather not
-use pipx. The published PyPI package is behind at 0.7.0 and does not have `multicity` or
-`dates` yet, so install from the repo until the next release lands.)
+(`pip install hopandhaul` works the same if you'd rather not use pipx.)
 
 Then open `http://127.0.0.1:8770` and click anywhere on the map. Or skip the map entirely:
 
