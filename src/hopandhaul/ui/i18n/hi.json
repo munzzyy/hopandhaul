@@ -125,5 +125,18 @@
   "lang.buttonAria": "भाषा चुनें",
   "lang.title": "भाषा",
   "lang.filter": "भाषाएं फ़िल्टर करें…",
-  "lang.close": "बंद करें"
+  "lang.close": "बंद करें",
+  "dates.head": "उड़ान का सबसे सस्ता दिन (±{window} दिन)",
+  "dates.loading": "आसपास की तारीखें जाँची जा रही हैं…",
+  "dates.failed": "आसपास की तारीखें नहीं जाँची जा सकीं। ऊपर की योजना अब भी लागू है।",
+  "dates.rowFailed": "कीमत नहीं",
+  "dates.cheapest": "सबसे सस्ता",
+  "dates.cheapestNote": "{date} इस अवधि का सबसे सस्ता दिन है, {money} में, यानी आपकी चुनी तारीख से {savings} कम।",
+  "dates.cheapestPlain": "{date} इस अवधि का सबसे सस्ता दिन है, {money} में।",
+  "dates.sameDay": "आपने जो तारीख चुनी है वह पहले से ही इस अवधि की सबसे सस्ती है।",
+  "dates.notComparable": "कुछ दिनों की कीमत लाइव ली गई और कुछ का अनुमान लगाया गया, इसलिए इनकी सीधी तुलना नहीं हो सकती। सबसे सस्ते दिन को संकेत मानें, तथ्य नहीं।",
+  "dates.basis.live": "लाइव",
+  "dates.basis.estimate": "अनुमान",
+  "dates.basis.mixed": "आंशिक लाइव",
+  "dates.pickAria": "इसके बजाय {date} की योजना बनाएँ"
 }

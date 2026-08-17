@@ -125,5 +125,18 @@
   "lang.buttonAria": "ভাষা বেছে নিন",
   "lang.title": "ভাষা",
   "lang.filter": "ভাষা ফিল্টার করুন…",
-  "lang.close": "বন্ধ করুন"
+  "lang.close": "বন্ধ করুন",
+  "dates.head": "সবচেয়ে সস্তা উড়ানের দিন (±{window} দিন)",
+  "dates.loading": "কাছাকাছি তারিখ দেখা হচ্ছে…",
+  "dates.failed": "কাছাকাছি তারিখ দেখা যায়নি। উপরের পরিকল্পনা এখনও প্রযোজ্য।",
+  "dates.rowFailed": "দাম নেই",
+  "dates.cheapest": "সবচেয়ে সস্তা",
+  "dates.cheapestNote": "{date} এই সময়সীমার সবচেয়ে সস্তা দিন, {money} দামে, যা আপনার বেছে নেওয়া তারিখের চেয়ে {savings} কম।",
+  "dates.cheapestPlain": "{date} এই সময়সীমার সবচেয়ে সস্তা দিন, {money} দামে।",
+  "dates.sameDay": "আপনার বেছে নেওয়া তারিখই এই সময়সীমার সবচেয়ে সস্তা।",
+  "dates.notComparable": "কিছু দিনের দাম সরাসরি নেওয়া হয়েছে, কিছুর অনুমান করা হয়েছে, তাই সরাসরি তুলনা চলে না। সবচেয়ে সস্তা দিনটিকে ইঙ্গিত ধরুন, তথ্য নয়।",
+  "dates.basis.live": "লাইভ",
+  "dates.basis.estimate": "আনুমানিক",
+  "dates.basis.mixed": "আংশিক সরাসরি",
+  "dates.pickAria": "এর বদলে {date} পরিকল্পনা করুন"
 }

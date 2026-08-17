@@ -125,5 +125,18 @@
   "lang.buttonAria": "Pasirinkti kalbą",
   "lang.title": "Kalba",
   "lang.filter": "Filtruoti kalbas…",
-  "lang.close": "Uždaryti"
+  "lang.close": "Uždaryti",
+  "dates.head": "Pigiausia skrydžio diena (±{window} d.)",
+  "dates.loading": "Tikrinamos artimos datos…",
+  "dates.failed": "Nepavyko patikrinti artimų datų. Aukščiau pateiktas planas vis dar galioja.",
+  "dates.rowFailed": "nėra kainos",
+  "dates.cheapest": "pigiausia",
+  "dates.cheapestNote": "{date} yra pigiausia diena šiame lange, už {money}, tai {savings} mažiau nei pasirinkta data.",
+  "dates.cheapestPlain": "{date} yra pigiausia diena šiame lange, už {money}.",
+  "dates.sameDay": "Pasirinkta data jau yra pigiausia šiame lange.",
+  "dates.notComparable": "Vienos dienos įkainotos tiesiogiai, kitos įvertintos apytiksliai, todėl jų negalima tiesiogiai lyginti. Pigiausią dieną laikykite užuomina, o ne faktu.",
+  "dates.basis.live": "tiesiogiai",
+  "dates.basis.estimate": "įv.",
+  "dates.basis.mixed": "iš dalies tiesiogiai",
+  "dates.pickAria": "Planuoti {date} vietoj to"
 }

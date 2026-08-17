@@ -125,5 +125,18 @@
   "lang.buttonAria": "Alege limba",
   "lang.title": "Limbă",
   "lang.filter": "Filtrează limbile…",
-  "lang.close": "Închide"
+  "lang.close": "Închide",
+  "dates.head": "Cea mai ieftină zi de zbor (±{window} zile)",
+  "dates.loading": "Verific datele apropiate…",
+  "dates.failed": "Nu am putut verifica datele apropiate. Planul de mai sus rămâne valabil.",
+  "dates.rowFailed": "fără preț",
+  "dates.cheapest": "cel mai ieftin",
+  "dates.cheapestNote": "{date} este cea mai ieftină zi din această fereastră, la {money}, cu {savings} mai puțin decât data aleasă.",
+  "dates.cheapestPlain": "{date} este cea mai ieftină zi din această fereastră, la {money}.",
+  "dates.sameDay": "Data aleasă este deja cea mai ieftină din această fereastră.",
+  "dates.notComparable": "Unele zile au fost cotate live, altele estimate, deci nu pot fi comparate direct. Ia cea mai ieftină zi ca indiciu, nu ca fapt.",
+  "dates.basis.live": "live",
+  "dates.basis.estimate": "est.",
+  "dates.basis.mixed": "parțial live",
+  "dates.pickAria": "Planifică {date} în schimb"
 }

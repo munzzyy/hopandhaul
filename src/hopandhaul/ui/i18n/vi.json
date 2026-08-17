@@ -125,5 +125,18 @@
   "lang.buttonAria": "Chọn ngôn ngữ",
   "lang.title": "Ngôn ngữ",
   "lang.filter": "Lọc ngôn ngữ…",
-  "lang.close": "Đóng"
+  "lang.close": "Đóng",
+  "dates.head": "Ngày bay rẻ nhất (±{window} ngày)",
+  "dates.loading": "Đang kiểm tra các ngày lân cận…",
+  "dates.failed": "Không kiểm tra được các ngày lân cận. Phương án ở trên vẫn còn hiệu lực.",
+  "dates.rowFailed": "không có giá",
+  "dates.cheapest": "rẻ nhất",
+  "dates.cheapestNote": "{date} là ngày rẻ nhất trong khoảng này, với {money}, tức là ít hơn {savings} so với ngày bạn chọn.",
+  "dates.cheapestPlain": "{date} là ngày rẻ nhất trong khoảng này, với {money}.",
+  "dates.sameDay": "Ngày bạn chọn đã là ngày rẻ nhất trong khoảng này.",
+  "dates.notComparable": "Một số ngày được báo giá trực tiếp, một số là ước tính, nên không so sánh trực tiếp được. Hãy xem ngày rẻ nhất như một gợi ý, không phải một sự thật.",
+  "dates.basis.live": "giá thực",
+  "dates.basis.estimate": "ước tính",
+  "dates.basis.mixed": "một phần giá thực",
+  "dates.pickAria": "Lên kế hoạch cho {date} thay vào đó"
 }

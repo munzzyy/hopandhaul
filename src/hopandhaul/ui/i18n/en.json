@@ -125,5 +125,18 @@
   "lang.buttonAria": "Choose language",
   "lang.title": "Language",
   "lang.filter": "Filter languages…",
-  "lang.close": "Close"
+  "lang.close": "Close",
+  "dates.head": "Cheapest day to fly (±{window} days)",
+  "dates.loading": "Checking nearby dates…",
+  "dates.failed": "Couldn't check nearby dates. The plan above still stands.",
+  "dates.rowFailed": "no price",
+  "dates.cheapest": "cheapest",
+  "dates.cheapestNote": "{date} is the cheapest day in this window at {money}, {savings} less than the date you picked.",
+  "dates.cheapestPlain": "{date} is the cheapest day in this window at {money}.",
+  "dates.sameDay": "The date you picked is already the cheapest in this window.",
+  "dates.notComparable": "Some days were priced live and some by estimate, so they aren't directly comparable. Treat the cheapest day as a hint, not a fact.",
+  "dates.basis.live": "live",
+  "dates.basis.estimate": "est.",
+  "dates.basis.mixed": "part live",
+  "dates.pickAria": "Plan {date} instead"
 }

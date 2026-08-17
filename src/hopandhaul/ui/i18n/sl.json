@@ -125,5 +125,18 @@
   "lang.buttonAria": "Izberi jezik",
   "lang.title": "Jezik",
   "lang.filter": "Filtriraj jezike…",
-  "lang.close": "Zapri"
+  "lang.close": "Zapri",
+  "dates.head": "Najcenejši dan za let (±{window} dni)",
+  "dates.loading": "Preverjam bližnje datume…",
+  "dates.failed": "Bližnjih datumov ni bilo mogoče preveriti. Načrt zgoraj še vedno velja.",
+  "dates.rowFailed": "ni cene",
+  "dates.cheapest": "najceneje",
+  "dates.cheapestNote": "{date} je najcenejši dan v tem oknu, za {money}, kar je {savings} manj od izbranega datuma.",
+  "dates.cheapestPlain": "{date} je najcenejši dan v tem oknu, za {money}.",
+  "dates.sameDay": "Izbrani datum je že najcenejši v tem oknu.",
+  "dates.notComparable": "Nekateri dnevi so bili ovrednoteni v živo, drugi ocenjeni, zato jih ni mogoče neposredno primerjati. Najcenejši dan vzemi kot namig, ne kot dejstvo.",
+  "dates.basis.live": "v živo",
+  "dates.basis.estimate": "ocena",
+  "dates.basis.mixed": "delno v živo",
+  "dates.pickAria": "Namesto tega načrtuj {date}"
 }

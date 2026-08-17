@@ -125,5 +125,18 @@
   "lang.buttonAria": "Tria l'idioma",
   "lang.title": "Idioma",
   "lang.filter": "Filtra idiomes…",
-  "lang.close": "Tanca"
+  "lang.close": "Tanca",
+  "dates.head": "Dia més barat per volar (±{window} dies)",
+  "dates.loading": "Comprovant dates properes…",
+  "dates.failed": "No s'han pogut comprovar les dates properes. El pla de dalt continua sent vàlid.",
+  "dates.rowFailed": "sense preu",
+  "dates.cheapest": "més barat",
+  "dates.cheapestNote": "{date} és el dia més barat d'aquesta finestra, a {money}, {savings} menys que la data que has triat.",
+  "dates.cheapestPlain": "{date} és el dia més barat d'aquesta finestra, a {money}.",
+  "dates.sameDay": "La data que has triat ja és la més barata d'aquesta finestra.",
+  "dates.notComparable": "Alguns dies s'han preuat en directe i altres per estimació, així que no són directament comparables. Pren el dia més barat com una pista, no com un fet.",
+  "dates.basis.live": "en directe",
+  "dates.basis.estimate": "est.",
+  "dates.basis.mixed": "en part directe",
+  "dates.pickAria": "Planifica {date} en lloc d'això"
 }

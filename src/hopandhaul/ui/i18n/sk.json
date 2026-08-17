@@ -125,5 +125,18 @@
   "lang.buttonAria": "Vybrať jazyk",
   "lang.title": "Jazyk",
   "lang.filter": "Filtrovať jazyky…",
-  "lang.close": "Zavrieť"
+  "lang.close": "Zavrieť",
+  "dates.head": "Najlacnejší deň na let (±{window} dní)",
+  "dates.loading": "Kontrolujem blízke termíny…",
+  "dates.failed": "Blízke termíny sa nepodarilo skontrolovať. Plán vyššie stále platí.",
+  "dates.rowFailed": "bez ceny",
+  "dates.cheapest": "najlacnejší",
+  "dates.cheapestNote": "{date} je najlacnejší deň v tomto okne, za {money}, teda o {savings} menej než vybraný dátum.",
+  "dates.cheapestPlain": "{date} je najlacnejší deň v tomto okne, za {money}.",
+  "dates.sameDay": "Vybraný dátum je už v tomto okne najlacnejší.",
+  "dates.notComparable": "Niektoré dni boli ocenené naživo a iné odhadom, takže sa nedajú priamo porovnať. Ber najlacnejší deň ako vodidlo, nie ako fakt.",
+  "dates.basis.live": "aktuálne",
+  "dates.basis.estimate": "odh.",
+  "dates.basis.mixed": "čiastočne naživo",
+  "dates.pickAria": "Naplánovať namiesto toho {date}"
 }

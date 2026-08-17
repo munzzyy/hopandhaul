@@ -125,5 +125,18 @@
   "lang.buttonAria": "انتخاب زبان",
   "lang.title": "زبان",
   "lang.filter": "فیلتر زبان‌ها…",
-  "lang.close": "بستن"
+  "lang.close": "بستن",
+  "dates.head": "ارزان‌ترین روز پرواز (±{window} روز)",
+  "dates.loading": "در حال بررسی تاریخ‌های نزدیک…",
+  "dates.failed": "بررسی تاریخ‌های نزدیک ممکن نشد. برنامهٔ بالا همچنان معتبر است.",
+  "dates.rowFailed": "بدون قیمت",
+  "dates.cheapest": "ارزان‌ترین",
+  "dates.cheapestNote": "{date} ارزان‌ترین روز در این بازه است، با {money}، یعنی {savings} کمتر از تاریخی که انتخاب کردید.",
+  "dates.cheapestPlain": "{date} ارزان‌ترین روز در این بازه است، با {money}.",
+  "dates.sameDay": "تاریخی که انتخاب کردید همین حالا ارزان‌ترین روز این بازه است.",
+  "dates.notComparable": "قیمت برخی روزها لحظه‌ای و برخی تخمینی است، پس مستقیم قابل مقایسه نیستند. ارزان‌ترین روز را یک راهنما بدانید، نه یک واقعیت.",
+  "dates.basis.live": "لحظه‌ای",
+  "dates.basis.estimate": "تخمینی",
+  "dates.basis.mixed": "تا حدی لحظه‌ای",
+  "dates.pickAria": "به جای آن {date} برنامه‌ریزی شود"
 }

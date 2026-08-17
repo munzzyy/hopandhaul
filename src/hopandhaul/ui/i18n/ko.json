@@ -125,5 +125,18 @@
   "lang.buttonAria": "언어 선택",
   "lang.title": "언어",
   "lang.filter": "언어 검색…",
-  "lang.close": "닫기"
+  "lang.close": "닫기",
+  "dates.head": "가장 저렴한 출발일 (±{window}일)",
+  "dates.loading": "가까운 날짜 확인 중…",
+  "dates.failed": "가까운 날짜를 확인하지 못했습니다. 위 계획은 그대로 유효합니다.",
+  "dates.rowFailed": "가격 없음",
+  "dates.cheapest": "최저가",
+  "dates.cheapestNote": "{date}이 이 기간에서 가장 저렴한 날이며 {money}입니다. 선택한 날짜보다 {savings} 저렴합니다.",
+  "dates.cheapestPlain": "{date}이 이 기간에서 가장 저렴한 날이며 {money}입니다.",
+  "dates.sameDay": "선택한 날짜가 이미 이 기간에서 가장 저렴합니다.",
+  "dates.notComparable": "일부 날짜는 실시간 요금이고 일부는 추정치라 바로 비교할 수 없습니다. 가장 저렴한 날은 사실이 아니라 참고로 보세요.",
+  "dates.basis.live": "실시간",
+  "dates.basis.estimate": "예상",
+  "dates.basis.mixed": "일부 실시간",
+  "dates.pickAria": "대신 {date}로 계획하기"
 }

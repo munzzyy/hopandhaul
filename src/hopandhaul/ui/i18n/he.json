@@ -125,5 +125,18 @@
   "lang.buttonAria": "בחירת שפה",
   "lang.title": "שפה",
   "lang.filter": "סינון שפות…",
-  "lang.close": "סגירה"
+  "lang.close": "סגירה",
+  "dates.head": "היום הזול ביותר לטוס (±{window} ימים)",
+  "dates.loading": "בודק תאריכים סמוכים…",
+  "dates.failed": "לא ניתן היה לבדוק תאריכים סמוכים. התוכנית שלמעלה עדיין תקפה.",
+  "dates.rowFailed": "אין מחיר",
+  "dates.cheapest": "הזול ביותר",
+  "dates.cheapestNote": "{date} הוא היום הזול ביותר בחלון הזה, במחיר {money}, כלומר {savings} פחות מהתאריך שבחרת.",
+  "dates.cheapestPlain": "{date} הוא היום הזול ביותר בחלון הזה, במחיר {money}.",
+  "dates.sameDay": "התאריך שבחרת הוא כבר הזול ביותר בחלון הזה.",
+  "dates.notComparable": "חלק מהימים תומחרו בזמן אמת וחלקם בהערכה, ולכן אי אפשר להשוות ביניהם ישירות. קח את היום הזול ביותר כרמז, לא כעובדה.",
+  "dates.basis.live": "בזמן אמת",
+  "dates.basis.estimate": "הערכה",
+  "dates.basis.mixed": "חלקית בזמן אמת",
+  "dates.pickAria": "לתכנן את {date} במקום"
 }

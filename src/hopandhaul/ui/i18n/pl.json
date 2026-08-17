@@ -125,5 +125,18 @@
   "lang.buttonAria": "Wybierz język",
   "lang.title": "Język",
   "lang.filter": "Filtruj języki…",
-  "lang.close": "Zamknij"
+  "lang.close": "Zamknij",
+  "dates.head": "Najtańszy dzień na lot (±{window} dni)",
+  "dates.loading": "Sprawdzam pobliskie daty…",
+  "dates.failed": "Nie udało się sprawdzić pobliskich dat. Plan powyżej nadal obowiązuje.",
+  "dates.rowFailed": "brak ceny",
+  "dates.cheapest": "najtaniej",
+  "dates.cheapestNote": "{date} to najtańszy dzień w tym oknie, za {money}, czyli o {savings} mniej niż wybrana data.",
+  "dates.cheapestPlain": "{date} to najtańszy dzień w tym oknie, za {money}.",
+  "dates.sameDay": "Wybrana data jest już najtańsza w tym oknie.",
+  "dates.notComparable": "Część dni wyceniono na żywo, a część szacunkowo, więc nie da się ich porównać wprost. Potraktuj najtańszy dzień jako wskazówkę, nie fakt.",
+  "dates.basis.live": "na żywo",
+  "dates.basis.estimate": "szac.",
+  "dates.basis.mixed": "częściowo na żywo",
+  "dates.pickAria": "Zaplanuj zamiast tego {date}"
 }

@@ -31,7 +31,7 @@ import urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
-from . import __version__, emissions, geo, itinerary, trip
+from . import __version__, dates, emissions, geo, itinerary, trip
 from .integrations import net
 try:
     from . import flights     # live flight pricing (Duffel, optional key)
@@ -255,6 +255,19 @@ def parse_plan_params(q: dict) -> dict:
     return out
 
 
+def parse_dates_params(q: dict) -> dict:
+    """Validate every /api/dates query param. Raises ValidationError with a safe message.
+    Same params as /api/plan plus `window`, except that `date` is required here - a sweep
+    with no day to centre on has nothing to compare against."""
+    out = parse_plan_params(q)
+    if not out["date"]:
+        raise ValidationError("date is required")
+    window = _optional(q, "window")
+    out["window"] = (_v_int_range(window, "window", 0, DATES_MAX_WINDOW)
+                     if window else DATES_DEFAULT_WINDOW)
+    return out
+
+
 def parse_geocode_params(q: dict) -> dict:
     text = _v_query_text(_require(q, "q"))
     limit = _optional(q, "limit")
@@ -456,7 +469,8 @@ def _ground_leg_spec(g, dest, cost, road_km):
 
 def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=200.0,
          max_ground_h=6.0, roundtrip=False, fetch_weather=True, travelers=1,
-         ret=None, transfer_buffer=1.0, allow_live=True, allow_transit=True):
+         ret=None, transfer_buffer=1.0, allow_live=True, allow_transit=True,
+         time_budget_s=None):
     origin = geo.by_iata(origin_iata)
     if not origin:
         return {"ok": False, "error": f"unknown origin airport '{origin_iata}'", "code": "unknown_origin"}
@@ -527,8 +541,11 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     # each live offer-request is a slow, independent round-trip, so a click stays responsive.
     # A shared deadline bounds the whole fan-out: one slow provider degrades to estimates
     # instead of holding every thread for its own full per-call timeout.
+    # A caller that runs plan() several times back to back (sweep_dates) has to divide ONE
+    # wall-clock budget between them, so it passes its own share in here. Left unset this is
+    # the single-click budget it has always been.
     flight_targets = [dest] + list(gws)
-    deadline = time.monotonic() + PLAN_TIME_BUDGET_S
+    deadline = time.monotonic() + (time_budget_s or PLAN_TIME_BUDGET_S)
 
     def _price(target):
         local = {}
@@ -720,6 +737,188 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     }
 
 
+# --------------------------------------------------------------------------- date sweep
+DATES_DEFAULT_WINDOW = dates.DEFAULT_WINDOW    # 3 days each way -> 7 dates priced
+DATES_MAX_WINDOW = dates.MAX_WINDOW            # 7 days each way -> 15 dates, the hard cap
+
+# Wall-clock ceiling for the LIVE pass, sized to fit under Handler.timeout (15s) with the
+# re-price below still to pay for. That 15 is the socket timeout on the connection serving this
+# request, so a sweep that runs past it hands the browser a dead connection instead of an answer,
+# and the live path can genuinely run that long: 15 dates x ~5 gateway lookups x 2 HTTP calls
+# each, against a 2 req/s bucket, is minutes of tokens. The arithmetic that has to hold is
+# probe (~0.1s) + this + a full offline re-price (~1s for 15 dates) < 15.
+DATES_TIME_BUDGET_S = 10.0
+# Per-date share of that budget. Capped so one slow date can't eat the window's whole allowance
+# and leave the rest with nothing.
+DATES_MAX_PER_DATE_S = 6.0
+
+
+def _sweep_row(res: dict, cand: str, cand_ret: str | None) -> dict:
+    """One plan() result reduced to a sweep row: the recommended option's cost, effective
+    hours and pricing basis, and nothing else. The full result is deliberately dropped - the
+    UI re-fetches the chosen date through /api/plan the moment its chip is clicked, so
+    embedding 15 itineraries here would multiply the response for data nobody reads."""
+    if not res.get("ok"):
+        return {"date": cand, "return_date": cand_ret, "ok": False,
+                "error": res.get("error", "could not price that date"),
+                "code": res.get("code", "date_lookup_failed")}
+    result = res["result"]
+    # plan() strips "_"-prefixed keys, so _recommended_row is gone by the time we see it and
+    # the recommended option has to be found by name (dates.sweep() reads it straight off the
+    # private key because build_and_evaluate hands back the unstripped result).
+    rec = next((o for o in result["options"] if o["name"] == result.get("recommended")), None)
+    if rec is None:
+        return {"date": cand, "return_date": cand_ret, "ok": False,
+                "error": "could not price that date", "code": "date_lookup_failed"}
+    return {"date": cand, "return_date": cand_ret, "ok": True,
+            "recommended": rec["name"], "cost": rec["cost"], "hours": rec["hours_eff"],
+            "basis": dates.basis_of_legs(rec["itinerary"]["legs"]),
+            "pricing_source": res["pricing_source"], "savings_vs_anchor": None}
+
+
+def sweep_dates(dest_lat, dest_lng, origin_iata="JFK", date=None,
+                window=DATES_DEFAULT_WINDOW, vot=None, threshold=trip.DEFAULT_THRESHOLD,
+                max_ground_h=6.0, roundtrip=False, travelers=1, ret=None,
+                transfer_buffer=1.0, allow_live=True, allow_transit=False,
+                fetch_weather=False) -> dict:
+    """Price `date` +/- window days with plan(), one call per candidate date, and report which
+    day actually comes out cheapest.
+
+    This is the map UI's twin of dates.sweep(), which answers the same question for the CLI on
+    top of duffel.build_and_evaluate(). The two orchestrators stay separate on purpose - the CLI
+    one is the only path with cabin/nonstop control, and the browser engine ports plan(), not
+    build_and_evaluate() - but both build their window, label their basis and break their ties
+    through the same three helpers in dates.py, so the two answers can never drift apart.
+
+    A return date shifts by the same number of days as its paired departure, so a round trip's
+    LENGTH stays fixed while its placement in the window moves.
+
+    Transit and weather are off for every date: real ground schedules cost up to 9s per plan and
+    do not change which DATE is cheapest - fares do. The date the user picks gets a full
+    /api/plan, transit and all, the moment its chip is clicked.
+
+    Returns the usual {"ok": False, "error", "code"} on failure, or a sweep with one row per
+    candidate date in chronological order. `comparable` is the row set's honesty flag, computed
+    from the rows that actually priced: the sweep works fairly hard to keep it true (see the
+    re-price below), and a false means the winner is a hint rather than a fact.
+    """
+    if not date:
+        return _err("invalid_param", "date is required")
+    try:
+        window = int(window)
+    except (TypeError, ValueError):
+        return _err("invalid_param", f"window must be between 0 and {DATES_MAX_WINDOW}")
+    if not (0 <= window <= DATES_MAX_WINDOW):
+        return _err("invalid_param", f"window must be between 0 and {DATES_MAX_WINDOW}")
+
+    try:
+        candidates = dates.candidate_dates(date, window)
+        trip_len = ((datetime.date.fromisoformat(ret) - datetime.date.fromisoformat(date)).days
+                    if ret else None)
+    except ValueError:
+        return _err("invalid_param", "date must be YYYY-MM-DD")
+    if trip_len is not None and trip_len < 0:
+        return _err("invalid_param", "return date must be on or after the depart date")
+    if not candidates:
+        return _err("dates_all_past", "every date in that window is already in the past")
+
+    # plan()'s three structural refusals - unknown origin, no airport near the click, clicking
+    # your own origin - depend on the origin and the clicked point and never on the date, so
+    # they would come back identical for every candidate. Probe once, offline (this branch of
+    # plan() touches no network at all), and fail the whole sweep with the real reason instead
+    # of emitting N byte-identical error rows and then reporting "no date could be priced".
+    probe = plan(dest_lat, dest_lng, origin_iata=origin_iata, date=candidates[0],
+                 max_ground_h=max_ground_h, allow_live=False, allow_transit=False,
+                 fetch_weather=False)
+    if not probe.get("ok"):
+        return _err(probe.get("code", "plan_failed"),
+                    probe.get("error", "could not plan that route"))
+
+    def _ret_for(cand):
+        if trip_len is None:
+            return None
+        d = datetime.date.fromisoformat(cand) + datetime.timedelta(days=trip_len)
+        return d.isoformat()
+
+    def _price_window(live):
+        """Price every candidate date. Returns (rows, ran_out_of_budget). The budget is shared
+        across the window and re-divided by however many dates are still unpriced, so an early
+        slow date borrows from the ones after it instead of from all of them."""
+        rows, ran_out = [], False
+        deadline = time.monotonic() + DATES_TIME_BUDGET_S
+        for i, cand in enumerate(candidates):
+            cand_ret = _ret_for(cand)
+            per_date, date_live = None, live
+            if live:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    date_live, ran_out = False, True
+                else:
+                    per_date = min(DATES_MAX_PER_DATE_S, remaining / (len(candidates) - i))
+            try:
+                res = plan(dest_lat, dest_lng, origin_iata=origin_iata, date=cand, vot=vot,
+                           threshold=threshold, max_ground_h=max_ground_h, roundtrip=roundtrip,
+                           travelers=travelers, ret=cand_ret, transfer_buffer=transfer_buffer,
+                           allow_live=date_live, allow_transit=False, fetch_weather=False,
+                           time_budget_s=per_date)
+            except Exception as e:   # one bad date degrades that date, never the whole sweep
+                _log_exc("sweep_dates", e)
+                rows.append({"date": cand, "return_date": cand_ret, "ok": False,
+                             "error": "could not price that date", "code": "date_lookup_failed"})
+                continue
+            rows.append(_sweep_row(res, cand, cand_ret))
+        return rows, ran_out
+
+    # ALL-LIVE OR ALL-ESTIMATE, never a mix. A window where some days carry a real fare and the
+    # rest carry the model is not a comparison at all: the "cheapest day" it reports is whichever
+    # day the estimator happened to price low, and nothing on screen says so. Starving partway
+    # through is the normal case here, not the edge case - two rate limiters sit in series on the
+    # live path, _DUFFEL_BUCKET above (non-blocking; a miss silently degrades that leg to an
+    # estimate) and duffel's own blocking bucket underneath. So: take a token before committing
+    # to live at all, and if the live pass still comes back on more than one basis, throw it away
+    # and re-price the whole window offline. That second pass is pure CPU (~0.08s a date), which
+    # is a cheap price for an answer the user can actually act on.
+    want_live = bool(allow_live and flights and flights.have_keys()
+                     and _DUFFEL_BUCKET.try_take(1.0))
+    rows, ran_out = _price_window(want_live)
+    live_cut_off = False
+    if want_live and (ran_out or len({r["basis"] for r in rows if r["ok"]}) > 1):
+        rows, _ = _price_window(False)
+        live_cut_off = True
+
+    priced = [r for r in rows if r["ok"]]
+    if not priced:
+        return _err("dates_all_failed", "none of the dates in that window could be priced")
+
+    anchor_row = next((r for r in priced if r["date"] == date), None)
+    anchor_cost = anchor_row["cost"] if anchor_row else None
+    for r in priced:
+        if r is anchor_row:
+            # A literal zero, not anchor_cost - anchor_cost: a computed zero can land on -0.0,
+            # which Python serializes as -0.0 and JavaScript as 0, and the parity gate is not
+            # where anyone wants to meet that. The `or 0.0` below is the same guard for the
+            # rounded differences.
+            r["savings_vs_anchor"] = 0.0
+        elif anchor_cost is None:
+            r["savings_vs_anchor"] = None      # the anchor itself never priced
+        else:
+            r["savings_vs_anchor"] = round(anchor_cost - r["cost"], 2) or 0.0
+
+    best = dates.pick_best(rows)
+    return {
+        "ok": True,
+        "origin_iata": probe["origin"]["iata"],
+        "dest_iata": probe["dest"]["iata"],
+        "anchor_date": date,
+        "window": window,
+        "comparable": len({r["basis"] for r in priced}) == 1,
+        "live_cut_off": live_cut_off,
+        "dates": rows,
+        "best": {"date": best["date"], "cost": best["cost"], "hours": best["hours"],
+                 "basis": best["basis"], "recommended": best["recommended"]},
+    }
+
+
 def _pt(a, full=False):
     base = {"iata": a["iata"], "lat": a["lat"], "lng": a["lng"]}
     if full:
@@ -804,6 +1003,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._handle_nearest(parse_qs(u.query))
         if u.path == "/api/plan":
             return self._handle_plan(parse_qs(u.query))
+        if u.path == "/api/dates":
+            return self._handle_dates(parse_qs(u.query))
         if u.path == "/favicon.ico":
             return self._send(204, b"", "image/x-icon")
         return self._send_err(404, "not_found", "not found")
@@ -893,6 +1094,33 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_err(200, "internal_error", "internal error planning that route")
         if not out.get("ok"):
             return self._send_err(200, out.get("code", "plan_failed"), out.get("error", "could not plan that route"))
+        return self._send(200, out)
+
+    def _handle_dates(self, q):
+        try:
+            params = parse_dates_params(q)
+        except ValidationError as e:
+            return self._send_err(400, "invalid_param", e.message)
+        try:
+            out = sweep_dates(
+                params["dest_lat"], params["dest_lng"],
+                origin_iata=params["origin_iata"],
+                date=params["date"],
+                window=params["window"],
+                vot=params["vot"],
+                threshold=params["threshold"],
+                max_ground_h=params["max_ground_h"],
+                roundtrip=params["roundtrip"],
+                travelers=params["travelers"],
+                ret=params["ret"],
+                transfer_buffer=params["transfer_buffer"],
+            )
+        except Exception as e:  # never leak internals to the browser; log server-side
+            _log_exc("/api/dates", e)
+            return self._send_err(200, "internal_error", "internal error sweeping those dates")
+        if not out.get("ok"):
+            return self._send_err(200, out.get("code", "dates_failed"),
+                                  out.get("error", "could not sweep those dates"))
         return self._send(200, out)
 
 
@@ -1195,6 +1423,186 @@ def selftest():
     check("an itinerary with a live leg is not flagged example_day",
           live_direct["itinerary"]["example_day"] is False)
 
+    # ---- date sweep, offline: one row per candidate day, chronological, all on one basis.
+    sw = sweep_dates(39.19, -106.82, origin_iata="JFK", date=_d(70), window=1,
+                     allow_live=False, allow_transit=False, fetch_weather=False)
+    check("sweep_dates returns ok for an offline window", sw.get("ok") is True)
+    check("window=1 prices the anchor plus a day each side, in date order",
+          [r["date"] for r in sw["dates"]] == [_d(69), _d(70), _d(71)])
+    check("the sweep reports the resolved endpoints, not the raw click",
+          sw["origin_iata"] == "JFK" and sw["dest_iata"] == "ASE")
+    check("the sweep echoes the anchor and window the UI asked for",
+          sw["anchor_date"] == _d(70) and sw["window"] == 1)
+    sw_priced = [r for r in sw["dates"] if r["ok"]]
+    check("every candidate day priced offline", len(sw_priced) == 3)
+    check("a one-way sweep reports return_date null on every row",
+          all(r["return_date"] is None for r in sw["dates"]))
+
+    # The winner has to be the window's real minimum on (cost, hours), earliest on a tie -
+    # recomputed here from the rows rather than trusting the helper that produced it.
+    sw_key = min((r["cost"], r["hours"]) for r in sw_priced)
+    sw_expect = next(r["date"] for r in sw_priced if (r["cost"], r["hours"]) == sw_key)
+    check(f"the cheapest date is the window's actual minimum (got {sw['best']['date']}, "
+          f"expected {sw_expect})",
+          sw["best"]["date"] == sw_expect and sw["best"]["cost"] == sw_key[0])
+    check("no row in the window undercuts the reported winner",
+          all(r["cost"] >= sw["best"]["cost"] for r in sw_priced))
+    check("the winner's headline matches its own row",
+          next(r for r in sw_priced if r["date"] == sw["best"]["date"])["recommended"]
+          == sw["best"]["recommended"])
+
+    # basis labelling: no live provider reachable in this run, so every row says 'estimate'.
+    check("an offline sweep labels every row's basis 'estimate'",
+          {r["basis"] for r in sw_priced} == {"estimate"} and sw["best"]["basis"] == "estimate")
+    check("an offline sweep is comparable and was never cut off",
+          sw["comparable"] is True and sw["live_cut_off"] is False)
+    sw_anchor_cost = next(r["cost"] for r in sw_priced if r["date"] == _d(70))
+    check("the anchor row's savings is a literal 0.0, never a computed -0.0",
+          next(r for r in sw_priced if r["date"] == _d(70))["savings_vs_anchor"] == 0.0)
+    check("every other row's savings is measured against the anchor's cost",
+          all(abs(r["savings_vs_anchor"] - round(sw_anchor_cost - r["cost"], 2)) < 0.005
+              for r in sw_priced if r["date"] != _d(70)))
+
+    # a return date rides along: the trip LENGTH is fixed, its placement moves with departure.
+    sw_rt = sweep_dates(39.19, -106.82, origin_iata="JFK", date=_d(70), ret=_d(77), window=1,
+                        allow_live=False, allow_transit=False, fetch_weather=False)
+    check("a return date shifts with its departure, preserving a 7-night trip",
+          [r["return_date"] for r in sw_rt["dates"]] == [_d(76), _d(77), _d(78)])
+
+    sw0 = sweep_dates(39.19, -106.82, origin_iata="JFK", date=_d(70), window=0,
+                      allow_live=False, allow_transit=False, fetch_weather=False)
+    check("window=0 prices the anchor day and nothing else",
+          [r["date"] for r in sw0["dates"]] == [_d(70)] and sw0["best"]["date"] == _d(70))
+
+    sw_past = sweep_dates(39.19, -106.82, origin_iata="JFK", date=_d(-30), window=1,
+                          allow_live=False, allow_transit=False, fetch_weather=False)
+    check("a window entirely in the past is refused with dates_all_past",
+          (not sw_past["ok"]) and sw_past["code"] == "dates_all_past")
+    sw_bad = sweep_dates(39.19, -106.82, origin_iata="JFK", date=_d(70),
+                         window=DATES_MAX_WINDOW + 1, allow_live=False, allow_transit=False,
+                         fetch_weather=False)
+    check("a window past the cap is refused", (not sw_bad["ok"]) and sw_bad["code"] == "invalid_param")
+    sw_neg = sweep_dates(39.19, -106.82, origin_iata="JFK", date=_d(70), window=-1,
+                         allow_live=False, allow_transit=False, fetch_weather=False)
+    check("a negative window is refused", (not sw_neg["ok"]) and sw_neg["code"] == "invalid_param")
+    sw_nodate = sweep_dates(39.19, -106.82, origin_iata="JFK", allow_live=False,
+                            allow_transit=False, fetch_weather=False)
+    check("a sweep with no anchor date is refused",
+          (not sw_nodate["ok"]) and sw_nodate["code"] == "invalid_param")
+    sw_backwards = sweep_dates(39.19, -106.82, origin_iata="JFK", date=_d(70), ret=_d(55),
+                               allow_live=False, allow_transit=False, fetch_weather=False)
+    check("a return date before the depart date is refused",
+          (not sw_backwards["ok"]) and sw_backwards["code"] == "invalid_param")
+
+    # plan()'s structural refusals don't depend on the date, so the whole sweep fails once with
+    # the real reason instead of handing back N identical error rows and a "nothing priced".
+    sw_ocean = sweep_dates(30.0, -40.0, origin_iata="JFK", date=_d(70), window=3,
+                           allow_live=False, allow_transit=False, fetch_weather=False)
+    check("an ocean click fails the sweep once with the real reason, not once per date",
+          (not sw_ocean["ok"]) and sw_ocean["code"] == "no_airport_near_point"
+          and "dates" not in sw_ocean)
+
+    # ---- the hard rule: a window is ALL live or ALL estimate, never a mix. A mixed window's
+    # "cheapest day" is just whichever day the estimator happened to price low. Mock a provider
+    # that only answers for the first candidate day - what the two stacked rate limiters actually
+    # produce once the bucket runs dry mid-sweep - and the sweep has to discard the partial live
+    # pass and re-price the whole window offline rather than compare across bases.
+    def _live_offer(origin_iata, dest_iata, date, price):
+        """A live offer with REAL segments. The segments are load-bearing here, not decoration:
+        itinerary.build_timeline only marks a row is_live when the leg carries them, and
+        is_live is the only thing basis_of_legs reads."""
+        d = datetime.date.fromisoformat(date)
+        return {"price": price, "hours": 5.5, "stops": 0, "carrier": "United Airlines",
+                "currency": "USD", "converted": False, "source": "duffel", "rt": False,
+                "native_price": price,
+                "segments": [{"from_iata": origin_iata, "to_iata": dest_iata,
+                              "depart_at": datetime.datetime(d.year, d.month, d.day, 8, 12),
+                              "arrive_at": datetime.datetime(d.year, d.month, d.day, 13, 42),
+                              "carrier": "United Airlines", "flight_number": "UA1234"}]}
+
+    def _live_first_date_only(session, origin_iata, dest_iata, date, adults, return_date):
+        if date != _d(69):
+            return None
+        return _live_offer(origin_iata, dest_iata, date, 120.0)
+
+    with _OFFER_CACHE_LOCK:
+        # The live-itinerary checks above left a real-looking ASE offer in the cache for _d(70).
+        # Leave it there and this block stops testing its own mock: that one cached day comes
+        # back live no matter what the provider says.
+        _OFFER_CACHE.clear()
+    # A deep bucket on purpose: the mix under test has to come from the mocked provider, not
+    # from whatever tokens earlier checks in this selftest happened to leave behind.
+    with _mock.patch.object(flights, "have_keys", return_value=True), \
+         _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
+         _mock.patch.object(flights, "search_cheapest", side_effect=_live_first_date_only), \
+         _mock.patch.object(_this_module, "_DUFFEL_BUCKET",
+                            TokenBucket(rate_per_s=100.0, capacity=100.0)):
+        sw_mixed = sweep_dates(39.19, -106.82, origin_iata="JFK", date=_d(70), window=1,
+                               allow_live=True, allow_transit=False, fetch_weather=False)
+    with _OFFER_CACHE_LOCK:            # don't leak this run's mocked offers into later checks
+        _OFFER_CACHE.clear()
+    sw_mixed_priced = [r for r in sw_mixed["dates"] if r["ok"]]
+    check("a window that would have been part-live is re-priced onto exactly one basis",
+          len({r["basis"] for r in sw_mixed_priced}) == 1)
+    check("that one basis is the estimate, not the single day that got a live fare",
+          {r["basis"] for r in sw_mixed_priced} == {"estimate"})
+    check("a re-priced window flags live_cut_off and still reports itself comparable",
+          sw_mixed["live_cut_off"] is True and sw_mixed["comparable"] is True)
+    check("the cheapest day is picked from the re-priced rows, not the discarded live one",
+          sw_mixed["best"]["basis"] == "estimate"
+          and sw_mixed["best"]["cost"] == min(r["cost"] for r in sw_mixed_priced))
+
+    # the mirror case: a provider that answers for every day keeps the window fully live, and
+    # then the cheapest day is the one with the cheapest real fare.
+    _live_by_date = {_d(69): 700.0, _d(70): 900.0, _d(71): 500.0}
+
+    def _live_every_date(session, origin_iata, dest_iata, date, adults, return_date):
+        return _live_offer(origin_iata, dest_iata, date, _live_by_date[date])
+
+    with _mock.patch.object(flights, "have_keys", return_value=True), \
+         _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
+         _mock.patch.object(flights, "search_cheapest", side_effect=_live_every_date), \
+         _mock.patch.object(_this_module, "_DUFFEL_BUCKET",
+                            TokenBucket(rate_per_s=100.0, capacity=100.0)):
+        sw_live = sweep_dates(39.19, -106.82, origin_iata="JFK", date=_d(70), window=1,
+                              allow_live=True, allow_transit=False, fetch_weather=False)
+    with _OFFER_CACHE_LOCK:
+        _OFFER_CACHE.clear()
+    sw_live_priced = [r for r in sw_live["dates"] if r["ok"]]
+    check("a fully-live window labels every row 'live'",
+          {r["basis"] for r in sw_live_priced} == {"live"} and sw_live["best"]["basis"] == "live")
+    check("a fully-live window is comparable and was not cut off",
+          sw_live["comparable"] is True and sw_live["live_cut_off"] is False)
+    check("the cheapest live day wins on its real fare",
+          sw_live["best"]["date"] == _d(71) and sw_live["best"]["cost"] == 500.0)
+    check("a live row says so in its pricing_source too, not just its basis",
+          all(r["pricing_source"] != "estimate" for r in sw_live_priced))
+
+    # ---- wall-clock regression: the budget bounds the whole SWEEP, not each date in it.
+    # Handler.timeout is 15 seconds of socket, so a window whose provider hangs on every call
+    # still has to come back with an answer inside that - degraded, but an answer.
+    def _hanging_search(*a, **kw):
+        _time.sleep(3.0)
+        raise net.FetchError("should never be awaited by sweep_dates()", status=599)
+
+    sweep_start = _time.monotonic()
+    with _mock.patch.object(flights, "have_keys", return_value=True), \
+         _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
+         _mock.patch.object(flights, "search_cheapest", side_effect=_hanging_search), \
+         _mock.patch.object(_this_module, "_DUFFEL_BUCKET",
+                            TokenBucket(rate_per_s=100.0, capacity=100.0)), \
+         _mock.patch.object(_this_module, "DATES_TIME_BUDGET_S", 2.0):
+        sw_slow = sweep_dates(39.19, -106.82, origin_iata="JFK", date=_d(70), window=2,
+                              allow_live=True, allow_transit=False, fetch_weather=False)
+    sweep_elapsed = _time.monotonic() - sweep_start
+    with _OFFER_CACHE_LOCK:
+        _OFFER_CACHE.clear()
+    check(f"a sweep against a hanging provider returns near its own 2s budget, not 5x the "
+          f"per-date hang (took {sweep_elapsed:.2f}s)", sweep_elapsed < 5.0)
+    check("a budget-capped sweep still answers, and still on a single basis",
+          sw_slow.get("ok") is True
+          and len({r["basis"] for r in sw_slow["dates"] if r["ok"]}) == 1)
+
     # ---- error-contract + input-validation checks (no HTTP needed - call the validators
     # and handlers' underlying helpers directly, matching what Handler does with parse_qs output)
     def qs(**kw):
@@ -1261,6 +1669,42 @@ def selftest():
     good = parse_plan_params(qs(lat="39.19", lng="-106.82", origin="jfk", travelers="4"))
     check("plan: valid params parsed and normalized (origin upper-cased)",
           good["origin_iata"] == "JFK" and good["travelers"] == 4)
+
+    try:
+        parse_dates_params(qs(lat="39.19", lng="-106.82", date=_d(70),
+                              window=str(DATES_MAX_WINDOW + 1)))
+        check("dates: window above the cap rejected", False)
+    except ValidationError:
+        check("dates: window above the cap rejected", True)
+
+    try:
+        parse_dates_params(qs(lat="39.19", lng="-106.82", date=_d(70), window="-1"))
+        check("dates: negative window rejected", False)
+    except ValidationError:
+        check("dates: negative window rejected", True)
+
+    try:
+        parse_dates_params(qs(lat="39.19", lng="-106.82", date=_d(70), window="two"))
+        check("dates: non-numeric window rejected", False)
+    except ValidationError:
+        check("dates: non-numeric window rejected", True)
+
+    # /api/plan treats date as optional; /api/dates cannot - a sweep with nothing to centre
+    # on has no window to build and nothing to compare the winner against.
+    try:
+        parse_dates_params(qs(lat="39.19", lng="-106.82", window="3"))
+        check("dates: a sweep with no anchor date rejected", False)
+    except ValidationError:
+        check("dates: a sweep with no anchor date rejected", True)
+
+    dflt = parse_dates_params(qs(lat="39.19", lng="-106.82", date=_d(70)))
+    check(f"dates: window defaults to {DATES_DEFAULT_WINDOW} when absent",
+          dflt["window"] == DATES_DEFAULT_WINDOW)
+    check("dates: the shared plan params still come through validated",
+          dflt["origin_iata"] == "JFK" and dflt["date"] == _d(70))
+    zero = parse_dates_params(qs(lat="39.19", lng="-106.82", date=_d(70), window="0"))
+    check("dates: window=0 survives as 0 rather than falling back to the default",
+          zero["window"] == 0)
 
     try:
         parse_geocode_params(qs(q=""))

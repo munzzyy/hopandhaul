@@ -125,5 +125,18 @@
   "lang.buttonAria": "زبان منتخب کریں",
   "lang.title": "زبان",
   "lang.filter": "زبانیں فلٹر کریں…",
-  "lang.close": "بند کریں"
+  "lang.close": "بند کریں",
+  "dates.head": "پرواز کے لیے سب سے سستا دن (±{window} دن)",
+  "dates.loading": "قریبی تاریخیں دیکھی جا رہی ہیں…",
+  "dates.failed": "قریبی تاریخیں نہیں دیکھی جا سکیں۔ اوپر والا منصوبہ اب بھی درست ہے۔",
+  "dates.rowFailed": "قیمت نہیں",
+  "dates.cheapest": "سب سے سستا",
+  "dates.cheapestNote": "{date} اس مدت کا سب سے سستا دن ہے، {money} پر، یعنی آپ کی منتخب کردہ تاریخ سے {savings} کم۔",
+  "dates.cheapestPlain": "{date} اس مدت کا سب سے سستا دن ہے، {money} پر۔",
+  "dates.sameDay": "آپ کی منتخب کردہ تاریخ پہلے ہی اس مدت کی سب سے سستی ہے۔",
+  "dates.notComparable": "کچھ دنوں کی قیمت براہ راست لی گئی اور کچھ کا اندازہ لگایا گیا، اس لیے ان کا براہ راست موازنہ نہیں ہو سکتا۔ سب سے سستے دن کو اشارہ سمجھیں، حقیقت نہیں۔",
+  "dates.basis.live": "لائیو",
+  "dates.basis.estimate": "تخمینہ",
+  "dates.basis.mixed": "جزوی براہ راست",
+  "dates.pickAria": "اس کے بجائے {date} کا منصوبہ بنائیں"
 }

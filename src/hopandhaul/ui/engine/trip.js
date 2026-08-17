@@ -106,7 +106,7 @@ function cmpTuple(a, b) {
 
 /** min(arr, key=keyFn) - keeps the FIRST minimal element on a tie, exactly like Python's
  * min(), which JS's Math.min has no equivalent for. */
-function minByTuple(arr, keyFn) {
+export function minByTuple(arr, keyFn) {
   let best = null;
   let bestKey = null;
   for (const item of arr) {

@@ -12,10 +12,11 @@
 // whichever of geocode/weather/live-fares it actually has keys for - everything else still
 // falls back to the engine per-call (see fetchGeocode).
 import { plan as enginePlan } from "./engine/plan.js";
+import { sweepDates } from "./engine/dates.js";
 import { loadData } from "./engine/data.js";
 import { nearestAirport } from "./engine/geo.js";
 import { searchAirports } from "./engine/search.js";
-import { parsePlanParams, parseNearestParams, ValidationError } from "./engine/validate.js";
+import { parsePlanParams, parseDatesParams, parseNearestParams, ValidationError } from "./engine/validate.js";
 import { groundOptions as transitGroundOptions } from "./transit.js";
 
 const SERVER_PROBE_TIMEOUT_MS = 1500;
@@ -37,6 +38,26 @@ function err(code, message) {
 async function getJson(path, signal) {
   const res = await fetch(path, { signal });
   return res.json();
+}
+
+/** Params object -> query string, skipping anything the caller left unset. Empty string is
+ * dropped too, not sent as `&date=`: the server's validators treat a present-but-empty param
+ * as a bad value, where an absent one falls to its default. */
+function queryOf(params) {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === null || v === undefined || v === "") continue;
+    q.set(k, String(v));
+  }
+  return q;
+}
+
+/** Throw the same AbortError shape a superseded fetch() throws, so callers only need one
+ * check for "a newer request already owns this" no matter which backend served them. */
+function superseded(what) {
+  const abort = new Error(`superseded by a newer ${what} request`);
+  abort.name = "AbortError";
+  return abort;
 }
 
 // ---- server detection --------------------------------------------------------------------
@@ -177,11 +198,7 @@ export async function fetchPlan(params) {
     if (_planAbort) _planAbort.abort();
     const controller = new AbortController();
     _planAbort = controller;
-    const q = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v === null || v === undefined || v === "") continue;
-      q.set(k, String(v));
-    }
+    const q = queryOf(params);
     try {
       const res = await fetch(`/api/plan?${q}`, { signal: controller.signal });
       return await res.json();
@@ -197,11 +214,7 @@ export async function fetchPlan(params) {
   } catch {
     return err("internal_error", "could not load the airport database");
   }
-  if (myToken !== _planToken) {
-    const abort = new Error("superseded by a newer plan request");
-    abort.name = "AbortError";
-    throw abort;
-  }
+  if (myToken !== _planToken) throw superseded("plan");
 
   let parsed;
   try {
@@ -235,11 +248,7 @@ export async function fetchPlan(params) {
       const settled = await Promise.allSettled(lookups.map((g) => transitGroundOptions(
         g.lat, g.lng, parsed.dest_lat, parsed.dest_lng, parsed.date, g.ground_mode,
       )));
-      if (myToken !== _planToken) {
-        const abort = new Error("superseded by a newer plan request");
-        abort.name = "AbortError";
-        throw abort;
-      }
+      if (myToken !== _planToken) throw superseded("plan");
       const transitByIata = {};
       settled.forEach((s, i) => {
         if (s.status === "fulfilled" && s.value) transitByIata[lookups[i].iata] = s.value;
@@ -255,5 +264,73 @@ export async function fetchPlan(params) {
     // Mirrors server.py's _handle_plan: never leak internals to the UI, log for debugging.
     console.error("[hopandhaul] plan() failed:", e);
     return err("internal_error", "internal error planning that route");
+  }
+}
+
+// Same last-requested-wins bookkeeping fetchPlan uses, on its own pair of variables: a sweep
+// and its plan are separate requests with very different latencies (a sweep prices the whole
+// window), so a new click has to be able to supersede one without touching the other.
+let _datesAbort = null;
+let _datesToken = 0;
+
+/** Price the departure date +/- a window and report which day is cheapest. Same two backends
+ * as fetchPlan, in the same order, and the same {ok:false, error, code} shape on failure.
+ *
+ * One thing this deliberately does NOT do that fetchPlan does: the Transitous live-schedule
+ * upgrade. Ground timetables do not decide which DATE is cheapest, fares do, and 7 dates worth
+ * of gateway lookups against a shared community instance would be rude for an answer that
+ * cannot change. The date the visitor actually picks gets a full plan, transit and all, the
+ * moment its chip is clicked. */
+export async function fetchDates(params) {
+  const myToken = ++_datesToken;
+  const server = await probeServer();
+
+  if (server) {
+    if (_datesAbort) _datesAbort.abort();
+    const controller = new AbortController();
+    _datesAbort = controller;
+    try {
+      const res = await fetch(`/api/dates?${queryOf(params)}`, { signal: controller.signal });
+      return await res.json();
+    } catch (e) {
+      if (e?.name === "AbortError") throw e; // superseded by a newer click - don't fall back
+      // a real network failure against a server that answered /api/config a moment ago -
+      // degrade to the local engine rather than surfacing a dead end.
+    }
+  }
+
+  try {
+    await ensureData();
+  } catch {
+    return err("internal_error", "could not load the airport database");
+  }
+  if (myToken !== _datesToken) throw superseded("date sweep");
+
+  let parsed;
+  try {
+    parsed = parseDatesParams(params);
+  } catch (e) {
+    if (e instanceof ValidationError) return err("invalid_param", e.message);
+    return err("internal_error", "could not parse those trip settings");
+  }
+  try {
+    return sweepDates({
+      destLat: parsed.dest_lat,
+      destLng: parsed.dest_lng,
+      originIata: parsed.origin_iata,
+      date: parsed.date,
+      window: parsed.window,
+      vot: parsed.vot,
+      threshold: parsed.threshold,
+      maxGroundH: parsed.max_ground_h,
+      roundtrip: parsed.roundtrip,
+      travelers: parsed.travelers,
+      ret: parsed.ret,
+      transferBuffer: parsed.transfer_buffer,
+    });
+  } catch (e) {
+    // Mirrors server.py's _handle_dates: never leak internals to the UI, log for debugging.
+    console.error("[hopandhaul] sweepDates() failed:", e);
+    return err("internal_error", "internal error sweeping those dates");
   }
 }

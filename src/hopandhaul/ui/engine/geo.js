@@ -211,7 +211,7 @@ function pad2(n) {
 
 /** Strict YYYY-MM-DD parse + real-calendar-date validation. Returns {y,m,d} or null - 
  * mirrors what datetime.date.fromisoformat()/date() raise ValueError on. */
-function parseIsoDate(dateStr) {
+export function parseIsoDate(dateStr) {
   const s = String(dateStr);
   if (s.length !== 10 || s[4] !== "-" || s[7] !== "-") return null;
   const y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)), d = Number(s.slice(8, 10));
@@ -223,16 +223,16 @@ function parseIsoDate(dateStr) {
 
 /** Today as a pure {y,m,d} calendar date in the LOCAL timezone - matches Python's
  * datetime.date.today(), which is also local-timezone. */
-function localTodayYMD() {
+export function localTodayYMD() {
   const now = new Date();
   return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
 }
 
-function ymdUtcMs({ y, m, d }) {
+export function ymdUtcMs({ y, m, d }) {
   return Date.UTC(y, m - 1, d);
 }
 
-function cmpYMD(a, b) {
+export function cmpYMD(a, b) {
   return ymdUtcMs(a) - ymdUtcMs(b);
 }
 

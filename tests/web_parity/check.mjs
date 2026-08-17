@@ -28,6 +28,7 @@ const CASES_PATH = path.join(FIXTURES_DIR, "_cases.resolved.json");
 const engineUrl = (f) => pathToFileURL(path.join(ENGINE_DIR, f)).href;
 const { plan } = await import(engineUrl("plan.js"));
 const trip = await import(engineUrl("trip.js"));
+const { sweepDates, candidateDates, basisOfLegs } = await import(engineUrl("dates.js"));
 const { loadData } = await import(engineUrl("data.js"));
 
 // Node has no browser fetch()-a-local-file story worth relying on here - read the same two
@@ -84,10 +85,51 @@ function runEvaluateCase(c) {
   return stripPrivate(res);
 }
 
+function runDatesCase(c) {
+  const p = c.params;
+  return sweepDates({
+    destLat: p.dest_lat,
+    destLng: p.dest_lng,
+    originIata: p.origin_iata ?? "JFK",
+    date: p.date,
+    window: p.window ?? 1,
+    vot: p.vot ?? null,
+    threshold: p.threshold ?? trip.DEFAULT_THRESHOLD,
+    maxGroundH: p.max_ground_h ?? 6.0,
+    roundtrip: p.roundtrip ?? false,
+    travelers: p.travelers ?? 1,
+    ret: p.ret ?? null,
+    transferBuffer: p.transfer_buffer ?? 1.0,
+  });
+}
+
+function runDatesHelpersCase(c) {
+  const p = c.params;
+  const [y, m, d] = p.today.split("-").map(Number);
+  return {
+    dates: candidateDates(p.anchor, p.window, { y, m, d }),
+    basis: basisOfLegs(p.legs),
+  };
+}
+
 function runCase(c) {
   if (c.type === "plan") return runPlanCase(c);
   if (c.type === "evaluate") return runEvaluateCase(c);
+  if (c.type === "dates") return runDatesCase(c);
+  if (c.type === "dates_helpers") return runDatesHelpersCase(c);
   throw new Error(`unknown case type ${JSON.stringify(c.type)} in ${c.name}`);
+}
+
+const TAG_LABEL = { dates: "cheapest", dates_helpers: "helpers" };
+
+/** The one thing worth printing about a passing case. For a dates case that's which day won and
+ * how many were in the window: a window that quietly lost a date is the failure that case type
+ * exists to catch, so the count belongs on screen next to the winner. */
+function tagFor(c, js) {
+  if (c.type === "evaluate") return js.recommended;
+  if (c.type === "dates_helpers") return `${js.basis}, ${js.dates.length} dates`;
+  if (!js.ok) return `error:${js.code}`;
+  return c.type === "dates" ? `${js.best.date} of ${js.dates.length}` : js.result.recommended;
 }
 
 // Deep compare; numbers within a tiny epsilon (should be EXACT after pyRound - this epsilon is
@@ -160,8 +202,7 @@ async function main() {
       failures.push({ name: c.name, d, js, py });
     } else {
       pass++;
-      const tag = c.type === "plan" ? (js.ok ? js.result.recommended : `error:${js.code}`) : js.recommended;
-      console.log(`ok    ${c.name}  (${c.type}, recommended: ${tag})`);
+      console.log(`ok    ${c.name}  (${c.type}, ${TAG_LABEL[c.type] ?? "recommended"}: ${tagFor(c, js)})`);
     }
   }
 

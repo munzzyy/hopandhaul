@@ -125,5 +125,18 @@
   "lang.buttonAria": "Valitse kieli",
   "lang.title": "Kieli",
   "lang.filter": "Suodata kieliä…",
-  "lang.close": "Sulje"
+  "lang.close": "Sulje",
+  "dates.head": "Halvin lentopäivä (±{window} päivää)",
+  "dates.loading": "Tarkistetaan lähipäiviä…",
+  "dates.failed": "Lähipäiviä ei voitu tarkistaa. Yllä oleva suunnitelma pätee edelleen.",
+  "dates.rowFailed": "ei hintaa",
+  "dates.cheapest": "halvin",
+  "dates.cheapestNote": "{date} on tämän jakson halvin päivä, hintaan {money}, eli {savings} vähemmän kuin valitsemasi päivä.",
+  "dates.cheapestPlain": "{date} on tämän jakson halvin päivä, hintaan {money}.",
+  "dates.sameDay": "Valitsemasi päivä on jo tämän jakson halvin.",
+  "dates.notComparable": "Osa päivistä hinnoiteltiin livenä ja osa arviolla, joten niitä ei voi verrata suoraan. Pidä halvinta päivää vihjeenä, ei faktana.",
+  "dates.basis.live": "live",
+  "dates.basis.estimate": "arvio",
+  "dates.basis.mixed": "osin live",
+  "dates.pickAria": "Suunnittele {date} sen sijaan"
 }

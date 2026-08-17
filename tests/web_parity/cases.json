@@ -949,5 +949,203 @@
     ],
     "threshold": 200,
     "max_hours": 8.0
+  },
+  {
+    "name": "dates_window0_anchor_only",
+    "type": "dates",
+    "params": {
+      "dest_lat": 39.19,
+      "dest_lng": -106.82,
+      "origin_iata": "JFK",
+      "date": "+70d",
+      "window": 0
+    }
+  },
+  {
+    "name": "dates_window1_jfk_aspen",
+    "type": "dates",
+    "params": {
+      "dest_lat": 39.19,
+      "dest_lng": -106.82,
+      "origin_iata": "JFK",
+      "date": "+70d",
+      "window": 1
+    }
+  },
+  {
+    "name": "dates_window3_jfk_aspen",
+    "type": "dates",
+    "params": {
+      "dest_lat": 39.19,
+      "dest_lng": -106.82,
+      "origin_iata": "JFK",
+      "date": "+200d",
+      "window": 3
+    }
+  },
+  {
+    "name": "dates_roundtrip_shifts_return",
+    "type": "dates",
+    "params": {
+      "dest_lat": 39.19,
+      "dest_lng": -106.82,
+      "origin_iata": "JFK",
+      "date": "+70d",
+      "ret": "+77d",
+      "window": 2
+    }
+  },
+  {
+    "name": "dates_travelers_4_group_math",
+    "type": "dates",
+    "params": {
+      "dest_lat": 39.19,
+      "dest_lng": -106.82,
+      "origin_iata": "JFK",
+      "date": "+70d",
+      "window": 1,
+      "travelers": 4
+    }
+  },
+  {
+    "name": "dates_month_boundary_jackson_hole",
+    "type": "dates",
+    "params": {
+      "dest_lat": 43.6073,
+      "dest_lng": -110.7377,
+      "origin_iata": "ORD",
+      "date": "eom+2m",
+      "window": 2
+    }
+  },
+  {
+    "name": "dates_window_spans_today",
+    "type": "dates",
+    "params": {
+      "dest_lat": 39.19,
+      "dest_lng": -106.82,
+      "origin_iata": "JFK",
+      "date": "-2d",
+      "window": 5
+    }
+  },
+  {
+    "name": "dates_all_past_window",
+    "type": "dates",
+    "params": {
+      "dest_lat": 39.19,
+      "dest_lng": -106.82,
+      "origin_iata": "JFK",
+      "date": "-30d",
+      "window": 1
+    }
+  },
+  {
+    "name": "dates_error_ocean_click_short_circuits",
+    "type": "dates",
+    "params": {
+      "dest_lat": 30.0,
+      "dest_lng": -40.0,
+      "origin_iata": "JFK",
+      "date": "+70d",
+      "window": 3
+    }
+  },
+  {
+    "name": "dates_error_origin_is_destination",
+    "type": "dates",
+    "params": {
+      "dest_lat": 40.64,
+      "dest_lng": -73.78,
+      "origin_iata": "JFK",
+      "date": "+70d",
+      "window": 1
+    }
+  },
+  {
+    "name": "dates_helpers_year_rollover_estimate_legs",
+    "type": "dates_helpers",
+    "params": {
+      "anchor": "2027-12-31",
+      "window": 2,
+      "today": "2027-01-01",
+      "legs": [
+        { "mode": "fly", "is_live": false },
+        { "mode": "bus", "is_live": false }
+      ]
+    }
+  },
+  {
+    "name": "dates_helpers_leap_day_all_live_legs",
+    "type": "dates_helpers",
+    "params": {
+      "anchor": "2028-02-28",
+      "window": 2,
+      "today": "2028-01-01",
+      "legs": [
+        { "mode": "fly", "is_live": true },
+        { "mode": "fly", "is_live": true },
+        { "mode": "train", "is_live": false }
+      ]
+    }
+  },
+  {
+    "name": "dates_helpers_ground_only_never_says_live",
+    "type": "dates_helpers",
+    "params": {
+      "anchor": "2027-03-10",
+      "window": 3,
+      "today": "2027-06-01",
+      "legs": [
+        { "mode": "train", "is_live": true }
+      ]
+    }
+  },
+  {
+    "name": "dates_helpers_one_live_flight_is_mixed",
+    "type": "dates_helpers",
+    "params": {
+      "anchor": "2027-05-04",
+      "window": 0,
+      "today": "2027-05-04",
+      "legs": [
+        { "mode": "fly", "is_live": true },
+        { "mode": "fly", "is_live": false }
+      ]
+    }
+  },
+  {
+    "name": "dates_error_window_over_max",
+    "type": "dates",
+    "params": {
+      "dest_lat": 39.19,
+      "dest_lng": -106.82,
+      "origin_iata": "JFK",
+      "date": "+70d",
+      "window": 99
+    }
+  },
+  {
+    "name": "dates_error_missing_anchor_date",
+    "type": "dates",
+    "params": {
+      "dest_lat": 39.19,
+      "dest_lng": -106.82,
+      "origin_iata": "JFK",
+      "date": null,
+      "window": 1
+    }
+  },
+  {
+    "name": "dates_error_return_before_depart",
+    "type": "dates",
+    "params": {
+      "dest_lat": 39.19,
+      "dest_lng": -106.82,
+      "origin_iata": "JFK",
+      "date": "+70d",
+      "ret": "+63d",
+      "window": 1
+    }
   }
 ]

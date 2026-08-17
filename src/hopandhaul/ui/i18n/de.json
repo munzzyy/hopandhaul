@@ -125,5 +125,18 @@
   "lang.buttonAria": "Sprache wählen",
   "lang.title": "Sprache",
   "lang.filter": "Sprachen filtern…",
-  "lang.close": "Schließen"
+  "lang.close": "Schließen",
+  "dates.head": "Günstigster Flugtag (±{window} Tage)",
+  "dates.loading": "Nahe Termine werden geprüft…",
+  "dates.failed": "Nahe Termine konnten nicht geprüft werden. Der Plan oben gilt weiterhin.",
+  "dates.rowFailed": "kein Preis",
+  "dates.cheapest": "am günstigsten",
+  "dates.cheapestNote": "{date} ist der günstigste Tag in diesem Zeitraum, für {money}, also {savings} weniger als das gewählte Datum.",
+  "dates.cheapestPlain": "{date} ist der günstigste Tag in diesem Zeitraum, für {money}.",
+  "dates.sameDay": "Das gewählte Datum ist bereits das günstigste in diesem Zeitraum.",
+  "dates.notComparable": "Einige Tage wurden live bepreist, andere geschätzt, sie sind also nicht direkt vergleichbar. Nimm den günstigsten Tag als Hinweis, nicht als Fakt.",
+  "dates.basis.live": "live",
+  "dates.basis.estimate": "gesch.",
+  "dates.basis.mixed": "teils live",
+  "dates.pickAria": "Stattdessen {date} planen"
 }

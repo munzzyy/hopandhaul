@@ -125,5 +125,18 @@
   "lang.buttonAria": "Elegir idioma",
   "lang.title": "Idioma",
   "lang.filter": "Filtrar idiomas…",
-  "lang.close": "Cerrar"
+  "lang.close": "Cerrar",
+  "dates.head": "Día más barato para volar (±{window} días)",
+  "dates.loading": "Comprobando fechas cercanas…",
+  "dates.failed": "No se pudieron comprobar las fechas cercanas. El plan de arriba sigue en pie.",
+  "dates.rowFailed": "sin precio",
+  "dates.cheapest": "más barato",
+  "dates.cheapestNote": "{date} es el día más barato de esta ventana, a {money}, {savings} menos que la fecha que elegiste.",
+  "dates.cheapestPlain": "{date} es el día más barato de esta ventana, a {money}.",
+  "dates.sameDay": "La fecha que elegiste ya es la más barata de esta ventana.",
+  "dates.notComparable": "Algunos días se cotizaron en vivo y otros por estimación, así que no son directamente comparables. Toma el día más barato como una pista, no como un hecho.",
+  "dates.basis.live": "en vivo",
+  "dates.basis.estimate": "est.",
+  "dates.basis.mixed": "parte en vivo",
+  "dates.pickAria": "Planificar {date} en su lugar"
 }

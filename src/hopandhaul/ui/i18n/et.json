@@ -125,5 +125,18 @@
   "lang.buttonAria": "Vali keel",
   "lang.title": "Keel",
   "lang.filter": "Filtreeri keeli…",
-  "lang.close": "Sulge"
+  "lang.close": "Sulge",
+  "dates.head": "Odavaim lennupäev (±{window} päeva)",
+  "dates.loading": "Kontrollin lähedasi kuupäevi…",
+  "dates.failed": "Lähedasi kuupäevi ei õnnestunud kontrollida. Ülal olev plaan kehtib endiselt.",
+  "dates.rowFailed": "hind puudub",
+  "dates.cheapest": "odavaim",
+  "dates.cheapestNote": "{date} on selle akna odavaim päev, hinnaga {money}, mis on {savings} vähem kui valitud kuupäev.",
+  "dates.cheapestPlain": "{date} on selle akna odavaim päev, hinnaga {money}.",
+  "dates.sameDay": "Valitud kuupäev on juba selle akna odavaim.",
+  "dates.notComparable": "Osa päevi hinnastati reaalajas ja osa hinnanguliselt, seega ei saa neid otse võrrelda. Võta odavaimat päeva vihjena, mitte faktina.",
+  "dates.basis.live": "reaalajas",
+  "dates.basis.estimate": "hinnang",
+  "dates.basis.mixed": "osalt reaalaeg",
+  "dates.pickAria": "Planeeri hoopis {date}"
 }

@@ -1,11 +1,12 @@
 // Entry point: wires state <-> URL, the form, search, map, results, theme, and language
 // together. `rec` (the recommended option) is computed once here and passed to both draw()
 // and the results render - no more independent recomputation in two places.
-import { fetchConfig, fetchNearest, fetchPlan } from "./api.js";
+import { fetchConfig, fetchDates, fetchNearest, fetchPlan } from "./api.js";
 import { readUrlState, writeUrlState, shareUrl, loadLangPref, saveLangPref } from "./state.js";
 import { initMap, markOrigin, draw, clearMap, redrawLastPlan, renderGeoLabels } from "./map.js";
 import { initSearch } from "./search.js";
-import { renderPlan, renderError, renderEmpty, renderLoading, toggleSheet } from "./results.js";
+import { renderPlan, renderError, renderEmpty, renderLoading, toggleSheet,
+         renderDateStrip, renderDateStripLoading, renderDateStripError, clearDateStrip } from "./results.js";
 import { initTheme, refreshThemeLabel } from "./theme.js";
 import { loadLang, detectLang, t } from "./i18n.js";
 import { initLangPicker, updateLauncherAfterInit } from "./lang.js";
@@ -35,6 +36,8 @@ let lastPlaceLabel = null;
 let lastClick = null; // {lat, lng} of the most recent destination point, for share/reload
 let lastConfig = null; // last successful /api/config payload, replayed by applyConfigBadge() on language change
 let lastPlanData = null; // last successful /api/plan payload - re-rendered on language change with no refetch
+let lastDatesData = null; // last successful /api/dates sweep - same deal, re-rendered never refetched
+let datesToken = 0; // bumped by every planTo(); an older sweep resolving late checks it and bails
 let planInFlight = false; // true from the moment a plan request starts until it settles
 let searchDisabled = false; // cached has_geocode result, re-applied after a language switch re-renders the input
 let lastErrorMsg = null; // message currently shown in the error panel, if any
@@ -93,15 +96,9 @@ function syncUrl() {
   writeUrlState(currentShareState());
 }
 
-async function planTo(lat, lng) {
-  lastClick = { lat, lng };
-  lastPlanData = null; // clear stale plan immediately so a mid-flight language switch
-                        // re-renders the loading state, not the previous place's plan
-  planInFlight = true;
-  spinner.hidden = false;
-  announce(t("announce.calculating"));
-  renderLoading();
-
+/** The form, as the query params both /api/plan and /api/dates take. Shared so the date sweep
+ * can never be run against different assumptions than the plan it sits under. */
+function tripParams(lat, lng) {
   const params = {
     lat, lng, origin: originIata,
     threshold: fields.threshold.value || 200,
@@ -113,6 +110,23 @@ async function planTo(lat, lng) {
   if (fields.ret.value && fields.date.value) params.ret = fields.ret.value;
   const travelers = parseInt(fields.travelers.value || "1", 10);
   if (travelers > 1) params.travelers = travelers;
+  return params;
+}
+
+async function planTo(lat, lng) {
+  lastClick = { lat, lng };
+  lastPlanData = null; // clear stale plan immediately so a mid-flight language switch
+                        // re-renders the loading state, not the previous place's plan
+  lastDatesData = null;
+  // Claim the strip for THIS plan before anything awaits. A sweep started by an earlier click
+  // can still be in the air, and it must not paint a window built around the old date.
+  const myDatesToken = ++datesToken;
+  planInFlight = true;
+  spinner.hidden = false;
+  announce(t("announce.calculating"));
+  renderLoading();
+
+  const params = tripParams(lat, lng);
 
   let data;
   let isNetworkError = false;
@@ -150,6 +164,88 @@ async function planTo(lat, lng) {
 
   $("#copy-link")?.addEventListener("click", onCopyLink);
   $("#sheet-toggle")?.addEventListener("click", toggleSheet);
+  // Delegated, and attached to the mount rather than the chips: renderDateStrip() replaces the
+  // strip's whole innerHTML when the sweep lands, so a per-chip listener would be dead by then.
+  $("#date-strip")?.addEventListener("click", onDateChipClick);
+
+  // The sweep starts only once the plan is on screen. It prices the whole window, so it's the
+  // slower call by roughly the width of that window, and the plan is the answer the visitor
+  // actually asked for. A sweep with no anchor date is meaningless - same reason /api/dates
+  // makes `date` required where /api/plan leaves it optional.
+  if (fields.date.value) loadDateStrip(myDatesToken, lat, lng);
+  else clearDateStrip();
+}
+
+async function loadDateStrip(token, lat, lng) {
+  if (token !== datesToken) return;
+  renderDateStripLoading();
+
+  let data;
+  try {
+    data = await fetchDates(tripParams(lat, lng));
+  } catch (err) {
+    if (err?.name === "AbortError") return; // superseded by a newer click - not an error
+    data = null;
+  }
+  if (token !== datesToken) return;
+
+  if (!data?.ok) {
+    // A dead sweep is not a dead plan: the recommendation above it still stands, so this never
+    // touches renderError() (which would blow the whole panel away over a side feature).
+    renderDateStripError();
+    announce(t("dates.failed"));
+    return;
+  }
+  lastDatesData = data;
+  const out = renderDateStrip(data, fields.date.value);
+  if (out?.summary) announce(out.summary);
+}
+
+const DAY_MS = 86400000;
+
+/** Whole-day arithmetic on a calendar date, in UTC milliseconds. `new Date(y, m - 1, d + n)`
+ * is LOCAL time and slides an hour across a DST boundary, which in a zone whose transition
+ * lands near midnight moves the answer to the wrong calendar day. Same rule engine/dates.js
+ * follows - and unlike that file, nothing in the parity gate would catch it here. */
+function isoShift(iso, days) {
+  const [y, m, d] = String(iso).split("-").map(Number);
+  const ms = Date.UTC(y, m - 1, d);
+  if (!Number.isFinite(ms) || !Number.isFinite(days)) return null;
+  const out = new Date(ms + days * DAY_MS);
+  return [
+    out.getUTCFullYear(),
+    String(out.getUTCMonth() + 1).padStart(2, "0"),
+    String(out.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function daysBetween(fromIso, toIso) {
+  const a = String(fromIso).split("-").map(Number);
+  const b = String(toIso).split("-").map(Number);
+  return Math.round((Date.UTC(b[0], b[1] - 1, b[2]) - Date.UTC(a[0], a[1] - 1, a[2])) / DAY_MS);
+}
+
+/** Pick a date off the strip: move #date (and the return with it), then re-plan.
+ *
+ * The re-plan has to be an explicit call. Assigning to fields.date.value does NOT fire the
+ * `change` listener wireForm() attaches, and dispatching a synthetic one instead would plan
+ * twice - once from here, once from that listener. */
+function onDateChipClick(e) {
+  const btn = e.target.closest("button[data-date]");
+  if (!btn || !lastClick) return;
+  const picked = btn.dataset.date;
+  if (!picked || picked === fields.date.value) return;
+
+  // A return date moves with its departure so the trip keeps its LENGTH - the same rule the
+  // sweep priced each candidate under, so the chip's price is the one this re-plan produces.
+  if (fields.date.value && fields.ret.value) {
+    const shifted = isoShift(fields.ret.value, daysBetween(fields.date.value, picked));
+    if (shifted) fields.ret.value = shifted;
+  }
+  fields.date.value = picked;
+  // lockDatesToFuture()'s listener only fires on a user edit, so keep the return floor in step.
+  fields.ret.min = picked;
+  planTo(lastClick.lat, lastClick.lng);
 }
 
 /** Re-render whatever is currently on screen using the newly-loaded catalog, without any
@@ -160,8 +256,13 @@ function rerenderCurrent() {
     renderLoading();
   } else if (lastPlanData) {
     renderPlan(lastPlanData, lastPlaceLabel);
+    // Re-render only, never refetch: the day names and the basis tags are the whole reason the
+    // strip needs this pass, and the numbers behind them didn't move. No announce() either -
+    // a language switch isn't a new result.
+    if (lastDatesData) renderDateStrip(lastDatesData, fields.date.value);
     $("#copy-link")?.addEventListener("click", onCopyLink);
     $("#sheet-toggle")?.addEventListener("click", toggleSheet);
+    $("#date-strip")?.addEventListener("click", onDateChipClick);
     redrawLastPlan(); // map popups bake t() strings at draw time - re-translate them too
   } else if (lastErrorMsg != null) {
     // re-render the panel so the title/chrome re-translate; if the body was the client-side

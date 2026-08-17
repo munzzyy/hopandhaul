@@ -125,5 +125,18 @@
   "lang.buttonAria": "言語を選択",
   "lang.title": "言語",
   "lang.filter": "言語を絞り込み…",
-  "lang.close": "閉じる"
+  "lang.close": "閉じる",
+  "dates.head": "最安の搭乗日（±{window}日）",
+  "dates.loading": "近い日付を確認中…",
+  "dates.failed": "近い日付を確認できませんでした。上のプランはそのまま有効です。",
+  "dates.rowFailed": "価格なし",
+  "dates.cheapest": "最安",
+  "dates.cheapestNote": "{date} がこの期間で最も安く、{money} です。選んだ日付より {savings} 安くなります。",
+  "dates.cheapestPlain": "{date} がこの期間で最も安く、{money} です。",
+  "dates.sameDay": "選んだ日付がすでにこの期間で最安です。",
+  "dates.notComparable": "一部の日はライブ価格、一部は推定です。そのままでは比較できないので、最安の日は目安として扱ってください。",
+  "dates.basis.live": "リアルタイム",
+  "dates.basis.estimate": "概算",
+  "dates.basis.mixed": "一部ライブ",
+  "dates.pickAria": "代わりに {date} で計画する"
 }

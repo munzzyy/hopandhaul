@@ -125,5 +125,18 @@
   "lang.buttonAria": "Välj språk",
   "lang.title": "Språk",
   "lang.filter": "Filtrera språk…",
-  "lang.close": "Stäng"
+  "lang.close": "Stäng",
+  "dates.head": "Billigaste dagen att flyga (±{window} dagar)",
+  "dates.loading": "Kollar närliggande datum…",
+  "dates.failed": "Kunde inte kolla närliggande datum. Planen ovan gäller fortfarande.",
+  "dates.rowFailed": "inget pris",
+  "dates.cheapest": "billigast",
+  "dates.cheapestNote": "{date} är den billigaste dagen i det här fönstret, för {money}, {savings} mindre än datumet du valde.",
+  "dates.cheapestPlain": "{date} är den billigaste dagen i det här fönstret, för {money}.",
+  "dates.sameDay": "Datumet du valde är redan det billigaste i det här fönstret.",
+  "dates.notComparable": "Vissa dagar prissattes live och andra uppskattades, så de går inte att jämföra rakt av. Se den billigaste dagen som en ledtråd, inte ett faktum.",
+  "dates.basis.live": "live",
+  "dates.basis.estimate": "uppskattn.",
+  "dates.basis.mixed": "delvis live",
+  "dates.pickAria": "Planera {date} i stället"
 }
