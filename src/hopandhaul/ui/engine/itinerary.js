@@ -108,7 +108,10 @@ export function flightProvenanceEstimate(detail, date) {
     // Report where the FINAL fare landed, not where the clamp left it - see geo.js.
     let held;
     if (an.in_band === false) {
-      held = `the date factor lifted the estimate above that band `
+      // Both directions - see the matching comment in itinerary.py. The date factor clamps to
+      // [0.75, 1.75], so it can push the fare under the band as well as over it.
+      const way = detail.price > an.band_hi ? "above" : "below";
+      held = `the date factor put the estimate ${way} that band `
         + `($${pyG(an.band_lo)}-$${pyG(an.band_hi)})`;
     } else if (an.adjusted) {
       held = "estimate adjusted into that band";

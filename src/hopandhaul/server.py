@@ -296,14 +296,27 @@ class TokenBucket:
 
     def try_take(self, n: float = 1.0) -> bool:
         with self.lock:
-            now = time.monotonic()
-            elapsed = now - self.last
-            self.last = now
-            self.tokens = min(self.capacity, self.tokens + elapsed * self.rate)
+            self._refill()
             if self.tokens >= n:
                 self.tokens -= n
                 return True
             return False
+
+    def has_tokens(self, n: float = 1.0) -> bool:
+        """Is there budget for n calls, without spending any of it? For a caller deciding
+        whether to START a batch of live lookups. Spending a token just to ask that question
+        burns budget on nothing: the token is never handed to a request, and the first real
+        lookup then has one fewer than it counted on."""
+        with self.lock:
+            self._refill()
+            return self.tokens >= n
+
+    def _refill(self):
+        """Caller holds self.lock."""
+        now = time.monotonic()
+        elapsed = now - self.last
+        self.last = now
+        self.tokens = min(self.capacity, self.tokens + elapsed * self.rate)
 
 
 # Sized under Duffel's published 120 req/60s: 2 req/s sustained, small burst allowance.
@@ -842,8 +855,20 @@ def sweep_dates(dest_lat, dest_lng, origin_iata="JFK", date=None,
 
     def _price_window(live):
         """Price every candidate date. Returns (rows, ran_out_of_budget). The budget is shared
-        across the window and re-divided by however many dates are still unpriced, so an early
-        slow date borrows from the ones after it instead of from all of them."""
+        across the window and re-divided by however many dates are still unpriced, so a fast
+        early date leaves more for the ones after it.
+
+        UNSETTLED, needs a real DUFFEL_API_KEY to measure: the share each date gets is small.
+        At the default window that is min(6.0, 10/7) = 1.43s for a whole plan, and at the
+        maximum window it is 10/15 = 0.67s. Each of those has to cover plan()'s concurrent
+        fan-out across the direct flight and every gateway. If real Duffel latency is above
+        that, a live sweep starves, the bases come back mixed, and the window gets re-priced
+        offline every time, so a keyed server would advertise live pricing it never delivers.
+        The output stays honest either way, since the re-price makes every row an estimate and
+        says so. But no allocation formula fixes it: 15 live plans do not fit in 10s, and the
+        10s ceiling is itself set by Handler.timeout = 15. The real options are a smaller
+        window when live, or accepting that wide live sweeps degrade. Do not tune this from
+        first principles without measuring against a live key first."""
         rows, ran_out = [], False
         deadline = time.monotonic() + DATES_TIME_BUDGET_S
         for i, cand in enumerate(candidates):
@@ -879,7 +904,7 @@ def sweep_dates(dest_lat, dest_lng, origin_iata="JFK", date=None,
     # and re-price the whole window offline. That second pass is pure CPU (~0.08s a date), which
     # is a cheap price for an answer the user can actually act on.
     want_live = bool(allow_live and flights and flights.have_keys()
-                     and _DUFFEL_BUCKET.try_take(1.0))
+                     and _DUFFEL_BUCKET.has_tokens(1.0))
     rows, ran_out = _price_window(want_live)
     live_cut_off = False
     if want_live and (ran_out or len({r["basis"] for r in rows if r["ok"]}) > 1):
@@ -1744,6 +1769,16 @@ def selftest():
     full_bucket = TokenBucket(rate_per_s=1.0, capacity=3.0)
     took = [full_bucket.try_take() for _ in range(3)]
     check("rate limiter: capacity grants exactly its burst size", all(took) and not full_bucket.try_take())
+    # has_tokens() is the "should I start a batch?" question. Asking it must not spend the
+    # answer: sweep_dates used to probe with try_take(), which ate a token no request ever got,
+    # so the first live lookup in the window started one short of what the probe had counted.
+    peek_bucket = TokenBucket(rate_per_s=0.0, capacity=1.0)
+    check("rate limiter: has_tokens sees a token", peek_bucket.has_tokens(1.0) is True)
+    check("rate limiter: has_tokens did NOT spend it", peek_bucket.try_take(1.0) is True)
+    check("rate limiter: and the bucket really is empty afterwards",
+          peek_bucket.has_tokens(1.0) is False)
+    check("rate limiter: has_tokens(n) respects the amount asked for",
+          TokenBucket(rate_per_s=0.0, capacity=2.0).has_tokens(3.0) is False)
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (server checks)")
     return 1 if fails else 0

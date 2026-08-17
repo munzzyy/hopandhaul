@@ -174,10 +174,18 @@ export function sweepDates({
   // touches the DOM. Python's int() truncates a float toward zero and raises on everything else,
   // where Number() would read null or "" as 0 and quietly turn a missing window into a one-date
   // sweep, so those take the same reject path Python's TypeError does.
+  // Python's int() truncates a float toward zero but RAISES on a string that is not a whole
+  // number: int(3.7) is 3, int("3.7") is a ValueError. Number("3.7") is 3.7 either way, so a
+  // string has to be checked for a fractional part before truncating or the two engines take
+  // different branches on the same input. Number() also reads null and "" and booleans as 0,
+  // which would quietly turn a missing window into a one-date sweep, so those reject too.
   const raw = typeof window === "string" ? window.trim() : window;
   const num = (raw === "" || raw === null || raw === undefined || typeof raw === "boolean")
     ? NaN : Number(raw);
   if (!Number.isFinite(num)) return err("invalid_param", `window must be between 0 and ${MAX_WINDOW}`);
+  if (typeof raw === "string" && !Number.isInteger(num)) {
+    return err("invalid_param", `window must be between 0 and ${MAX_WINDOW}`);
+  }
   window = Math.trunc(num);
   if (!(window >= 0 && window <= MAX_WINDOW)) {
     return err("invalid_param", `window must be between 0 and ${MAX_WINDOW}`);

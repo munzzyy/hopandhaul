@@ -129,7 +129,12 @@ def flight_provenance_estimate(detail: dict | None, date: str | None) -> str:
         # Report where the FINAL fare landed, not where the clamp left it - the date multiplier
         # runs afterwards and regularly lifts the number back out of the band.
         if an.get("in_band") is False:
-            held = (f"the date factor lifted the estimate above that band "
+            # The date factor runs in BOTH directions: it clamps to [0.75, 1.75], so an advance
+            # booking on a cheap month can push the fare under the band just as easily as a
+            # last-minute one pushes it over. Saying "above" either way is wrong 58 route-days
+            # out of the ones this repo's own airports can produce.
+            way = "above" if detail["price"] > an["band_hi"] else "below"
+            held = (f"the date factor put the estimate {way} that band "
                     f"(${an['band_lo']:g}-${an['band_hi']:g})")
         elif an.get("adjusted"):
             held = "estimate adjusted into that band"
