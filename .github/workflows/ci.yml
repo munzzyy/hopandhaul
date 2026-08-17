@@ -40,6 +40,9 @@ jobs:
       - name: i18n catalogs (parse, key parity, placeholders)
         run: python tools/check_i18n.py
 
+      - name: Example dates in docs/help are still in the future
+        run: python tools/check_example_dates.py
+
       - name: Self-test every module (offline, no keys required)
         run: |
           python -m hopandhaul.trip --selftest

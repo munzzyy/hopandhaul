@@ -14,7 +14,7 @@ renders (temp/feels/desc/emoji/units/forecast) so nothing downstream changed.
 
 Examples:
   python -m hopandhaul.weather 39.19 -106.82
-  python -m hopandhaul.weather 39.19 -106.82 --date 2026-07-16
+  python -m hopandhaul.weather 39.19 -106.82 --date 2027-06-15
   python -m hopandhaul.weather --selftest     (offline, no network)
 """
 from __future__ import annotations

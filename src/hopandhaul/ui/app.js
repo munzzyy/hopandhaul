@@ -230,7 +230,28 @@ function wireModeToggle() {
   });
 }
 
+// The fare engine has no booking-lead-time curve for a date that has already been and gone, so
+// it prices a past date exactly like no date at all (geo.fareDateMultiplier returns a neutral
+// 1.0). The plan notes now say so out loud, but the honest place to stop it is the picker:
+// give both date fields a floor of today so the calendar simply won't offer yesterday.
+function lockDatesToFuture() {
+  const today = new Date();
+  const iso = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
+  fields.date.min = iso;
+  fields.ret.min = iso;
+  // A return can't precede the departure either. Keep that floor moving with the depart field.
+  fields.date.addEventListener("change", () => {
+    fields.ret.min = fields.date.value || iso;
+    if (fields.ret.value && fields.ret.value < fields.ret.min) fields.ret.value = "";
+  });
+}
+
 function wireForm() {
+  lockDatesToFuture();
   fields.origin.addEventListener("change", (e) => {
     originIata = (e.target.value || "JFK").toUpperCase().trim().slice(0, 4);
     e.target.value = originIata;

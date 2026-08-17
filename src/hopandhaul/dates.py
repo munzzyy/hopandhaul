@@ -23,9 +23,9 @@ Repeated sweeps (or a --date already covered by an earlier `hopandhaul duffel` c
 duffel.py's own per-date offer cache, so overlapping windows cost nothing extra.
 
 Examples:
-  hopandhaul dates --from JFK --to ASE --date 2026-08-15 --window 3 --auto-gateways
-  python -m hopandhaul.dates --from JFK --to ASE --date 2026-08-15 \
-      --return-date 2026-08-22 --window 2
+  hopandhaul dates --from JFK --to ASE --date 2027-06-15 --window 3 --auto-gateways
+  python -m hopandhaul.dates --from JFK --to ASE --date 2027-06-15 \
+      --return-date 2027-06-22 --window 2
   python -m hopandhaul.dates --selftest                              # offline, no network
 """
 from __future__ import annotations

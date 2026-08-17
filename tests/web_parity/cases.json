@@ -242,7 +242,7 @@
       "dest_lat": 39.19,
       "dest_lng": -106.82,
       "origin_iata": "JFK",
-      "date": "2026-08-15"
+      "date": "+200d"
     }
   },
   {
@@ -252,7 +252,17 @@
       "dest_lat": 39.19,
       "dest_lng": -106.82,
       "origin_iata": "JFK",
-      "date": "2026-07-10"
+      "date": "+5d"
+    }
+  },
+  {
+    "name": "date_past_aspen",
+    "type": "plan",
+    "params": {
+      "dest_lat": 39.19,
+      "dest_lng": -106.82,
+      "origin_iata": "JFK",
+      "date": "-30d"
     }
   },
   {
@@ -262,8 +272,8 @@
       "dest_lat": 39.19,
       "dest_lng": -106.82,
       "origin_iata": "JFK",
-      "date": "2026-08-15",
-      "ret": "2026-08-22"
+      "date": "+70d",
+      "ret": "+77d"
     }
   },
   {
@@ -848,7 +858,7 @@
       "dest_lat": 39.19,
       "dest_lng": -106.82,
       "origin_iata": "JFK",
-      "date": "2099-01-05"
+      "date": "+70d"
     }
   },
   {

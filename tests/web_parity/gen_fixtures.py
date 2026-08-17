@@ -18,13 +18,48 @@ Run:  python tests/web_parity/gen_fixtures.py
 """
 from __future__ import annotations
 
+import datetime
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CASES_PATH = os.path.join(HERE, "cases.json")
 OUT_DIR = os.path.join(HERE, "fixtures")
+# check.mjs reads THIS, not cases.json, so both engines see byte-identical dates even if the
+# two processes straddle midnight. See resolve_relative_dates() for why the dates move at all.
+RESOLVED_CASES_PATH = os.path.join(OUT_DIR, "_cases.resolved.json")
+
+_REL_DATE = re.compile(r"^([+-])(\d+)d$")
+
+
+def resolve_relative_dates(cases: list, today: datetime.date) -> list:
+    """Turn "+70d" / "-30d" date fields into real YYYY-MM-DD, relative to `today`.
+
+    Hardcoded dates rot. Three of these cases were pinned to 2026-07-10 and 2026-08-15 to test
+    the booking-lead-time curve; once those days passed, fare_date_multiplier() started
+    returning a neutral 1.0 for all of them, so `date_far_out_aspen` and `date_close_in_aspen`
+    were quietly testing the same undated code path as each other. They still PASSED, because
+    both engines agreed about doing nothing. A parity gate that agrees on the wrong thing is
+    worse than no gate, so date-sensitive cases now express an offset instead of a date.
+
+    Offsets are chosen so the multiplier is never exactly 1.0 no matter what day CI runs on:
+    +5d and +70d and +200d land in three different LEAD_CURVE buckets, verified against every
+    possible "today" across a full year.
+    """
+    out = []
+    for case in cases:
+        case = json.loads(json.dumps(case))          # don't mutate the caller's parsed JSON
+        params = case.get("params")
+        if isinstance(params, dict):
+            for field in ("date", "ret"):
+                m = _REL_DATE.match(str(params.get(field) or ""))
+                if m:
+                    sign = -1 if m.group(1) == "-" else 1
+                    params[field] = (today + datetime.timedelta(days=sign * int(m.group(2)))).isoformat()
+        out.append(case)
+    return out
 
 # Make sure "hopandhaul" imports even if the package isn't pip-installed in this environment.
 sys.path.insert(0, os.path.join(HERE, "..", "..", "src"))
@@ -94,6 +129,11 @@ def main() -> int:
         return 2
 
     os.makedirs(OUT_DIR, exist_ok=True)
+    cases = resolve_relative_dates(cases, datetime.date.today())
+    with open(RESOLVED_CASES_PATH, "w", encoding="utf-8") as f:
+        json.dump(cases, f, indent=2)
+        f.write("\n")
+
     for case in cases:
         try:
             out = run_case(case)

@@ -359,13 +359,46 @@ def _price_flight(origin, dest, date, ret, travelers, session, ctx, deadline):
     est = geo.estimate_flight(origin, dest, date=date)
     price = est["price"] * max(1, travelers)
     rt = False
+    _note_date_basis(ctx, est)
     if ret:                                  # estimate the return with its own date multiplier
         est_back = geo.estimate_flight(dest, origin, date=ret)
         price += est_back["price"] * max(1, travelers)
         rt = True
+        _note_date_basis(ctx, est_back)
     ctx["est_used"] = True
     return {"price": round(price, 2), "hours": est["hours"], "source": "estimate", "rt": rt,
             "estimate_detail": est}
+
+
+def _estimate_note(date, ctx):
+    """The one line that tells a user what the prices they're looking at actually are. It has
+    to match what the engine really did with their date, not just whether they typed one - see
+    _note_date_basis(). The four cases are distinct on purpose: a past date and a date that
+    landed on a neutral multiplier both produce the SAME number as no date at all, and saying
+    "date-adjusted" over either of them is a lie the user can't check."""
+    head = "Fares are distance-based ESTIMATES."
+    if ctx.get("past_date"):
+        return (f"{head} That departure date has already passed, so no booking-window or "
+                "season adjustment was applied. Pick a future date. Verify before booking.")
+    if ctx.get("date_applied"):
+        return (f"{head} Adjusted for your booking window and the season. "
+                "Verify before booking.")
+    if date:
+        return (f"{head} This date sits in a neutral booking window, so it did not move the "
+                "fare. Verify before booking.")
+    return f"{head} Add a date for live fares. Verify before booking."
+
+
+def _note_date_basis(ctx, est):
+    """Record whether the travel date actually moved this estimate, so the notes can say so
+    honestly. geo.estimate_flight() reports both facts and the old note-builder read neither:
+    it printed "date-adjusted for booking window/season" whenever a date string was present,
+    including for a date already in the past, where fare_date_multiplier() deliberately
+    returns a neutral 1.0. The user was told their date had been priced in when it hadn't."""
+    if est.get("past_date"):
+        ctx["past_date"] = True
+    elif est.get("date_mult"):
+        ctx["date_applied"] = True
 
 
 def _resolve_segment_airport(iata, fallback):
@@ -606,10 +639,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     else:
         source = "estimate"
     if source == "estimate":
-        note = ("Fares are distance-based ESTIMATES"
-                + (" (date-adjusted for booking window/season)" if date else "")
-                + " — add a date for live fares. Verify before booking.")
-        notes.append(note)
+        notes.append(_estimate_note(date, ctx))
     if ctx.get("live_error"):
         notes.append("Some live flight lookups failed and fell back to estimates.")
     if ctx.get("fx_used"):
@@ -875,6 +905,14 @@ def selftest():
         if not cond:
             fails.append(name)
 
+    # Travel dates below are anchored to TODAY, not hardcoded - geo.fare_date_multiplier()
+    # deliberately goes neutral (1.0) for a past date, so a hardcoded literal silently rots
+    # into testing the UNDATED code path once the calendar catches up to it. +70 lands inside
+    # LEAD_CURVE's "normal advance booking" bucket (0.96, never neutral) for any possible
+    # "today" - verified in the PR that added this helper.
+    def _d(days):
+        return (datetime.date.today() + datetime.timedelta(days=days)).isoformat()
+
     check("index.html exists", os.path.exists(INDEX))
     # the UI is split into ES modules + a stylesheet - the asset resolver must serve them
     # (a regression here silently ships an unstyled, mapless page), and refuse traversal.
@@ -988,17 +1026,26 @@ def selftest():
     check("group note present", any("GROUP TOTALS" in n for n in grp["notes"]))
 
     # round-trip with a return date (estimate mode): flight cost ≈ out + back, ground ×2.
-    ow = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15", fetch_weather=False,
+    ow = plan(39.19, -106.82, origin_iata="JFK", date=_d(70), fetch_weather=False,
               allow_live=False, allow_transit=False)
-    rt = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15", ret="2026-08-22",
+    rt = plan(39.19, -106.82, origin_iata="JFK", date=_d(70), ret=_d(77),
               fetch_weather=False, allow_live=False, allow_transit=False)
     ow_dir = next(o for o in ow["result"]["options"] if o["name"].startswith("Fly direct"))
     rt_dir = next(o for o in rt["result"]["options"] if o["name"].startswith("Fly direct"))
     check("RT direct cost > one-way and < 2.6× (separate date multipliers)",
           ow_dir["cost"] < rt_dir["cost"] < 2.6 * ow_dir["cost"])
     check("RT note mentions the return", any("return" in n.lower() for n in rt["notes"]))
-    check("dated estimate note mentions date adjustment",
-          any("date-adjusted" in n for n in ow["notes"]))
+    # honesty check on _estimate_note()/_note_date_basis(): a FUTURE date must say the fare was
+    # actually adjusted for booking window/season, and a date already in the PAST must say so
+    # plainly instead of quietly reusing the same neutral wording as "no date given" (that was
+    # the old bug - "date-adjusted" printed even when fare_date_multiplier() had gone neutral).
+    check("dated estimate note (future date) says the fare was adjusted",
+          any("adjusted for your booking window and the season" in n.lower() for n in ow["notes"]))
+    past_est = plan(39.19, -106.82, origin_iata="JFK", date=_d(-30), fetch_weather=False,
+                    allow_live=False, allow_transit=False)
+    check("dated estimate note (past date) says the date has already passed, not 'adjusted'",
+          any("already passed" in n.lower() for n in past_est["notes"])
+          and not any("adjusted for your booking window" in n.lower() for n in past_est["notes"]))
 
     # ---- reliability regression: a live-but-failing key (401/429/5xx surfaced by net.py as
     # FetchError) must degrade that flight leg to the distance ESTIMATE, not break the whole
@@ -1015,7 +1062,7 @@ def selftest():
     with _mock.patch.object(flights, "have_keys", return_value=True), \
          _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
          _mock.patch.object(flights, "search_cheapest", side_effect=_raise_fetch_error):
-        out_fallback = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15",
+        out_fallback = plan(39.19, -106.82, origin_iata="JFK", date=_d(70),
                             fetch_weather=False, allow_live=True, allow_transit=False)
     check("a FetchError from the live provider still returns ok:True",
           out_fallback.get("ok") is True)
@@ -1046,7 +1093,7 @@ def selftest():
          _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
          _mock.patch.object(flights, "search_cheapest", side_effect=_slow_search_cheapest), \
          _mock.patch.object(_this_module, "PLAN_TIME_BUDGET_S", 1.0):
-        out_budget = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15",
+        out_budget = plan(39.19, -106.82, origin_iata="JFK", date=_d(70),
                           fetch_weather=False, allow_live=True, allow_transit=False)
     budget_elapsed = _time.monotonic() - budget_start
     check(f"plan() returns near the 1s budget, not the 3s provider hang (took {budget_elapsed:.2f}s)",
@@ -1074,7 +1121,7 @@ def selftest():
          _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
          _mock.patch.object(flights, "search_cheapest", side_effect=_fast_direct_slow_gateways), \
          _mock.patch.object(_this_module, "PLAN_TIME_BUDGET_S", 1.0):
-        out_fb = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15",
+        out_fb = plan(39.19, -106.82, origin_iata="JFK", date=_d(70),
                       fetch_weather=False, allow_live=True, allow_transit=False)
     with _OFFER_CACHE_LOCK:            # don't leak this run's mocked ASE offer into later checks
         _OFFER_CACHE.clear()
@@ -1084,7 +1131,7 @@ def selftest():
         if len(legs) < 2 or legs[0]["mode"] != "fly" or legs[0]["is_live"]:
             continue    # only the estimate-fallback gateway flight legs
         gw = geo.by_iata(legs[0]["to"]["iata"])
-        dated = round(geo.estimate_flight(_fb_origin, gw, date="2026-08-15")["price"], 2)
+        dated = round(geo.estimate_flight(_fb_origin, gw, date=_d(70))["price"], 2)
         undated = round(geo.estimate_flight(_fb_origin, gw, date=None)["price"], 2)
         if dated != undated:                        # a gateway whose date actually moves the fare
             checked_a_dated_gateway = True
@@ -1094,21 +1141,28 @@ def selftest():
     check("at least one gateway exercised the date-adjusted fallback path", checked_a_dated_gateway)
 
     # ---- a successful live offer must produce a "live" itinerary leg: real segment times/
-    # carrier from Duffel, not the synthetic 08:00-anchored example schedule.
+    # carrier from Duffel, not the synthetic 08:00-anchored example schedule. The mocked
+    # segment's calendar date is deliberately kept in lockstep with the request date below
+    # (both derive from _d(70)) - a live leg never goes through fare_date_multiplier anyway,
+    # but a mismatched mock/request date would still be a silently-wrong fixture.
+    _live_seg_date = datetime.date.fromisoformat(_d(70))
+
     def _fake_live_search(session, origin_iata, dest_iata, date, adults, return_date):
         return {"price": 241.5, "hours": 5.5, "stops": 0, "carrier": "United Airlines",
                 "currency": "USD", "converted": False, "source": "duffel", "rt": False,
                 "checked_bags_included": 1, "refundable": False, "changeable": True,
                 "native_price": 241.5,
                 "segments": [{"from_iata": origin_iata, "to_iata": dest_iata,
-                             "depart_at": datetime.datetime(2026, 8, 15, 8, 12),
-                             "arrive_at": datetime.datetime(2026, 8, 15, 10, 5),
+                             "depart_at": datetime.datetime(_live_seg_date.year, _live_seg_date.month,
+                                                            _live_seg_date.day, 8, 12),
+                             "arrive_at": datetime.datetime(_live_seg_date.year, _live_seg_date.month,
+                                                            _live_seg_date.day, 10, 5),
                              "carrier": "United Airlines", "flight_number": "UA1234"}]}
 
     with _mock.patch.object(flights, "have_keys", return_value=True), \
          _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
          _mock.patch.object(flights, "search_cheapest", side_effect=_fake_live_search):
-        out_live = plan(39.19, -106.82, origin_iata="JFK", date="2026-08-15",
+        out_live = plan(39.19, -106.82, origin_iata="JFK", date=_d(70),
                         fetch_weather=False, allow_live=True, allow_transit=False)
     check("a successful live search prices the plan live", out_live.get("pricing_source") != "estimate")
     live_direct = next(o for o in out_live["result"]["options"] if o["name"].startswith("Fly direct"))
@@ -1159,14 +1213,14 @@ def selftest():
         check("plan: travelers over cap rejected", True)
 
     try:
-        parse_plan_params(qs(lat="39.19", lng="-106.82", date="2026-08-15", ret="2026-08-01"))
+        parse_plan_params(qs(lat="39.19", lng="-106.82", date=_d(70), ret=_d(55)))
         check("plan: return date before depart date rejected", False)
     except ValidationError:
         check("plan: return date before depart date rejected", True)
 
-    same_day = parse_plan_params(qs(lat="39.19", lng="-106.82", date="2026-08-15", ret="2026-08-15"))
+    same_day = parse_plan_params(qs(lat="39.19", lng="-106.82", date=_d(70), ret=_d(70)))
     check("plan: return date equal to depart date is allowed",
-          same_day["date"] == same_day["ret"] == "2026-08-15")
+          same_day["date"] == same_day["ret"] == _d(70))
 
     try:
         parse_plan_params(qs(lat="39.19", lng="-106.82", origin="J3K"))

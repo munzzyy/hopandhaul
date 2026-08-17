@@ -15,7 +15,7 @@ Policy compliance (https://transitous.org/api/): identifying User-Agent, cached,
 circuit breaker backs off entirely after repeated failures so an offline machine doesn't
 hang every click on a dead socket.
 
-Run:  python -m hopandhaul.transit 60.17 24.94 59.44 24.75 --date 2026-07-16
+Run:  python -m hopandhaul.transit 60.17 24.94 59.44 24.75 --date 2027-06-15
       python -m hopandhaul.transit --selftest     (offline, no network)
 """
 from __future__ import annotations

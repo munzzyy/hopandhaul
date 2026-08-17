@@ -70,7 +70,7 @@ hopandhaul-serve
 Then open `http://127.0.0.1:8770` and click anywhere on the map. Or skip the map entirely:
 
 ```
-hopandhaul go JFK "Tallinn" --date 2026-08-15
+hopandhaul go JFK "Tallinn" --date 2027-06-15
 ```
 
 No API keys needed for any of that. Weather, place search, real ferry routes, real US fare
@@ -125,7 +125,7 @@ tells you which one wins, pricing each candidate the exact same way `hopandhaul 
 prices a single day — nothing is reimplemented, it's the same engine called once per date:
 
 ```
-hopandhaul dates --from JFK --to ASE --date 2026-08-15 --window 3 --auto-gateways
+hopandhaul dates --from JFK --to ASE --date 2027-06-15 --window 3 --auto-gateways
 ```
 
 ```

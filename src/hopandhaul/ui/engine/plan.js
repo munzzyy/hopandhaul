@@ -34,16 +34,42 @@ function gw(g) {
  * Keeps `estimateDetail` (the outbound-leg estimate only, same as the Python side) so the
  * itinerary can narrate where the fare came from - never discarded just because the option
  * string only needs the price. */
-function priceFlightEstimate(origin, dest, date, ret, travelers) {
+function priceFlightEstimate(origin, dest, date, ret, travelers, ctx) {
   const est = geo.estimateFlight(origin, dest, date);
   let price = est.price * Math.max(1, travelers);
   let rt = false;
+  noteDateBasis(ctx, est);
   if (ret) {
     const estBack = geo.estimateFlight(dest, origin, ret);
     price += estBack.price * Math.max(1, travelers);
     rt = true;
+    noteDateBasis(ctx, estBack);
   }
   return { price: pyRound(price, 2), hours: est.hours, source: "estimate", rt, estimate_detail: est };
+}
+
+/** Mirrors server.py's _note_date_basis(): did the user's date actually move this estimate? */
+function noteDateBasis(ctx, est) {
+  if (est.past_date) ctx.past_date = true;
+  else if (est.date_mult) ctx.date_applied = true;
+}
+
+/** Mirrors server.py's _estimate_note() - the note text is compared byte for byte by the
+ * web-parity gate, so these two functions have to stay in lockstep. */
+function estimateNote(date, ctx) {
+  const head = "Fares are distance-based ESTIMATES.";
+  if (ctx.past_date) {
+    return `${head} That departure date has already passed, so no booking-window or `
+      + "season adjustment was applied. Pick a future date. Verify before booking.";
+  }
+  if (ctx.date_applied) {
+    return `${head} Adjusted for your booking window and the season. Verify before booking.`;
+  }
+  if (date) {
+    return `${head} This date sits in a neutral booking window, so it did not move the `
+      + "fare. Verify before booking.";
+  }
+  return `${head} Add a date for live fares. Verify before booking.`;
 }
 
 /** itinerary.js leg spec for a flight leg - mirrors server.py's _flight_leg_spec(), estimate
@@ -125,7 +151,8 @@ export function plan({
   }
 
   const flightTargets = [dest, ...gws];
-  const priced = flightTargets.map((t) => priceFlightEstimate(origin, t, date, ret, travelers));
+  const ctx = {};
+  const priced = flightTargets.map((t) => priceFlightEstimate(origin, t, date, ret, travelers, ctx));
 
   const options = [];
   const geoByName = {};
@@ -198,11 +225,7 @@ export function plan({
   // server.py's plan() would produce when it can't (or won't) reach a live provider.
   const source = "estimate";
   const notes = [];
-  notes.push(
-    "Fares are distance-based ESTIMATES"
-    + (date ? " (date-adjusted for booking window/season)" : "")
-    + " — add a date for live fares. Verify before booking.",
-  );
+  notes.push(estimateNote(date, ctx));
   if (travelers > 1) {
     notes.push(`Costs are GROUP TOTALS for ${travelers} travelers — per-person fares `
       + `×${travelers}; drive/rental legs are per vehicle.`);

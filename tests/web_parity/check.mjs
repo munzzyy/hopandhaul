@@ -19,7 +19,11 @@ const REPO_ROOT = path.resolve(HERE, "..", "..");
 const ENGINE_DIR = path.join(REPO_ROOT, "src", "hopandhaul", "ui", "engine");
 const DATA_DIR = path.join(REPO_ROOT, "src", "hopandhaul", "data");
 const FIXTURES_DIR = path.join(HERE, "fixtures");
-const CASES_PATH = path.join(HERE, "cases.json");
+// Read the cases gen_fixtures.py actually ran, not cases.json: date-sensitive cases carry
+// relative offsets ("+70d") that it resolves against the day it ran. Resolving them again here
+// would re-read the clock, so a run that straddles midnight would feed the two engines
+// different dates and report that as a parity failure.
+const CASES_PATH = path.join(FIXTURES_DIR, "_cases.resolved.json");
 
 const engineUrl = (f) => pathToFileURL(path.join(ENGINE_DIR, f)).href;
 const { plan } = await import(engineUrl("plan.js"));
@@ -122,6 +126,10 @@ async function main() {
   }
   await loadData(nodeLoader);
 
+  if (!existsSync(CASES_PATH)) {
+    console.error(`no resolved case list at ${CASES_PATH} - run: python tests/web_parity/gen_fixtures.py`);
+    process.exit(1);
+  }
   const cases = JSON.parse(readFileSync(CASES_PATH, "utf8"));
   let pass = 0;
   let fail = 0;
