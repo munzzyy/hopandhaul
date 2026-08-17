@@ -40,7 +40,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date as _date, timedelta
+from datetime import date as _date
+from datetime import timedelta
 
 from . import duffel, trip
 from .integrations import net
@@ -218,6 +219,7 @@ def _json_summary(out: dict) -> dict:
 def main(argv=None):
     trip._force_utf8()
     p = argparse.ArgumentParser(
+        prog="hopandhaul dates",
         description="Sweep dates around --date and report the actual cheapest one to fly "
                     "- same per-date pricing `hopandhaul duffel` uses.")
     p.add_argument("--from", dest="origin", help="origin airport IATA (e.g. JFK)")
@@ -252,7 +254,7 @@ def main(argv=None):
         p.error("--from, --to and --date are required")
 
     if not duffel.have_keys():
-        print("(No DUFFEL_API_KEY configured — every date below is priced with distance "
+        print("(No DUFFEL_API_KEY configured, so every date below is priced with distance "
               "ESTIMATES, same as `hopandhaul duffel` with no key. See README.md.)\n")
 
     gateways = [duffel.parse_gateway_arg(g) for g in args.gateway]

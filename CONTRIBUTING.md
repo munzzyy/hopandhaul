@@ -31,22 +31,32 @@ python -m hopandhaul.transit --selftest
 python -m hopandhaul.weather --selftest
 python -m hopandhaul.go --selftest
 python -m hopandhaul.multicity --selftest
+python -m hopandhaul.dates --selftest
 python -m hopandhaul.integrations.net
 ```
 
-All of these run in CI on every PR (see `.github/workflows/ci.yml`). If you touch a module,
-run its self-test locally before pushing, and add a case to it if you fixed a bug or added
-behavior. A fix with no test attached to it is a fix that can silently regress.
+All of these run in CI on every PR (see `.github/workflows/ci.yml`). That list, the one in
+README.md, and the one in `ci.yml` have to stay identical; a module that falls off one of
+them stops being run by whoever reads that file. If you touch a module, run its self-test
+locally before pushing, and add a case to it if you fixed a bug or added behavior. A fix with
+no test attached to it is a fix that can silently regress.
 
-Lint with `ruff check .`. CI runs it too.
+Two repo-level checks round it out, both also in CI:
+
+```
+python tools/check_i18n.py       # every catalog parses, matches en.json's keys, keeps placeholders
+python tools/check_cli_help.py   # every `hopandhaul <sub> --help` usage line is copy-runnable
+```
+
+Lint with `ruff check .`. CI runs it too, against the rule set in `pyproject.toml`.
 
 ## The browser build
 
 `src/hopandhaul/ui/engine/` is a hand-ported JS copy of the estimate path in `trip.py`/
-`geo.py`/`emissions.py`/`server.py`'s `plan()` — it's what runs the whole app client-side on
+`geo.py`/`emissions.py`/`server.py`'s `plan()`. It's what runs the whole app client-side on
 GitHub Pages, no server, no API keys. If you touch the reasoning in any of those Python
 modules, port the change to the matching file under `engine/` too (`trip.py` -> `trip.js`,
-`geo.py` -> `geo.js`, etc.) — a divergence there means the Pages build silently disagrees with
+`geo.py` -> `geo.js`, etc.). A divergence there means the Pages build silently disagrees with
 the CLI.
 
 One pair is not named after its file: `server.py`'s `sweep_dates()` ports to
@@ -78,9 +88,9 @@ python tests/web_parity/gen_fixtures.py
 node tests/web_parity/check.mjs
 ```
 
-If a case fails, the JS is wrong — fix it to match Python, never loosen the check. The classic
+If a case fails, the JS is wrong. Fix it to match Python, never loosen the check. The classic
 trap is rounding: Python's `round()` is round-half-to-even computed off the float's exact
-decimal expansion, not `Math.round()`/`toFixed()` — see `engine/pyround.js` for the port and
+decimal expansion, not `Math.round()`/`toFixed()`. See `engine/pyround.js` for the port and
 why a naive epsilon check gets `round(2.675, 2)` wrong.
 
 To preview the Pages build locally, stage the data JSON the workflow copies in at deploy time,
@@ -92,7 +102,7 @@ cp src/hopandhaul/data/*.json src/hopandhaul/ui/data/
 python -m http.server 8899 --directory src/hopandhaul/ui
 ```
 
-`src/hopandhaul/ui/data/` is gitignored — don't commit it; `src/hopandhaul/data/` stays the one
+`src/hopandhaul/ui/data/` is gitignored, so don't commit it; `src/hopandhaul/data/` stays the one
 source of truth.
 
 ## Code style
@@ -122,28 +132,28 @@ docstring is a good example) and match that.
 
 `gateways.json` is a curated list of "this cheaper hub + this ground leg is actually a good
 idea" facts. If you know a real one that's missing, open an issue with the
-`gateway_suggestion` template — it asks for exactly the fields needed to turn it into a
+`gateway_suggestion` template. It asks for exactly the fields needed to turn it into a
 one-line PR.
 
 ## Airport data corrections
 
 `airports.json` holds one row per airport: IATA code, name, city, country, coordinates, and a
-`hub` tier (1 = major/cheap/frequent, 2 = medium, 3 = small/regional/resort — few flights,
+`hub` tier (1 = major/cheap/frequent, 2 = medium, 3 = small/regional/resort, few flights and
 pricey). The tier drives real behavior: it's what makes the planner prefer DEN over a tiny
 strip when both are "near" a click, and what the $200 rule is comparing against. A wrong tier
 or a stale/duplicate row is a real bug.
 
-If you spot one — an airport tiered wrong for its actual size, a missing IATA code, a
-coordinate that's off enough to affect nearest-airport resolution — open an issue with the
+If you spot one (an airport tiered wrong for its actual size, a missing IATA code, a
+coordinate that's off enough to affect nearest-airport resolution), open an issue with the
 `bug` label and say which `iata` row and what it should be instead, with a source (an
 airline's own route map, an airport's published stats, anything better than a hunch). Small,
 single-row corrections are also welcome as a direct PR; `geo.py --selftest` has a block of
-regression tests for exactly this class of bug (see the LBG/TEB/PDK/FTW/OPF/BED entries) —
+regression tests for exactly this class of bug (see the LBG/TEB/PDK/FTW/OPF/BED entries), so
 add a case there if your fix could silently regress later.
 
 There's currently no automated importer script in this repo (`airports.json`'s own
 `_README` field references refreshing a floor import from
-[OurAirports](https://github.com/davidmegginson/ourairports-data) — that step happens
+[OurAirports](https://github.com/davidmegginson/ourairports-data), and that step happens
 outside this repo when a full refresh is due, not as a script contributors run). Day to day,
 treat `airports.json` as a hand-curated file you edit directly.
 
@@ -154,7 +164,7 @@ The UI catalogs live in `src/hopandhaul/ui/i18n/`, one flat JSON file per langua
 `{placeholders}` exactly as they are, and check the file still parses. To add a language:
 copy `en.json`, translate the values, add an entry to the `LANGS` table in `ui/i18n.js`,
 and say in the PR if you're a native speaker. Screen-reader strings (`legend.sr`,
-the `announce.*` keys) deserve extra care — someone will hear them read aloud.
+the `announce.*` keys) deserve extra care, because someone will hear them read aloud.
 
 ## Pull requests
 

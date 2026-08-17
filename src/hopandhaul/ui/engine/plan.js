@@ -129,7 +129,7 @@ export function plan({
   if (dest.iata === origin.iata) {
     return {
       ok: false,
-      error: "that point resolves to your origin airport — no flight needed",
+      error: "that point resolves to your origin airport, so there is no flight to plan",
       code: "origin_is_destination",
     };
   }
@@ -231,7 +231,7 @@ export function plan({
   const notes = [];
   notes.push(estimateNote(date, ctx));
   if (travelers > 1) {
-    notes.push(`Costs are GROUP TOTALS for ${travelers} travelers — per-person fares `
+    notes.push(`Costs are GROUP TOTALS for ${travelers} travelers: per-person fares `
       + `×${travelers}; drive/rental legs are per vehicle.`);
   }
   if (roundtrip) {
@@ -245,21 +245,21 @@ export function plan({
   }
   if (gws.some((g) => g.ferry)) {
     notes.push("Ferry legs are REAL corridors (bundled research, operators + typical "
-      + "fares + sailings/day as of the data's date) — schedules vary by day and "
+      + "fares + sailings/day as of the data's date). Schedules vary by day and "
       + "season, so check the operator before relying on a connection.");
   }
   if (gws.some((g) => g.transit)) {
     notes.push("Ground legs marked 'live schedule' use real timetables via Transitous "
-      + "(transitous.org — community GTFS/OSM data): real operators, departures "
+      + "(transitous.org, community GTFS/OSM data): real operators, departures "
       + "and door-to-door times. Fares on those legs are still estimates.");
   }
   if ((dest.dist_km || 0) > 120) {
     notes.push(`Nearest airport ${dest.iata} is ~${Math.trunc(dest.dist_km)} km from the `
-      + "clicked point — the last mile to your exact spot isn't included.");
+      + "clicked point, so the last mile to your exact spot isn't included.");
   }
   notes.push(
     "co2e_kg per option is a rough ESTIMATE from flight/ground distance, not a "
-    + "certified footprint — see docs/api.md for the factor basis. The lowest-carbon "
+    + "certified footprint; see docs/api.md for the factor basis. The lowest-carbon "
     + "option is flagged as 'greenest' but never auto-recommended over the cheapest.",
   );
 

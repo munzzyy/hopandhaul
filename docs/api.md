@@ -15,12 +15,12 @@ Every JSON endpoint returns an object with an `"ok"` boolean.
   text) is logged server-side to stderr, never sent to the client. No endpoint returns a
   stack trace or raw exception string.
 
-Codes you'll actually see: `invalid_param` (a query param failed validation — see the
+Codes you'll actually see: `invalid_param` (a query param failed validation; see the
 message for which one and why), `forbidden_host` (the `Host` header wasn't localhost),
 `not_found` (unknown path or missing static asset), `unknown_origin` (the `origin` IATA
 code isn't in the airport database), `no_airport_near_point` (nothing within the
 nearest-airport search radius), `origin_is_destination` (the clicked point resolves to the
-same airport as `origin` — nothing to plan), `geocoding_not_configured` / `geocode_lookup_failed`
+same airport as `origin`, so there is nothing to plan), `geocoding_not_configured` / `geocode_lookup_failed`
 (no Geoapify key / the provider call failed), `no_airport_found` (`/api/nearest` found
 nothing), `dates_all_past` / `dates_all_failed` / `date_lookup_failed` (`/api/dates`: the
 whole window is in the past, nothing in it priced, or one individual day failed),
@@ -54,6 +54,22 @@ Returns the UI (`text/html`). Not a JSON endpoint.
 
 Self-hosted Leaflet assets (no CDN). Not JSON endpoints.
 
+## `GET /healthz`
+
+Liveness check. No params, no keys, no work done. This is the one to point a container
+`HEALTHCHECK` or a systemd/supervisor watchdog at.
+
+```json
+{
+  "ok": true,
+  "version": "0.8.0"
+}
+```
+
+`version` is the installed package version, so the same call also tells you what a running
+instance actually is. Like every other endpoint it enforces the localhost `Host` allowlist,
+so a health probe has to reach it as `127.0.0.1` or `localhost`.
+
 ## `GET /api/config`
 
 Tells the frontend what's configured, with no secrets attached.
@@ -76,12 +92,12 @@ Tells the frontend what's configured, with no secrets attached.
 
 - `flights_provider`: `"duffel"` or `null` if no flight-pricing key is set.
 - `has_geocode` is always true (Photon needs no key); `geocode_provider` says which backend
-  answers — `"geoapify"` when that key is configured, else `"photon"`.
+  answers: `"geoapify"` when that key is configured, else `"photon"`.
 - `has_weather` (Open-Meteo) and `has_transit` (Transitous) are keyless and normally true.
 
 ## `GET /api/geocode?q=<text>&limit=<n>`
 
-Type-ahead place search — Photon by default, Geoapify when keyed. Requires `q`; `limit`
+Type-ahead place search, Photon by default and Geoapify when keyed. Requires `q`; `limit`
 defaults to 6, clamped to 1-10.
 
 - If `q` is missing or empty: `400 {"ok": false, "error": "q is required", "code": "invalid_param"}`.
@@ -127,14 +143,15 @@ applies the $200 rule to recommend one.
 | `travelers` | int | `1` | Clamped to 1-9; scales per-person costs, not vehicle costs |
 | `buffer` | float | `1.0` | Transfer/connection time buffer, hours |
 
-- Missing/invalid `lat`/`lng` (or any other query param that fails validation — bad date,
+- Missing/invalid `lat`/`lng` (or any other query param that fails validation: bad date,
   origin too long, threshold out of range, etc.):
   `400 {"ok": false, "error": "lat is required", "code": "invalid_param"}` (message varies by
   which param and how it failed; see `server.py`'s validators for the exact wording).
 - Unknown `origin`:
   `200 {"ok": false, "error": "unknown origin airport '<code>'", "code": "unknown_origin"}`.
-- The clicked point resolves to the same airport as `origin` — nothing to plan:
-  `200 {"ok": false, "error": "that point resolves to your origin airport — no flight needed",
+- The clicked point resolves to the same airport as `origin`, so there is nothing to plan:
+  `200 {"ok": false, "error": "that point resolves to your origin airport, so there is no
+  flight to plan",
   "code": "origin_is_destination"}`.
 - No airport within range of the clicked point:
   `200 {"ok": false, "error": "no airport found near that point", "code": "no_airport_near_point"}`.
@@ -174,14 +191,14 @@ applies the $200 rule to recommend one.
 
 ### Gateway extras: `gateways[].ferry` and `gateways[].transit`
 
-A ferry gateway carries a `ferry` object — the REAL corridor behind the leg: `name`,
+A ferry gateway carries a `ferry` object, the REAL corridor behind the leg: `name`,
 `operators`, the actual `port_a`/`port_b` terminal names, `duration_h` (published crossing
 time), `frequency_per_day`, `seasonal`, the sourced fare band `price_usd_lo`/`price_usd_hi`
 with `price_asof`, the `fare_usd` used in the leg's cost, `fare_is_real`, `crossing_km`, and
 the airport-to-port transfer estimate (`access_cost`/`access_hours`). The engine never
 invents a boat: no matching corridor in `data/ferries.json` means no ferry leg.
 
-Any train/bus/ferry gateway may additionally carry `transit` — a REAL timetable from
+Any train/bus/ferry gateway may additionally carry `transit`, a REAL timetable from
 Transitous: `duration_h` (real door-to-door, which replaces the formula duration in the leg
 and the ranking), `legs` (each with `mode`, `agency`, `route`, `depart` clock), `depart`,
 `transfers`, `n_options`, `date`, and a ready-made provenance sentence in `line`. Present
@@ -192,11 +209,11 @@ estimates either way.
 
 Every option in `result.options` carries a `co2e_kg` field: an ESTIMATED kilograms-CO2e figure
 for that whole option (all legs, all travelers), computed from each leg's flight/ground
-distance against a small hardcoded factor table in `emissions.py` — not a live API, not a
+distance against a small hardcoded factor table in `emissions.py`. Not a live API, not a
 certified footprint calculator. `result.greenest` is the `name` of whichever option in the set
 has the lowest `co2e_kg`.
 
-This is informational only. The server never uses `co2e_kg` to choose `result.recommended` —
+This is informational only. The server never uses `co2e_kg` to choose `result.recommended`:
 the $200 rule and the rest of `trip.py`'s ranking are completely unaware emissions data exists.
 `greenest` is just a second, independent pointer alongside `recommended`, so the response lets
 you compare "cheapest/recommended" against "lowest-carbon" side by side and decide for yourself;
@@ -206,7 +223,7 @@ Factor basis (grams CO2e per passenger-km, well-to-wake): short-haul flight (<15
 g/pkm, long-haul ~148 g/pkm (both roughly DEFRA/EEA-range; a `with_rf=True` call in
 `emissions.py` applies a ~1.9x radiative-forcing uplift for aviation's non-CO2 warming effects,
 not used in the API response by default but available to any caller of the module directly),
-rail ~37 g/pkm (EU-average blend — a clean-grid electric line can be much lower, a diesel
+rail ~37 g/pkm (EU-average blend; a clean-grid electric line can be much lower, a diesel
 regional line higher), coach/bus ~28 g/pkm, car ~170 g per VEHICLE-km (divided across
 travelers only when a mode is priced per-person; a drive/rental leg is per-vehicle, same
 distinction `trip.py` already makes for cost). Full citations and reasoning in
@@ -237,27 +254,27 @@ checkable schedule:
 }
 ```
 
-- `from`/`to`: the real airport or station — IATA code, full name, and city — never a bare code.
+- `from`/`to`: the real airport or station, with IATA code, full name, and city. Never a bare code.
 - `depart_clock`/`arrive_clock`/`depart_day`/`arrive_day`: a clock schedule. A leg's times are
   real offer times only when that leg is `is_live: true` (a live Duffel fare priced it);
   otherwise they're synthetic. The block-level `example_day` stays `true` as long as ANY leg
-  is still an estimate — it only flips to `false` when every leg came from a live offer, so a
+  is still an estimate, and only flips to `false` when every leg came from a live offer, so a
   mixed itinerary is never presented as a fully real day.
   Synthetic times walk forward from a sane default departure (`depart_local`, `08:00`) with a
   connection buffer between legs (the same `buffer` query param that already lengthens
-  `hours_eff` — the itinerary's elapsed time always reconciles with the summary card next to
+  `hours_eff`, so the itinerary's elapsed time always reconciles with the summary card next to
   it) and no timezone conversion: `airports.json` carries no timezone data, and a
   longitude-based guess would be its own kind of dishonesty. A live leg's times ARE real
   per-airport local times (Duffel resolves that server-side).
-- `checkin_by`: present on a flight leg only — a generic 2-hour-early airport-arrival
+- `checkin_by`: present on a flight leg only, a generic 2-hour-early airport-arrival
   recommendation, not an airline-specific claim.
-- `price_basis`: plain-English provenance for that leg's `cost` — which route-band multipliers
+- `price_basis`: plain-English provenance for that leg's `cost`: which route-band multipliers
   applied (estimate) or which carrier/fare priced it (live). Free text, like `notes` elsewhere
-  in this response — not translated by the UI's i18n catalog.
-- `verify_url`: a one-click way to check the number — a Google Flights search
+  in this response, and not translated by the UI's i18n catalog.
+- `verify_url`: a one-click way to check the number: a Google Flights search
   (`?q=Flights+from+XXX+to+YYY+on+YYYY-MM-DD`) for a flight leg, a Rome2Rio map link
   (`/map/{from}/{to}`) for a ground leg.
-- `is_live` / `carrier` / `flight_number`: only real (not invented) — `null`/`false` on every
+- `is_live` / `carrier` / `flight_number`: only real (not invented), and `null`/`false` on every
   estimate leg.
 
 The same live-vs-estimate split shows up one level up too: `direct` and each entry in

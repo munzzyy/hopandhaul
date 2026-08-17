@@ -18,12 +18,12 @@ Run:  python -m hopandhaul.places "Aspen, Colorado"
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
 import urllib.parse
 
-from . import __version__
-from . import geoapify
+from . import __version__, geoapify
 from .integrations import net
 
 PHOTON_BASE = "https://photon.komoot.io/api/"
@@ -91,11 +91,10 @@ def geocode(text: str, limit: int = 5, lang: str = "en", timeout: int = 15) -> l
 
 # --------------------------------------------------------------------------- CLI
 def main(argv=None):
-    try:
+    with contextlib.suppress(AttributeError, ValueError):
         sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, ValueError):
-        pass
-    p = argparse.ArgumentParser(description="Place search (Photon keyless; Geoapify when keyed).")
+    p = argparse.ArgumentParser(prog="hopandhaul geocode",
+                                description="Place search (Photon keyless; Geoapify when keyed).")
     p.add_argument("query", nargs="*", help="place to search")
     p.add_argument("--limit", type=int, default=5)
     p.add_argument("--json", action="store_true")

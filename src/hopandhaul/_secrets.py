@@ -23,7 +23,7 @@ def _load() -> dict:
     global _cache
     if _cache is None:
         try:
-            with open(_FILE, "r", encoding="utf-8") as f:
+            with open(_FILE, encoding="utf-8") as f:
                 _cache = json.load(f)
         except (FileNotFoundError, ValueError):
             _cache = {}

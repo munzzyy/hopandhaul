@@ -30,6 +30,7 @@ const { plan } = await import(engineUrl("plan.js"));
 const trip = await import(engineUrl("trip.js"));
 const { sweepDates, candidateDates, basisOfLegs } = await import(engineUrl("dates.js"));
 const { loadData } = await import(engineUrl("data.js"));
+const { parsePlanParams, ValidationError } = await import(engineUrl("validate.js"));
 
 // Node has no browser fetch()-a-local-file story worth relying on here - read the same two
 // JSON files geo.py reads, straight off disk. Same bytes, same array order, so nearest_airport/
@@ -112,15 +113,27 @@ function runDatesHelpersCase(c) {
   };
 }
 
+// The trust boundary: raw pre-validation strings in, normalized params or an error out.
+// See the matching comment on gen_fixtures.py's run_validate_case().
+function runValidateCase(c) {
+  try {
+    return { ok: true, params: parsePlanParams(c.params) };
+  } catch (e) {
+    if (e instanceof ValidationError) return { ok: false, error: e.message };
+    throw e;
+  }
+}
+
 function runCase(c) {
   if (c.type === "plan") return runPlanCase(c);
   if (c.type === "evaluate") return runEvaluateCase(c);
   if (c.type === "dates") return runDatesCase(c);
   if (c.type === "dates_helpers") return runDatesHelpersCase(c);
+  if (c.type === "validate") return runValidateCase(c);
   throw new Error(`unknown case type ${JSON.stringify(c.type)} in ${c.name}`);
 }
 
-const TAG_LABEL = { dates: "cheapest", dates_helpers: "helpers" };
+const TAG_LABEL = { dates: "cheapest", dates_helpers: "helpers", validate: "verdict" };
 
 /** The one thing worth printing about a passing case. For a dates case that's which day won and
  * how many were in the window: a window that quietly lost a date is the failure that case type
@@ -128,6 +141,9 @@ const TAG_LABEL = { dates: "cheapest", dates_helpers: "helpers" };
 function tagFor(c, js) {
   if (c.type === "evaluate") return js.recommended;
   if (c.type === "dates_helpers") return `${js.basis}, ${js.dates.length} dates`;
+  // validate cases report an `error` string rather than a `code`, so they resolve before the
+  // generic !ok branch below.
+  if (c.type === "validate") return js.ok ? "accepted" : `rejected: ${js.error}`;
   if (!js.ok) return `error:${js.code}`;
   return c.type === "dates" ? `${js.best.date} of ${js.dates.length}` : js.result.recommended;
 }
@@ -163,7 +179,7 @@ function diff(a, b, at = "$") {
 
 async function main() {
   if (!existsSync(FIXTURES_DIR)) {
-    console.error(`no fixtures at ${FIXTURES_DIR} — run: python tests/web_parity/gen_fixtures.py`);
+    console.error(`no fixtures at ${FIXTURES_DIR}. Run: python tests/web_parity/gen_fixtures.py`);
     process.exit(1);
   }
   await loadData(nodeLoader);
@@ -182,7 +198,7 @@ async function main() {
     if (!existsSync(fixturePath)) {
       fail++;
       console.log(`FAIL  ${c.name}`);
-      console.log(`      no fixture at ${fixturePath} — run gen_fixtures.py first`);
+      console.log(`      no fixture at ${fixturePath}. Run gen_fixtures.py first`);
       failures.push({ name: c.name, d: "missing fixture" });
       continue;
     }

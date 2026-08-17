@@ -34,11 +34,15 @@ import os
 import re
 import sys
 import urllib.parse
-
 from datetime import datetime, timedelta
 
-from . import _secrets, geo, itinerary, trip  # deterministic engine + report
+from . import __version__, _secrets, geo, itinerary, trip  # deterministic engine + report
 from .integrations import net
+
+# Same identifying agent string transit.py/places.py/weather.py send. Every keyless
+# provider this repo touches asks for one, and it is what lets an operator tell our
+# traffic apart from an anonymous scraper if they ever need to.
+UA = f"hopandhaul/{__version__} (https://github.com/munzzyy/hopandhaul)"
 
 BASE = os.environ.get("DUFFEL_BASE", "https://api.duffel.com")
 DUFFEL_VERSION = os.environ.get("DUFFEL_VERSION", "v2")
@@ -91,6 +95,10 @@ FX_USD = {
 # static table stays as the offline fallback and for the long tail of currencies the ECB set
 # doesn't carry. to_usd() reports which source priced a conversion so provenance can say so.
 _FX_LIVE = {"rates": None, "tried": False}
+# Pinned to /v1 deliberately. frankfurter.dev now documents a v2 API alongside it, but
+# v2 is a different path scheme (/v2/latest is a 404), and v1 is still the supported
+# endpoint with no deprecation announced. Verify /v1/latest still answers 200 before
+# anyone "upgrades" this string.
 _FRANKFURTER = "https://api.frankfurter.dev/v1/latest?base=USD"
 
 
@@ -99,7 +107,8 @@ def _live_rates() -> dict | None:
     if not _FX_LIVE["tried"]:
         _FX_LIVE["tried"] = True
         try:
-            out = net.fetch_json(_FRANKFURTER, headers={"Accept": "application/json"},
+            out = net.fetch_json(_FRANKFURTER,
+                                 headers={"User-Agent": UA, "Accept": "application/json"},
                                  timeout=6, max_retries=0)
             rates = out.get("rates") or {}
             # frankfurter answers units-per-USD; invert to USD-per-unit like FX_USD
@@ -437,7 +446,7 @@ def build_and_evaluate(origin, dest, date, gateways, adults, cabin, nonstop,
     if direct["source"] == "estimate":
         warnings.append(f"No live Duffel offer {origin}->{dest}; priced with a distance ESTIMATE.")
     elif not direct["fx_ok"]:
-        warnings.append(f"Direct fare in {direct['currency']} — no FX rate, treated as USD.")
+        warnings.append(f"Direct fare in {direct['currency']}: no FX rate, treated as USD.")
     elif direct["converted"]:
         warnings.append(f"Direct fare converted {direct['currency']}->USD (approx).")
 
@@ -466,7 +475,7 @@ def build_and_evaluate(origin, dest, date, gateways, adults, cabin, nonstop,
 
 
 def print_setup_help():
-    print("Duffel key not set — live flight pricing is unavailable.\n")
+    print("Duffel key not set, so live flight pricing is unavailable.\n")
     print("Get one free:")
     print("  1) https://app.duffel.com  -> Developers -> Access tokens -> create a TEST token")
     print("  2) store it (either works):")
@@ -500,11 +509,11 @@ def _format_itinerary_block(option: dict) -> str:
         return ""
     lines = [f"    {option['name']}:"]
     if itin.get("example_day"):
-        lines.append("      (example schedule, not a real booking — see 'verify' links below)")
+        lines.append("      (example schedule, not a real booking; see 'verify' links below)")
     for i, leg in enumerate(legs, 1):
         frm, to = leg["from"], leg["to"]
         tag = "LIVE" if leg["is_live"] else "est."
-        carrier = f" — {leg['carrier']}" + (f" {leg['flight_number']}" if leg.get("flight_number") else "") \
+        carrier = f", {leg['carrier']}" + (f" {leg['flight_number']}" if leg.get("flight_number") else "") \
             if leg.get("carrier") else ""
         lines.append(
             f"      {i}. {leg['mode'].upper():<6} {_airport_label(frm)} -> {_airport_label(to)}")
@@ -512,7 +521,8 @@ def _format_itinerary_block(option: dict) -> str:
             f"         {leg['depart_day']} {leg['depart_clock']} -> {leg['arrive_day']} {leg['arrive_clock']}"
             f"  ({leg['duration_h']:g}h)  {tag}{carrier}")
         if leg.get("checkin_by"):
-            lines.append(f"         be at the airport by {leg['checkin_by']['day']} {leg['checkin_by']['clock']}")
+            checkin = leg["checkin_by"]
+            lines.append(f"         be at the airport by {checkin['day']} {checkin['clock']}")
         lines.append(f"         {_fmt_money(leg['cost'])} · {leg['price_basis']}")
         lines.append(f"         verify: {leg['verify_url']}")
     return "\n".join(lines)
@@ -532,7 +542,8 @@ def format_itineraries(res: dict) -> str:
 # --------------------------------------------------------------------------- CLI
 def main(argv=None):
     trip._force_utf8()
-    p = argparse.ArgumentParser(description="Live Duffel flight fetch -> trip.py ($200 rule).")
+    p = argparse.ArgumentParser(prog="hopandhaul duffel",
+                                description="Live Duffel flight fetch -> trip.py ($200 rule).")
     p.add_argument("--from", dest="origin", help="origin airport IATA (e.g. JFK)")
     p.add_argument("--to", dest="dest", help="final destination airport IATA (e.g. ASE)")
     p.add_argument("--date", help="departure date YYYY-MM-DD")
@@ -601,7 +612,7 @@ def main(argv=None):
         p.error("--from, --to and --date are required")
 
     if not have_keys():
-        print("(No DUFFEL_API_KEY configured — flight legs priced with distance ESTIMATES, "
+        print("(No DUFFEL_API_KEY configured, so flight legs are priced with distance ESTIMATES, "
               "same as the map UI with no key. See README.md for how to add one.)\n")
 
     gateways = [parse_gateway_arg(g) for g in args.gateway]
@@ -622,7 +633,7 @@ def main(argv=None):
     for w in warnings:
         print(f"WARN  {w}")
     if res is None:
-        print("No priceable options — nothing to recommend.")
+        print("No priceable options, nothing to recommend.")
         return 1
     rt_note = " · ROUND-TRIP fares (times shown = outbound)" if args.return_date else ""
     flights_src = (f"Duffel {'LIVE' if is_live_key() else 'TEST'}" if have_keys() else "ESTIMATE")
@@ -676,6 +687,27 @@ def selftest():
     check("a live ECB rate takes precedence over the bundled table when present",
           to_usd(100.0, "GBP") == (130.0, True) and "frankfurter" in fx_source())
     _FX_LIVE["rates"] = None
+
+    # Every keyless provider this repo calls wants an identifying User-Agent, and frankfurter
+    # was the one call still going out anonymous. Spy on the request instead of making it.
+    seen = {}
+
+    def _spy(url, headers=None, **kw):
+        seen["url"], seen["headers"] = url, headers or {}
+        return {"rates": {"EUR": 0.86}, "date": "2026-08-02"}
+
+    real_fetch = net.fetch_json
+    net.fetch_json = _spy
+    try:
+        _FX_LIVE["tried"] = False
+        _live_rates()
+    finally:
+        net.fetch_json = real_fetch
+        _FX_LIVE["tried"], _FX_LIVE["rates"] = True, None
+    check("frankfurter call sends the identifying User-Agent",
+          seen.get("headers", {}).get("User-Agent", "").startswith("hopandhaul/"))
+    check("frankfurter stays pinned to the v1 path (v2 is a different scheme)",
+          "/v1/latest" in seen.get("url", ""))
 
     o = _parse_offer({"total_amount": "241.50", "total_currency": "USD",
                       "owner": {"iata_code": "AA"},

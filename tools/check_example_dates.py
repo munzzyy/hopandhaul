@@ -63,7 +63,7 @@ def main() -> int:
     checked = 0
 
     for path in sorted(iter_files()):
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             for lineno, line in enumerate(f, 1):
                 for raw in EXAMPLE_DATE.findall(line):
                     checked += 1

@@ -84,7 +84,12 @@ def resolve_relative_dates(cases: list, today: datetime.date) -> list:
 sys.path.insert(0, os.path.join(HERE, "..", "..", "src"))
 
 from hopandhaul import dates, trip  # noqa: E402
-from hopandhaul.server import plan, sweep_dates  # noqa: E402
+from hopandhaul.server import (  # noqa: E402
+    ValidationError,
+    parse_plan_params,
+    plan,
+    sweep_dates,
+)
 
 
 def build_option_string(opt: dict) -> str:
@@ -170,6 +175,19 @@ def run_dates_helpers_case(case: dict) -> dict:
                                        today=datetime.date.fromisoformat(p["today"])),
         "basis": dates.basis_of_legs(p["legs"]),
     }
+def run_validate_case(case: dict) -> dict:
+    """The trust boundary: raw pre-validation strings in, normalized params or an error out.
+
+    server.parse_plan_params() and ui/engine/validate.js parsePlanParams() are hand-kept
+    mirrors guarding untrusted input (a query string here, a hand-edited share URL in the
+    browser). Comparing them here means a divergence like the Unicode-digit date one is a
+    red CI job instead of two engines quietly disagreeing about what is valid.
+    """
+    q = {k: [v] for k, v in case["params"].items()}
+    try:
+        return {"ok": True, "params": parse_plan_params(q)}
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
 
 
 def run_case(case: dict) -> dict:
@@ -181,11 +199,13 @@ def run_case(case: dict) -> dict:
         return run_dates_case(case)
     if case["type"] == "dates_helpers":
         return run_dates_helpers_case(case)
+    if case["type"] == "validate":
+        return run_validate_case(case)
     raise ValueError(f"unknown case type {case['type']!r} in {case.get('name')!r}")
 
 
 def main() -> int:
-    with open(CASES_PATH, "r", encoding="utf-8") as f:
+    with open(CASES_PATH, encoding="utf-8") as f:
         cases = json.load(f)
 
     names = [c["name"] for c in cases]
@@ -203,7 +223,7 @@ def main() -> int:
     for case in cases:
         try:
             out = run_case(case)
-        except Exception as e:  # noqa: BLE001 - a fixture that can't generate is a hard failure
+        except Exception as e:
             print(f"error generating fixture {case['name']!r}: {type(e).__name__}: {e}", file=sys.stderr)
             return 1
         with open(os.path.join(OUT_DIR, f"{case['name']}.json"), "w", encoding="utf-8") as f:

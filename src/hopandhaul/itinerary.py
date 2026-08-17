@@ -152,7 +152,7 @@ def flight_provenance_estimate(detail: dict | None, date: str | None) -> str:
 def flight_provenance_live(live: dict) -> str:
     """'where this number comes from' for a LIVE (Duffel) flight leg."""
     carrier = live.get("carrier") or "an airline"
-    bits = [f"live fare — {carrier}"]
+    bits = [f"live fare from {carrier}"]
     native = live.get("native_price")
     cur = live.get("currency")
     if native is not None and cur and cur != "USD":
@@ -171,7 +171,7 @@ def ferry_provenance(ferry: dict) -> str:
     lo, hi = ferry.get("price_usd_lo"), ferry.get("price_usd_hi")
     asof = ferry.get("price_asof") or "n/a"
     if ferry.get("fare_is_real") and lo is not None:
-        band = f"${lo:g}–${hi:g}" if hi is not None and hi != lo else f"from ${lo:g}"
+        band = f"${lo:g} to ${hi:g}" if hi is not None and hi != lo else f"from ${lo:g}"
         bits.append(f"real ferry fare {band} ({ops}; as of {asof})")
     else:
         bits.append(f"ferry fare estimate ({ops})")
@@ -182,7 +182,7 @@ def ferry_provenance(ferry: dict) -> str:
     elif ferry.get("seasonal"):
         bits.append("seasonal service")
     if ferry.get("access_cost") is not None:
-        bits.append(f"+ ~${ferry['access_cost']:g} airport–port transfer estimate")
+        bits.append(f"+ ~${ferry['access_cost']:g} airport-to-port transfer estimate")
     return "; ".join(bits)
 
 
@@ -196,7 +196,7 @@ def ground_provenance(gw: dict, road_km: float | None) -> str:
         base = ferry_provenance(gw["ferry"])
     elif gw.get("source") == "curated":
         note = gw.get("notes")
-        base = f"curated gateway estimate{(' — ' + note) if note else ''}"
+        base = f"curated gateway estimate{(': ' + note) if note else ''}"
     else:
         km = f"~{int(road_km)}km" if road_km is not None else "distance-based"
         base = f"ground estimate ({km} road/rail distance, regional rate table)"
@@ -344,7 +344,8 @@ def selftest() -> int:
     link = google_flights_link("JFK", "ASE", _d(70))
     check("google flights link has the right host + path",
           link.startswith("https://www.google.com/travel/flights?q="))
-    check("google flights link encodes spaces as + (urlencode, not raw text)", "+" in link and " " not in link)
+    check("google flights link encodes spaces as + (urlencode, not raw text)",
+          "+" in link and " " not in link)
     check("google flights link contains both IATA codes and the date",
           "JFK" in link and "ASE" in link and _d(70) in link)
     link_no_date = google_flights_link("JFK", "ASE")
@@ -403,7 +404,8 @@ def selftest() -> int:
     check("a fly leg carries a checkin_by ~2h before departure", row["checkin_by"]["clock"] == "06:00")
     check("build_timeline with no date falls back to relative 'Day N' labels",
           build_timeline(direct_legs)["legs"][0]["depart_day"] == "Day 1")
-    check("an estimate-only timeline is flagged example_day", tl["example_day"] is True and tl["any_live"] is False)
+    check("an estimate-only timeline is flagged example_day",
+          tl["example_day"] is True and tl["any_live"] is False)
 
     # ---- timeline: fly + ground split, connection buffer must land between legs, and the
     # summed elapsed time must equal each leg's own hours plus exactly one transfer buffer - 
@@ -417,8 +419,10 @@ def selftest() -> int:
     tl2 = build_timeline(split_legs, date=_d(70), transfer_buffer_h=1.0)
     check("split timeline has both legs", len(tl2["legs"]) == 2)
     fly_row, ground_row = tl2["legs"]
-    check("fly leg departs 08:00, arrives 11:00 (3h)", fly_row["depart_clock"] == "08:00" and fly_row["arrive_clock"] == "11:00")
-    check("ground leg departs after a 1h transfer buffer (12:00, not 11:00)", ground_row["depart_clock"] == "12:00")
+    check("fly leg departs 08:00, arrives 11:00 (3h)",
+          fly_row["depart_clock"] == "08:00" and fly_row["arrive_clock"] == "11:00")
+    check("ground leg departs after a 1h transfer buffer (12:00, not 11:00)",
+          ground_row["depart_clock"] == "12:00")
     check("ground leg has no checkin_by (only flights get one)", ground_row["checkin_by"] is None)
     check("ground leg arrives 6h after its own departure (18:00)", ground_row["arrive_clock"] == "18:00")
     total_elapsed_min = _hhmm_to_min(ground_row["arrive_clock"]) - _hhmm_to_min(fly_row["depart_clock"])
@@ -439,7 +443,7 @@ def selftest() -> int:
     # re-anchors to the live leg's real arrival instead of the synthetic 08:00-based clock.
     live_leg = [{
         "mode": "fly", "cost": 241.5, "hours": 5.5, "from": jfk, "to": den, "is_live": True,
-        "price_basis": "live fare — United Airlines", "verify_url": "https://x",
+        "price_basis": "live fare from United Airlines", "verify_url": "https://x",
         "segments": [{
             "from": jfk, "to": den,
             "depart_at": datetime.datetime(_travel.year, _travel.month, _travel.day, 14, 5),
@@ -458,7 +462,7 @@ def selftest() -> int:
           and live_row["flight_number"] == "UA1234")
     check("live leg is flagged is_live=True and any_live is set",
           live_row["is_live"] is True and tl4["any_live"] is True)
-    check("a mixed live+estimate timeline is STILL example_day — one real fare must not "
+    check("a mixed live+estimate timeline is STILL example_day: one real fare must not "
           "let the block claim the whole day is real while the ground leg is an estimate",
           tl4["example_day"] is True and next_row["is_live"] is False)
     check("the live leg's own checkin_by is ~2h before its REAL departure (12:05), not the synthetic anchor",
@@ -467,7 +471,8 @@ def selftest() -> int:
           next_row["depart_clock"] == "17:47")
 
     # ---- honesty: an estimate leg never claims to be live, and vice versa
-    check("a synthetic leg's price_basis is whatever the caller supplied (this module narrates, doesn't invent)",
+    check("a synthetic leg's price_basis is whatever the caller supplied "
+          "(this module narrates, doesn't invent)",
           fly_row["price_basis"] == "route-band estimate")
     check("empty legs list returns an empty, honestly-labelled timeline",
           build_timeline([]) == {"legs": [], "any_live": False, "example_day": True, "depart_local": "08:00"})
@@ -480,4 +485,4 @@ if __name__ == "__main__":
     import sys
     if "--selftest" in sys.argv:
         sys.exit(selftest())
-    print("itinerary.py — import me, or run with --selftest")
+    print("itinerary.py: import me, or run with --selftest")

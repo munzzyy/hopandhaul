@@ -4,7 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hopandhaul"
-version = "0.7.1"
+# Single source of truth is src/hopandhaul/__init__.py, which is what /healthz and the
+# User-Agent strings report. Two hand-kept copies drift; this one cannot.
+dynamic = ["version"]
 description = "Flies you into the cheap airport, then tells you honestly whether the train ride is worth it."
 readme = "README.md"
 license = { text = "Prosperity Public License 3.0.0" }
@@ -18,6 +20,39 @@ Homepage = "https://github.com/munzzyy/hopandhaul"
 [project.scripts]
 hopandhaul = "hopandhaul.__main__:main"
 hopandhaul-serve = "hopandhaul.server:main"
+
+# CI pins ruff and runs `ruff check .`. Without this section that means ruff's default
+# rules only (E4, E7, E9, F), which is pyflakes and little else. For a repo whose pitch is
+# readable, auditable modules, spell the gate out.
+[tool.ruff]
+line-length = 110   # what this codebase already holds to; not an invitation to grow
+target-version = "py310"
+
+[tool.ruff.lint]
+# The CLI prints "×2" for group pricing on purpose; that is a multiplication sign, not a
+# typo for the letter x. Every other confusable stays an error, which is how the ambiguous
+# digits in server.py's validator self-tests earn their explicit noqa.
+allowed-confusables = ["×"]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # import sorting
+    "B",    # bugbear: real bug shapes, not style
+    "C4",   # comprehension clarity
+    "UP",   # pyupgrade, floored at the 3.10 target above
+    "SIM",  # simplifications
+    "RUF",  # ruff's own checks
+]
+
+[tool.ruff.lint.per-file-ignores]
+# The engine's float determinism is load-bearing: trip._sum_lr() adds left to right on
+# purpose so CPython 3.12+ compensated summation can't flip a cent and flip the $200-rule
+# recommendation away from what ui/engine/trip.js computes. Rewriting that loop as sum()
+# is exactly the "simplification" that breaks the web-parity gate, so it stays exempt.
+"src/hopandhaul/trip.py" = ["SIM110", "SIM111"]
+
+[tool.setuptools.dynamic]
+version = { attr = "hopandhaul.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]

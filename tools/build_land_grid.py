@@ -38,8 +38,8 @@ import sys
 import urllib.request
 
 RES_DEG = 0.25
-W = int(round(360 / RES_DEG))          # 1440
-H = int(round(180 / RES_DEG))          # 720
+W = round(360 / RES_DEG)          # 1440
+H = round(180 / RES_DEG)          # 720
 SOURCE_URL = ("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/"
               "master/geojson/ne_50m_land.geojson")
 OUT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -70,12 +70,12 @@ def _row_lat(row: int) -> float:
 
 
 def _col_of_lng(lng: float) -> int:
-    c = int(math.floor((lng + 180.0) / RES_DEG))
+    c = math.floor((lng + 180.0) / RES_DEG)
     return min(W - 1, max(0, c))
 
 
 def _row_of_lat(lat: float) -> int:
-    r = int(math.floor((90.0 - lat) / RES_DEG))
+    r = math.floor((90.0 - lat) / RES_DEG)
     return min(H - 1, max(0, r))
 
 
@@ -116,8 +116,8 @@ def rasterize(geojson: dict) -> bytearray:
             xs.sort()
             for j in range(0, len(xs) - 1, 2):
                 x_lo, x_hi = xs[j], xs[j + 1]
-                c0 = int(math.ceil((x_lo + 180.0) / RES_DEG - 0.5 - 1e-9))
-                c1 = int(math.floor((x_hi + 180.0) / RES_DEG - 0.5 + 1e-9))
+                c0 = math.ceil((x_lo + 180.0) / RES_DEG - 0.5 - 1e-9)
+                c1 = math.floor((x_hi + 180.0) / RES_DEG - 0.5 + 1e-9)
                 for col in range(max(0, c0), min(W - 1, c1) + 1):
                     set_cell(row, col)
         # Vertex pass: any cell a coastline vertex touches is land (keeps small islands).
@@ -197,10 +197,11 @@ def run_checks(bits: bytes) -> int:
 
 
 def main(argv=None) -> int:
-    argv = sys.argv[1:] if argv is None else argv
     gj = fetch_geojson()
     bits = rasterize(gj)
-    fails = run_checks(bits) if "--check" in argv or True else 0
+    # Checks always run: a silently wrong land grid is worse than a slow build, and the
+    # old `if "--check" in argv or True` made the flag a no-op anyway.
+    fails = run_checks(bits)
     if fails:
         print(f"\n{fails} validation checks FAILED — not writing the grid")
         return 1

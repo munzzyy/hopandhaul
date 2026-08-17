@@ -83,6 +83,7 @@ def _with_private_rows(result: dict) -> dict:
 def main(argv=None) -> int:
     trip._force_utf8()
     p = argparse.ArgumentParser(
+        prog="hopandhaul go",
         description="One-shot trip plan with the $200 fly-then-ground rule. Zero keys needed.")
     p.add_argument("origin", nargs="?", help="origin airport code or city (e.g. JFK, 'New York')")
     p.add_argument("dest", nargs="?", help="destination code or place (e.g. TLL, 'Santorini')")
@@ -124,11 +125,11 @@ def main(argv=None) -> int:
 
     origin, o_others = resolve_airport(args.origin)
     if not origin:
-        print(f"error: no airport matches {args.origin!r} — try an IATA code", file=sys.stderr)
+        print(f"error: no airport matches {args.origin!r}, try an IATA code", file=sys.stderr)
         return 2
     dest, d_others = resolve_airport(args.dest)
     if not dest:
-        print(f"error: no airport matches {args.dest!r} — try an IATA code", file=sys.stderr)
+        print(f"error: no airport matches {args.dest!r}, try an IATA code", file=sys.stderr)
         return 2
     # Destination point: the airport is the fallback, but when the user typed a PLACE and
     # we're online, the town itself is the honest target - plan() resolves its own nearest
@@ -184,7 +185,7 @@ def main(argv=None) -> int:
         print(itin)
     wx = out.get("weather")
     if wx and wx.get("temp") is not None:
-        line = f"\nWEATHER AT DESTINATION: {wx['emoji']} {wx['temp']}{wx['units']} — {wx['desc']}"
+        line = f"\nWEATHER AT DESTINATION: {wx['emoji']} {wx['temp']}{wx['units']}, {wx['desc']}"
         fc = wx.get("forecast")
         if fc:
             line += f"  (on {fc['date']}: {fc['emoji']} {fc['temp']}{fc['units']}, {fc['desc']})"

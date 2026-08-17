@@ -24,29 +24,31 @@ import datetime
 import importlib.resources
 import json
 import os
+import re
 import sys
 import threading
 import time
 import urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 from . import __version__, dates, emissions, geo, itinerary, trip
 from .integrations import net
+
 try:
-    from . import flights     # live flight pricing (Duffel, optional key)
+    from . import flights  # live flight pricing (Duffel, optional key)
 except Exception:  # pragma: no cover
     flights = None
 try:
-    from . import places      # geocoding: Photon keyless, Geoapify when keyed
+    from . import places  # geocoding: Photon keyless, Geoapify when keyed
 except Exception:  # pragma: no cover
     places = None
 try:
-    from . import weather      # destination conditions (Open-Meteo, keyless)
+    from . import weather  # destination conditions (Open-Meteo, keyless)
 except Exception:  # pragma: no cover
     weather = None
 try:
-    from . import transit      # real ground schedules (Transitous, keyless)
+    from . import transit  # real ground schedules (Transitous, keyless)
 except Exception:  # pragma: no cover
     transit = None
 
@@ -139,21 +141,44 @@ def _optional(q: dict, name: str) -> str | None:
     return vals[0]
 
 
+# One number grammar for both engines. float()/int() are far more permissive than the
+# browser's Number(): they take "nan", "inf", "1_0" and non-ASCII decimal digits, so the
+# same query string could be accepted here and rejected in ui/engine/validate.js. Pin
+# every numeric param to plain ASCII decimal on both sides. Written out as [0-9] on
+# purpose: Python's \d matches Unicode digits, JavaScript's does not.
+#
+# Anchored with \A and \Z, not ^ and $. Python's $ also matches just before a trailing
+# newline, JavaScript's $ (no /m) does not, so "123\n" passes ^[0-9]+$ here and fails the
+# same-looking regex in ui/engine/validate.js. _v_date slices the date into fields, and a
+# slice can end in that newline even after the whole string is stripped.
+_NUM_RE = re.compile(r"\A[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\Z")
+_INT_RE = re.compile(r"\A[+-]?[0-9]+\Z")
+_DIGITS_RE = re.compile(r"\A[0-9]+\Z")
+
+
+def _ascii_float(raw, field: str) -> float:
+    v = str(raw).strip()
+    if not _NUM_RE.match(v):
+        raise ValidationError(f"{field} must be a number")
+    return float(v)
+
+
+def _ascii_int(raw, field: str) -> int:
+    v = str(raw).strip()
+    if not _INT_RE.match(v):
+        raise ValidationError(f"{field} must be a whole number")
+    return int(v)
+
+
 def _v_lat(raw: str) -> float:
-    try:
-        v = float(raw)
-    except (TypeError, ValueError):
-        raise ValidationError("lat must be a number")
+    v = _ascii_float(raw, "lat")
     if not (-90.0 <= v <= 90.0):
         raise ValidationError("lat must be between -90 and 90")
     return v
 
 
 def _v_lng(raw: str) -> float:
-    try:
-        v = float(raw)
-    except (TypeError, ValueError):
-        raise ValidationError("lng must be a number")
+    v = _ascii_float(raw, "lng")
     if not (-180.0 <= v <= 180.0):
         raise ValidationError("lng must be between -180 and 180")
     return v
@@ -174,30 +199,28 @@ def _v_date(raw: str, field: str) -> str:
     if len(v) != 10 or v[4] != "-" or v[7] != "-":
         raise ValidationError(f"{field} must be YYYY-MM-DD")
     year, month, day = v[:4], v[5:7], v[8:10]
-    if not (year.isdigit() and month.isdigit() and day.isdigit()):
+    # ASCII 0-9 only. str.isdigit() also accepts Unicode decimal digits (Arabic-Indic,
+    # fullwidth, and friends) which int() then happily parses, so a date like the one in
+    # the self-test below used to sail through here and get echoed back into verify links
+    # and price_basis text. Same guard _v_iata uses against Unicode letters.
+    if not (_DIGITS_RE.match(year) and _DIGITS_RE.match(month) and _DIGITS_RE.match(day)):
         raise ValidationError(f"{field} must be YYYY-MM-DD")
     try:
         datetime.date(int(year), int(month), int(day))
     except ValueError:
-        raise ValidationError(f"{field} is not a real calendar date")
+        raise ValidationError(f"{field} is not a real calendar date") from None
     return v
 
 
 def _v_float_range(raw: str, field: str, lo: float, hi: float) -> float:
-    try:
-        v = float(raw)
-    except (TypeError, ValueError):
-        raise ValidationError(f"{field} must be a number")
+    v = _ascii_float(raw, field)
     if not (lo <= v <= hi):
         raise ValidationError(f"{field} must be between {lo} and {hi}")
     return v
 
 
 def _v_int_range(raw: str, field: str, lo: int, hi: int) -> int:
-    try:
-        v = int(raw)
-    except (TypeError, ValueError):
-        raise ValidationError(f"{field} must be a whole number")
+    v = _ascii_int(raw, field)
     if not (lo <= v <= hi):
         raise ValidationError(f"{field} must be between {lo} and {hi}")
     return v
@@ -498,7 +521,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     # floor and recommends it with full confidence.
     if dest["iata"] == origin["iata"]:
         return {"ok": False,
-                "error": "that point resolves to your origin airport — no flight needed",
+                "error": "that point resolves to your origin airport, so there is no flight to plan",
                 "code": "origin_is_destination"}
 
     travelers = max(1, min(9, int(travelers)))
@@ -557,7 +580,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     # A caller that runs plan() several times back to back (sweep_dates) has to divide ONE
     # wall-clock budget between them, so it passes its own share in here. Left unset this is
     # the single-click budget it has always been.
-    flight_targets = [dest] + list(gws)
+    flight_targets = [dest, *gws]
     deadline = time.monotonic() + (time_budget_s or PLAN_TIME_BUDGET_S)
 
     def _price(target):
@@ -577,8 +600,8 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         futures = [ex.submit(_price, t) for t in flight_targets]
         priced = []
         remaining = max(0.0, deadline - time.monotonic())
-        done, not_done = concurrent.futures.wait(futures, timeout=remaining)
-        fmap = dict(zip(futures, flight_targets))
+        done, _not_done = concurrent.futures.wait(futures, timeout=remaining)
+        fmap = dict(zip(futures, flight_targets, strict=False))
         for f in futures:
             if f in done:
                 priced.append(f.result())
@@ -623,7 +646,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
 
     # splits (fly to a cheaper hub, then ground it) - ground legs are one-way per-person
     # estimates: scale per-person modes ×travelers (vehicles stay flat) and ×2 on a round-trip.
-    for g, (gf, _local) in zip(gws, priced[1:]):
+    for g, (gf, _local) in zip(gws, priced[1:], strict=False):
         g["fly"] = gf
         ground_cost = trip.scale_leg_cost(g["ground_mode"], g["ground_cost"], travelers) * rt_mult
         fly_cost = _flight_cost(gf)
@@ -644,7 +667,8 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         if g.get("ferry"):
             ground_km = g["ferry"]["crossing_km"] * rt_mult
         else:
-            ground_km = geo.haversine_km(g["lat"], g["lng"], dest["lat"], dest["lng"]) * geo.ROAD_WINDING * rt_mult
+            ground_km = (geo.haversine_km(g["lat"], g["lng"], dest["lat"], dest["lng"])
+                         * geo.ROAD_WINDING * rt_mult)
         emissions_legs_by_name[name] = [
             {"mode": "fly", "distance_km": fly_km},
             {"mode": g["ground_mode"], "road_km": ground_km},
@@ -691,11 +715,11 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     if ctx.get("live_error"):
         notes.append("Some live flight lookups failed and fell back to estimates.")
     if ctx.get("fx_used"):
-        notes.append("Some fares were converted to USD at an approximate rate — verify at booking.")
+        notes.append("Some fares were converted to USD at an approximate rate; verify at booking.")
     if ctx.get("fx_unknown"):
         notes.append(f"A fare priced in {ctx['fx_unknown']} had no USD rate and is shown as-is.")
     if travelers > 1:
-        notes.append(f"Costs are GROUP TOTALS for {travelers} travelers — per-person fares "
+        notes.append(f"Costs are GROUP TOTALS for {travelers} travelers: per-person fares "
                      f"×{travelers}; drive/rental legs are per vehicle.")
     if roundtrip:
         if ret and ctx["live_used"]:
@@ -709,17 +733,17 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
                          "RT pricing. Times are for the outbound leg.")
     if any(g.get("ferry") for g in gws):
         notes.append("Ferry legs are REAL corridors (bundled research, operators + typical "
-                     "fares + sailings/day as of the data's date) — schedules vary by day and "
+                     "fares + sailings/day as of the data's date). Schedules vary by day and "
                      "season, so check the operator before relying on a connection.")
     if any(g.get("transit") for g in gws):
         notes.append("Ground legs marked 'live schedule' use real timetables via Transitous "
-                     "(transitous.org — community GTFS/OSM data): real operators, departures "
+                     "(transitous.org, community GTFS/OSM data): real operators, departures "
                      "and door-to-door times. Fares on those legs are still estimates.")
     if dest.get("dist_km", 0) > 120:
         notes.append(f"Nearest airport {dest['iata']} is ~{int(dest['dist_km'])} km from the "
-                     f"clicked point — the last mile to your exact spot isn't included.")
+                     f"clicked point, so the last mile to your exact spot isn't included.")
     notes.append("co2e_kg per option is a rough ESTIMATE from flight/ground distance, not a "
-                 "certified footprint — see docs/api.md for the factor basis. The lowest-carbon "
+                 "certified footprint; see docs/api.md for the factor basis. The lowest-carbon "
                  "option is flagged as 'greenest' but never auto-recommended over the cheapest.")
 
     # destination weather - best-effort, never blocks a plan (weather is at the clicked point)
@@ -1118,7 +1142,8 @@ class Handler(BaseHTTPRequestHandler):
             _log_exc("/api/plan", e)
             return self._send_err(200, "internal_error", "internal error planning that route")
         if not out.get("ok"):
-            return self._send_err(200, out.get("code", "plan_failed"), out.get("error", "could not plan that route"))
+            return self._send_err(200, out.get("code", "plan_failed"),
+                                  out.get("error", "could not plan that route"))
         return self._send(200, out)
 
     def _handle_dates(self, q):
@@ -1196,7 +1221,8 @@ def selftest():
 
     # end-to-end plan for a click on Aspen, origin JFK - estimate mode, no network.
     # (allow_live+allow_transit False -> no provider or Transitous calls; fetch_weather=False -> offline)
-    out = plan(39.19, -106.82, origin_iata="JFK", vot=30, fetch_weather=False, allow_live=False, allow_transit=False)
+    out = plan(39.19, -106.82, origin_iata="JFK", vot=30, fetch_weather=False,
+               allow_live=False, allow_transit=False)
     check("plan ok", out.get("ok") is True)
     check("dest resolved to ASE", out["dest"]["iata"] == "ASE")
     check("pricing source is estimate (no date)", out["pricing_source"] == "estimate")
@@ -1276,7 +1302,8 @@ def selftest():
 
     # clicking on your own origin airport must be refused, not priced as a real "direct
     # flight" to itself off the NA short-hop floor.
-    same_origin = plan(40.64, -73.78, origin_iata="JFK", fetch_weather=False, allow_live=False, allow_transit=False)
+    same_origin = plan(40.64, -73.78, origin_iata="JFK", fetch_weather=False,
+                       allow_live=False, allow_transit=False)
     check("clicking your own origin airport is refused, not priced as a same-airport flight",
           (not same_origin["ok"]) and same_origin.get("code") == "origin_is_destination")
 
@@ -1691,6 +1718,40 @@ def selftest():
     except ValidationError:
         check("plan: invalid calendar date rejected", True)
 
+    # Non-ASCII digits: str.isdigit() and int() both accept these, so they used to reach
+    # the engine and come back out inside verify links and price_basis text with ok:true.
+    for label, bad_date in (("Arabic-Indic", "٢٠٢٦-٠٨-١٥"),  # noqa: RUF001
+                            ("fullwidth", "２０２６-０８-１５")):  # noqa: RUF001
+        try:
+            parse_plan_params(qs(lat="39.19", lng="-106.82", date=bad_date))
+            check(f"plan: {label} digits in date rejected", False)
+        except ValidationError:
+            check(f"plan: {label} digits in date rejected", True)
+
+    # Control characters inside a date. raw.strip() cleans the ends but not the middle, and
+    # _v_date slices the string into year/month/day, so an interior newline lands at the end
+    # of a slice. Python's $ matches there and JavaScript's does not, which is how
+    # "123\n-01-15" was accepted here and rejected by ui/engine/validate.js.
+    for label, bad_date in (("embedded newline in year", "123\n-01-15"),
+                            ("embedded newline in month", "2026-0\n-15"),
+                            ("embedded carriage return", "123\r-01-15"),
+                            ("embedded tab", "123\t-01-15")):
+        try:
+            parse_plan_params(qs(lat="39.19", lng="-106.82", date=bad_date))
+            check(f"plan: {label} in date rejected", False)
+        except ValidationError as e:
+            check(f"plan: {label} in date rejected", str(e) == "date must be YYYY-MM-DD")
+
+    # Same class one layer down: float()/int() take these, the browser's Number() does not.
+    for field, bad_number in (("lat", "nan"), ("lat", "inf"), ("lat", "1_0"),
+                              ("threshold", "٢٠٠"), ("travelers", "2.0"),
+                              ("vot", "0x10"), ("maxGroundH", " ")):
+        try:
+            parse_plan_params(qs(**{"lat": "39.19", "lng": "-106.82", field: bad_number}))
+            check(f"plan: {field}={bad_number!r} rejected (ASCII decimal only)", False)
+        except ValidationError:
+            check(f"plan: {field}={bad_number!r} rejected (ASCII decimal only)", True)
+
     good = parse_plan_params(qs(lat="39.19", lng="-106.82", origin="jfk", travelers="4"))
     check("plan: valid params parsed and normalized (origin upper-cased)",
           good["origin_iata"] == "JFK" and good["travelers"] == 4)
@@ -1784,10 +1845,13 @@ def selftest():
     return 1 if fails else 0
 
 
-def main(argv=None) -> int:
+def main(argv=None, prog: str = "hopandhaul serve") -> int:
     """Console-script entry point (`hopandhaul-serve`)."""
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=DEFAULT_PORT)
+    ap = argparse.ArgumentParser(
+        prog=prog,
+        description="Serve the click-the-map UI on 127.0.0.1. No keys needed.")
+    ap.add_argument("--port", type=int, default=DEFAULT_PORT,
+                    help=f"port to bind on localhost (default {DEFAULT_PORT})")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
     if args.selftest:

@@ -3,6 +3,11 @@ on:
   push:
     branches: [main]
     tags: ['**']
+  # The mirror only ran on push, so when GitLab started refusing the push on 2026-07-28 the
+  # off-GitHub backup went stale and nothing said so. A weekly run turns a dead key into a
+  # red workflow on its own instead of waiting for the next push to notice.
+  schedule:
+    - cron: '17 6 * * 1'
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,11 +24,24 @@ jobs:
         env:
           KEY: ${{ secrets.GITLAB_DEPLOY_KEY }}
         run: |
+          set -euo pipefail
+          if [ -z "${KEY:-}" ]; then
+            echo "::error::GITLAB_DEPLOY_KEY is empty or unset, so the mirror did NOT run and"
+            echo "::error::the off-GitHub backup is stale. Add the secret; do not skip this job."
+            exit 1
+          fi
           mkdir -p ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/mirror_key
           chmod 600 ~/.ssh/mirror_key
           ssh-keyscan gitlab.com >> ~/.ssh/known_hosts 2>/dev/null
-          # Stopgap: the GitLab project still lives under flight-unreached. Push there
-          # so the backup stays green; flip to munzzyy/hopandhaul once the transfer lands.
+          # flight-unreached is my own GitLab group and the project lives in it for good
+          # (checked 2026-08-02: gitlab.com/flight-unreached/hopandhaul is public and current
+          # up to the last successful mirror). This is the real address, not a placeholder.
           git remote add gitlab git@gitlab.com:flight-unreached/hopandhaul.git
-          GIT_SSH_COMMAND='ssh -i ~/.ssh/mirror_key' git push gitlab HEAD:refs/heads/main --tags --force
+          export GIT_SSH_COMMAND='ssh -i ~/.ssh/mirror_key -o IdentitiesOnly=yes -o ConnectTimeout=20'
+          if ! git push gitlab HEAD:refs/heads/main --tags --force; then
+            echo "::error::Push to gitlab.com/flight-unreached/hopandhaul failed, so the backup"
+            echo "::error::is STALE. If the message above is an SSH auth refusal, GITLAB_DEPLOY_KEY"
+            echo "::error::needs rotating: it stopped working on 2026-07-28."
+            exit 1
+          fi

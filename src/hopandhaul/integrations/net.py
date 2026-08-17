@@ -20,6 +20,7 @@ Usage: this module has no CLI of its own - it's a library import for the four ad
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import threading
 import time
@@ -266,11 +267,8 @@ def selftest():
         calls_404["n"] += 1
         return responder_404(req, timeout)
 
-    with install(counting_404):
-        try:
-            fetch_json("https://api.duffel.com/x", max_retries=3, sleep=fake_sleep)
-        except FetchError:
-            pass
+    with install(counting_404), contextlib.suppress(FetchError):
+        fetch_json("https://api.duffel.com/x", max_retries=3, sleep=fake_sleep)
     check("non-retryable 404 fails on first attempt (no retry burned)", calls_404["n"] == 1)
 
     def responder_timeout(req, timeout=None):
