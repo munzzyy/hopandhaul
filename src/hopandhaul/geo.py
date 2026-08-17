@@ -397,12 +397,13 @@ def estimate_flight(orig: dict, dest: dict, date: str | None = None,
 
     anchor = None
     anchor_adjusted = False
+    band_lo = band_hi = None
     if r_o == "NA" and r_d == "NA":
         anchor = fare_anchor_for(orig, dest)
         if anchor:
-            lo = ANCHOR_LO_FRAC * anchor["fare_low"]
-            hi = ANCHOR_HI_FRAC * anchor["fare_low"]
-            clamped = max(lo, min(hi, fare))
+            band_lo = ANCHOR_LO_FRAC * anchor["fare_low"]
+            band_hi = ANCHOR_HI_FRAC * anchor["fare_low"]
+            clamped = max(band_lo, min(band_hi, fare))
             anchor_adjusted = abs(clamped - fare) >= 0.5
             fare = clamped
 
@@ -419,9 +420,19 @@ def estimate_flight(orig: dict, dest: dict, date: str | None = None,
            "distance_km": d, "source": "estimate", "route_mult": rm,
            "regions": f"{r_o}-{r_d}", "likely_connection": connects}
     if anchor:
+        # `adjusted` says what the clamp did. `in_band` says where the PRINTED number actually
+        # landed, and the two disagree more often than you'd think: the clamp runs above, then
+        # the date multiplier (up to 1.75) and the floor and the round-to-$5 all run after it,
+        # so a fare clamped neatly into the band routinely leaves it again before anyone sees
+        # it. The provenance line used to report the clamp-time verdict over the final number,
+        # which read as "this agrees with real market data" on fares sitting well above the
+        # band ceiling. Report both and let the itinerary say which is which.
+        final = out["price"]
         out["anchor"] = {"fare_avg": anchor["fare_avg"], "fare_low": anchor["fare_low"],
                          "pax_day": anchor["pax_day"], "asof": fare_anchors_asof(),
-                         "adjusted": anchor_adjusted}
+                         "adjusted": anchor_adjusted,
+                         "band_lo": round(band_lo, 2), "band_hi": round(band_hi, 2),
+                         "in_band": band_lo - 0.5 <= final <= band_hi + 0.5}
     if dm != 1.0:
         out["date_mult"] = dm
     if is_past_date(date, today):

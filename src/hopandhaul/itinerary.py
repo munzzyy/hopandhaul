@@ -125,11 +125,18 @@ def flight_provenance_estimate(detail: dict | None, date: str | None) -> str:
         bits.append(f"{detail['regions']} market ×{detail.get('route_mult', 1.0):.2f}")
     an = detail.get("anchor")
     if an:
-        # a REAL number rides along with the model: what this route's passengers actually paid
-        held = ("estimate adjusted into that band" if an.get("adjusted")
-                else "estimate already inside that band")
+        # a REAL number rides along with the model: what this route's passengers actually paid.
+        # Report where the FINAL fare landed, not where the clamp left it - the date multiplier
+        # runs afterwards and regularly lifts the number back out of the band.
+        if an.get("in_band") is False:
+            held = (f"the date factor lifted the estimate above that band "
+                    f"(${an['band_lo']:g}-${an['band_hi']:g})")
+        elif an.get("adjusted"):
+            held = "estimate adjusted into that band"
+        else:
+            held = "estimate already inside that band"
         bits.append(f"real market check (BTS {an.get('asof', '')}): avg paid ${an['fare_avg']:g}"
-                    f", lowest-fare carrier ${an['fare_low']:g} — {held}")
+                    f", lowest-fare carrier ${an['fare_low']:g}, {held}")
     if detail.get("date_mult"):
         bits.append(f"date factor ×{detail['date_mult']:.2f}")
     if detail.get("likely_connection"):

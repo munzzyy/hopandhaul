@@ -69,7 +69,11 @@ function estimateNote(date, ctx) {
     return `${head} This date sits in a neutral booking window, so it did not move the `
       + "fare. Verify before booking.";
   }
-  return `${head} Add a date for live fares. Verify before booking.`;
+  // No livePossible branch here on purpose: this build has no Duffel code path and the page
+  // CSP won't allow one, so the "add a date for live fares" case can never be reached. It
+  // matches server.py's plan(allow_live=False), which is what the parity gate generates.
+  return `${head} No live fare provider is configured, so every flight fare here is `
+    + "modelled. Verify before booking.";
 }
 
 /** itinerary.js leg spec for a flight leg - mirrors server.py's _flight_leg_spec(), estimate

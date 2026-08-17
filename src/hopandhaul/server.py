@@ -370,12 +370,17 @@ def _price_flight(origin, dest, date, ret, travelers, session, ctx, deadline):
             "estimate_detail": est}
 
 
-def _estimate_note(date, ctx):
+def _estimate_note(date, ctx, live_possible):
     """The one line that tells a user what the prices they're looking at actually are. It has
     to match what the engine really did with their date, not just whether they typed one - see
     _note_date_basis(). The four cases are distinct on purpose: a past date and a date that
     landed on a neutral multiplier both produce the SAME number as no date at all, and saying
-    "date-adjusted" over either of them is a lie the user can't check."""
+    "date-adjusted" over either of them is a lie the user can't check.
+
+    `live_possible` guards the last line. "Add a date for live fares" is only true where a fare
+    provider is actually reachable. On the GitHub Pages build it never is: there is no Duffel
+    code path in ui/engine/ and the page CSP won't let one exist, so telling a visitor there
+    that a date buys them live fares is advice that cannot come true no matter what they do."""
     head = "Fares are distance-based ESTIMATES."
     if ctx.get("past_date"):
         return (f"{head} That departure date has already passed, so no booking-window or "
@@ -386,7 +391,10 @@ def _estimate_note(date, ctx):
     if date:
         return (f"{head} This date sits in a neutral booking window, so it did not move the "
                 "fare. Verify before booking.")
-    return f"{head} Add a date for live fares. Verify before booking."
+    if live_possible:
+        return f"{head} Add a date for live fares. Verify before booking."
+    return (f"{head} No live fare provider is configured, so every flight fare here is "
+            "modelled. Verify before booking.")
 
 
 def _note_date_basis(ctx, est):
@@ -504,6 +512,10 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
 
     ctx = {"live_used": False, "est_used": False, "live_error": False}
     session = None
+    # Whether a fare provider is reachable AT ALL on this deployment, independent of whether
+    # this particular request supplied a date. The notes need it to avoid telling a keyless
+    # host's visitor that adding a date will get them live fares.
+    live_possible = bool(allow_live and flights and flights.have_keys())
     if allow_live and flights and flights.have_keys() and date:
         try:
             session = flights.open_session()
@@ -638,8 +650,14 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         source = f"{provider}-live"          # e.g. "duffel-live"
     else:
         source = "estimate"
-    if source == "estimate":
-        notes.append(_estimate_note(date, ctx))
+    # Note on est_used, NOT on source == "estimate". A "mixed" plan is one where some legs got
+    # a real live fare and the rest quietly fell back to the model, which is exactly when a
+    # reader most needs telling - and it was the one case that printed nothing at all.
+    if ctx["est_used"]:
+        notes.append(_estimate_note(date, ctx, live_possible)
+                     if not ctx["live_used"] else
+                     "Some legs are real live fares and the rest are distance-based ESTIMATES. "
+                     "Each leg's itinerary says which it is. Verify before booking.")
     if ctx.get("live_error"):
         notes.append("Some live flight lookups failed and fell back to estimates.")
     if ctx.get("fx_used"):
