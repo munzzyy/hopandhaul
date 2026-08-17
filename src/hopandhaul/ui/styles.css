@@ -603,6 +603,46 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 .rec-sub { font-size: var(--fs-base); color: var(--ink); line-height: 1.45; margin: 0; }
 .rec-breakeven { font-size: var(--fs-sm); color: var(--dim); margin: 8px 0 0; line-height: 1.45; }
 
+/* cheapest-day strip - one chip per date in the sweep window, sitting directly under the
+   recommendation card because it answers the second half of the same question. A horizontal
+   scroller, not a wrap: 7 chips (15 at the widest window) laid out in rows would push the
+   option list clean out of the mobile sheet's peek height, and being visible inside that peek
+   is the entire reason it mounts here. Mirrors under RTL for free - flex row starts at the
+   inline-start edge, and the padding/border below are all logical properties. */
+.date-strip { margin: 0 0 var(--space-3); }
+.date-strip-head {
+  font-size: var(--fs-sm); color: var(--dim); margin: 0 0 6px;
+  text-transform: uppercase; letter-spacing: .7px;
+}
+.date-strip-list {
+  list-style: none; margin: 0; padding: 0 0 4px;
+  display: flex; gap: 6px;
+  overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+.date-strip-item { scroll-snap-align: start; flex: 0 0 auto; display: flex; }
+.date-chip {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-width: 84px; padding: 6px 8px;
+  background: var(--panel-2); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  font-family: inherit; cursor: pointer; white-space: nowrap;
+}
+.date-chip:hover:not(:disabled) { border-color: var(--accent); }
+/* Selected state is an inset ring rather than a thicker border - a border-width change would
+   shift every other chip in the strip by a pixel each time the visitor picks a new day. */
+.date-chip--active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.date-chip--best { border-color: color-mix(in srgb, var(--good) 45%, var(--panel)); }
+.date-chip--failed { color: var(--dim); cursor: default; }
+.date-chip-day { font-size: var(--fs-xs); color: var(--dim); }
+.date-chip--active .date-chip-day { color: var(--ink); }
+.date-chip-price { font-family: var(--font-num); font-size: var(--fs-base); font-weight: 700; }
+/* Both tags on one row - the cheapest chip gets wider, not taller, so the strip stays one line
+   shorter and survives the mobile sheet's peek height. */
+.date-chip-tags { display: flex; align-items: center; gap: 4px; }
+.date-strip-note { font-size: var(--fs-xs); color: var(--dim); margin: 6px 0 0; line-height: 1.4; }
+.date-strip-note--err { color: var(--warn); }
+
 /* weather chip */
 .wx { display: flex; align-items: center; gap: 10px; background: var(--panel-2); border: 1px solid var(--line);
   border-radius: var(--radius); padding: var(--space-2) 12px; margin: 0 0 var(--space-4); box-shadow: var(--shadow-1); }

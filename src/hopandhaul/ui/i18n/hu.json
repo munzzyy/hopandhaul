@@ -125,5 +125,18 @@
   "lang.buttonAria": "Nyelv kiválasztása",
   "lang.title": "Nyelv",
   "lang.filter": "Nyelvek szűrése…",
-  "lang.close": "Bezárás"
+  "lang.close": "Bezárás",
+  "dates.head": "Legolcsóbb repülési nap (±{window} nap)",
+  "dates.loading": "Közeli dátumok ellenőrzése…",
+  "dates.failed": "Nem sikerült ellenőrizni a közeli dátumokat. A fenti terv továbbra is érvényes.",
+  "dates.rowFailed": "nincs ár",
+  "dates.cheapest": "legolcsóbb",
+  "dates.cheapestNote": "{date} a legolcsóbb nap ebben az ablakban, {money} áron, ami {savings} kevesebb a kiválasztott dátumnál.",
+  "dates.cheapestPlain": "{date} a legolcsóbb nap ebben az ablakban, {money} áron.",
+  "dates.sameDay": "A kiválasztott dátum már a legolcsóbb ebben az ablakban.",
+  "dates.notComparable": "Néhány napot élőben áraztunk, másokat becsléssel, ezért nem hasonlíthatók össze közvetlenül. A legolcsóbb napot tekintsd támpontnak, ne ténynek.",
+  "dates.basis.live": "élő",
+  "dates.basis.estimate": "becslés",
+  "dates.basis.mixed": "részben élő",
+  "dates.pickAria": "Helyette {date} tervezése"
 }

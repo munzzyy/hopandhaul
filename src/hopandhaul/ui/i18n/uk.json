@@ -125,5 +125,18 @@
   "lang.buttonAria": "Вибрати мову",
   "lang.title": "Мова",
   "lang.filter": "Фільтр мов…",
-  "lang.close": "Закрити"
+  "lang.close": "Закрити",
+  "dates.head": "Найдешевший день для польоту (±{window} днів)",
+  "dates.loading": "Перевіряю сусідні дати…",
+  "dates.failed": "Не вдалося перевірити сусідні дати. План вище лишається чинним.",
+  "dates.rowFailed": "немає ціни",
+  "dates.cheapest": "найдешевше",
+  "dates.cheapestNote": "{date} є найдешевшим днем у цьому вікні, за {money}, що на {savings} менше за обрану дату.",
+  "dates.cheapestPlain": "{date} є найдешевшим днем у цьому вікні, за {money}.",
+  "dates.sameDay": "Обрана дата вже є найдешевшою в цьому вікні.",
+  "dates.notComparable": "Частину днів оцінено наживо, а частину приблизно, тож їх не можна порівнювати напряму. Сприймайте найдешевший день як підказку, а не як факт.",
+  "dates.basis.live": "наживо",
+  "dates.basis.estimate": "оцін.",
+  "dates.basis.mixed": "частково наживо",
+  "dates.pickAria": "Запланувати натомість {date}"
 }

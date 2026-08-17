@@ -25,6 +25,9 @@ export const MAX_GROUND_H = 48.0;
 export const MIN_BUFFER_H = 0.0;
 export const MAX_BUFFER_H = 24.0;
 export const MAX_VOT = 10_000.0;
+export const MIN_WINDOW = 0;
+export const MAX_WINDOW = 7;
+export const DEFAULT_WINDOW = 3;
 
 // One number grammar for both engines. Number() takes "0x10", " " and "Infinity" that
 // Python's float() rejects; float() takes "nan", "1_0" and non-ASCII decimal digits that
@@ -161,6 +164,19 @@ export function parsePlanParams(p) {
   const buffer_ = optional(p.buffer);
   out.transfer_buffer = buffer_ !== null ? vFloatRange(buffer_, "buffer", MIN_BUFFER_H, MAX_BUFFER_H) : 1.0;
 
+  return out;
+}
+
+/** Same params as parsePlanParams plus `window`, and `date` promoted from optional to
+ * required - mirrors server.py's parse_dates_params(). A sweep with nothing to centre on is
+ * meaningless, and nothing stops a hand-edited share URL from appending &window=500, which on
+ * Pages has no server to reject it. vIntRange already produces the exact
+ * "window must be between 0 and 7" server.py's _v_int_range does, so there's no new string. */
+export function parseDatesParams(p) {
+  const out = parsePlanParams(p);
+  if (!out.date) throw new ValidationError("date is required");
+  const w = optional(p.window);
+  out.window = w !== null ? vIntRange(w, "window", MIN_WINDOW, MAX_WINDOW) : DEFAULT_WINDOW;
   return out;
 }
 

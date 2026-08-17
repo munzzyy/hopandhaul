@@ -125,5 +125,18 @@
   "lang.buttonAria": "Izvēlēties valodu",
   "lang.title": "Valoda",
   "lang.filter": "Filtrēt valodas…",
-  "lang.close": "Aizvērt"
+  "lang.close": "Aizvērt",
+  "dates.head": "Lētākā lidojuma diena (±{window} dienas)",
+  "dates.loading": "Pārbaudu tuvākos datumus…",
+  "dates.failed": "Neizdevās pārbaudīt tuvākos datumus. Iepriekšējais plāns joprojām ir spēkā.",
+  "dates.rowFailed": "nav cenas",
+  "dates.cheapest": "lētākā",
+  "dates.cheapestNote": "{date} ir lētākā diena šajā logā, par {money}, kas ir {savings} mazāk nekā izvēlētais datums.",
+  "dates.cheapestPlain": "{date} ir lētākā diena šajā logā, par {money}.",
+  "dates.sameDay": "Izvēlētais datums jau ir lētākais šajā logā.",
+  "dates.notComparable": "Dažas dienas tika cenotas tiešsaistē, citas aplēstas, tāpēc tās nav tieši salīdzināmas. Uztver lētāko dienu kā norādi, nevis faktu.",
+  "dates.basis.live": "reāllaikā",
+  "dates.basis.estimate": "aprēķ.",
+  "dates.basis.mixed": "daļēji reāllaikā",
+  "dates.pickAria": "Plānot {date} tā vietā"
 }

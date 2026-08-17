@@ -125,5 +125,18 @@
   "lang.buttonAria": "اختر اللغة",
   "lang.title": "اللغة",
   "lang.filter": "تصفية اللغات…",
-  "lang.close": "إغلاق"
+  "lang.close": "إغلاق",
+  "dates.head": "أرخص يوم للسفر (±{window} أيام)",
+  "dates.loading": "جارٍ فحص التواريخ القريبة…",
+  "dates.failed": "تعذّر فحص التواريخ القريبة. الخطة أعلاه ما زالت قائمة.",
+  "dates.rowFailed": "لا يوجد سعر",
+  "dates.cheapest": "الأرخص",
+  "dates.cheapestNote": "{date} هو أرخص يوم في هذه الفترة، بسعر {money}، أي أقل بـ {savings} من التاريخ الذي اخترته.",
+  "dates.cheapestPlain": "{date} هو أرخص يوم في هذه الفترة، بسعر {money}.",
+  "dates.sameDay": "التاريخ الذي اخترته هو بالفعل الأرخص في هذه الفترة.",
+  "dates.notComparable": "بعض الأيام سُعّرت مباشرة وبعضها بالتقدير، لذا لا يمكن مقارنتها مباشرة. اعتبر اليوم الأرخص مؤشراً لا حقيقة.",
+  "dates.basis.live": "مباشر",
+  "dates.basis.estimate": "تقدير",
+  "dates.basis.mixed": "مباشر جزئياً",
+  "dates.pickAria": "خطّط لـ {date} بدلاً من ذلك"
 }

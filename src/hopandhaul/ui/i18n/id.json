@@ -125,5 +125,18 @@
   "lang.buttonAria": "Pilih bahasa",
   "lang.title": "Bahasa",
   "lang.filter": "Filter bahasa…",
-  "lang.close": "Tutup"
+  "lang.close": "Tutup",
+  "dates.head": "Hari terbang termurah (±{window} hari)",
+  "dates.loading": "Memeriksa tanggal di sekitar…",
+  "dates.failed": "Tidak bisa memeriksa tanggal di sekitar. Rencana di atas tetap berlaku.",
+  "dates.rowFailed": "tanpa harga",
+  "dates.cheapest": "termurah",
+  "dates.cheapestNote": "{date} adalah hari termurah dalam rentang ini, seharga {money}, {savings} lebih murah dari tanggal yang kamu pilih.",
+  "dates.cheapestPlain": "{date} adalah hari termurah dalam rentang ini, seharga {money}.",
+  "dates.sameDay": "Tanggal yang kamu pilih sudah yang termurah dalam rentang ini.",
+  "dates.notComparable": "Sebagian hari dihargai langsung dan sebagian diperkirakan, jadi tidak bisa dibandingkan langsung. Anggap hari termurah sebagai petunjuk, bukan fakta.",
+  "dates.basis.live": "real-time",
+  "dates.basis.estimate": "est.",
+  "dates.basis.mixed": "sebagian real-time",
+  "dates.pickAria": "Rencanakan {date} sebagai gantinya"
 }

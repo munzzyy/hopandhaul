@@ -2,7 +2,7 @@
 // isn't aria-live (that's #sr-status); a user-initiated render moves focus to the panel so
 // screen readers land on and read the new content instead of staying on the search field.
 import { esc, fmtMoney, fmtH, fmtCo2, modeIcon, modeLabel, statusLabel } from "./format.js";
-import { t } from "./i18n.js";
+import { t, currentLangCode } from "./i18n.js";
 
 const panel = () => document.getElementById("results");
 
@@ -236,6 +236,197 @@ export function toggleSheet() {
     + esc(expanded ? t("results.sheetCollapse") : t("results.sheetExpand", { count }));
 }
 
+// ------------------------------------------------------------------- cheapest-day strip
+// One chip per candidate date in the sweep window (api.js's fetchDates), the cheapest one
+// marked, every chip carrying the basis its price came from. It mounts between the
+// recommendation card and the sheet toggle because it is the second headline answer - "and
+// here is the cheapest DAY" - so it has to sit inside the mobile sheet's collapsed peek
+// height, not buried below the option list.
+//
+// renderPlan() only emits the empty mount; the render functions below fill it separately once
+// the sweep lands, so the plan itself never waits on a call that prices the whole window.
+
+const stripEl = () => document.getElementById("date-strip");
+
+// Formatters are rebuilt only when the language actually changes - one Intl.DateTimeFormat
+// per chip per render would be the expensive way to do this. timeZone:"UTC" is mandatory, not
+// tidiness: a YYYY-MM-DD is parsed as UTC midnight, so anywhere west of Greenwich a local-time
+// formatter renders every chip as the day before.
+let _fmtLang = null;
+let _chipFmt = null;
+let _longFmt = null;
+function dateFormatters() {
+  const lang = currentLangCode();
+  if (lang !== _fmtLang || !_chipFmt) {
+    const build = (opts) => {
+      try {
+        return new Intl.DateTimeFormat(lang, { ...opts, timeZone: "UTC" });
+      } catch {
+        // an unexpected tag should degrade to the browser default, never throw out of a render
+        return new Intl.DateTimeFormat(undefined, { ...opts, timeZone: "UTC" });
+      }
+    };
+    _chipFmt = build({ weekday: "short", month: "short", day: "numeric" });
+    _longFmt = build({ weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    _fmtLang = lang;
+  }
+  return { chip: _chipFmt, long: _longFmt };
+}
+
+function isoToUtcDate(iso) {
+  const [y, m, d] = String(iso).split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+/** Today in the visitor's own timezone as YYYY-MM-DD - the same floor app.js puts on the date
+ * inputs, and string-comparable against a row's `date` because both are zero-padded ISO. */
+function localTodayIso() {
+  const now = new Date();
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+/** One date as a pickable chip: the day, its price, and where that price came from.
+ *
+ * A date that could not be priced still gets a chip, so the window doesn't silently change
+ * shape, but not one anyone can press: no data-date for the delegated handler to match, and
+ * disabled so it never takes focus as an actionable control. */
+function dateChip(row, best, activeDate) {
+  const { chip, long } = dateFormatters();
+  const when = isoToUtcDate(row.date);
+  const dayLabel = "<span class=\"date-chip-day\"><bdi>" + esc(chip.format(when)) + "</bdi></span>";
+
+  if (!row.ok) {
+    return "\n        <li class=\"date-strip-item\">"
+      + "<button type=\"button\" class=\"date-chip date-chip--failed\" disabled>"
+      + dayLabel
+      + "<span class=\"date-chip-price\">" + esc(t("dates.rowFailed")) + "</span>"
+      + "</button></li>";
+  }
+
+  const isActive = row.date === activeDate;
+  const isBest = best != null && row.date === best.date;
+  const cls = "date-chip" + (isBest ? " date-chip--best" : "") + (isActive ? " date-chip--active" : "");
+  // The basis tag is not decoration: a modelled number and a real fare look identical without
+  // it, and on the static build the whole window is modelled. Same tone vocabulary the
+  // itinerary legs already use (live reads ok, an estimate reads neutral), with "mixed"
+  // warn-toned because a part-live price is the one that can quietly mislead.
+  const tone = { live: "ok", mixed: "warn" }[row.basis] || "base";
+  const basisTag = "<span class=\"tag tag--" + tone + "\">"
+    + esc(t("dates.basis." + row.basis)) + "</span>";
+  // Both tags share one row: the winner is then a wider chip rather than a taller one, and the
+  // strip keeps its whole height inside the mobile sheet's peek instead of clipping the very
+  // marker it exists to show.
+  const bestTag = isBest
+    ? "<span class=\"tag tag--ok\">" + esc(t("dates.cheapest")) + "</span>"
+    : "";
+  return "\n        <li class=\"date-strip-item\">"
+    + "<button type=\"button\" class=\"" + cls + "\" data-date=\"" + esc(row.date) + "\""
+    + " aria-pressed=\"" + String(isActive) + "\""
+    + " aria-label=\"" + esc(t("dates.pickAria", { date: long.format(when) })) + "\">"
+    + dayLabel
+    + "<span class=\"date-chip-price\"><bdi dir=\"ltr\">" + fmtMoney(row.cost) + "</bdi></span>"
+    + "<span class=\"date-chip-tags\">" + basisTag + bestTag + "</span>"
+    + "</button></li>";
+}
+
+function fillStrip(html) {
+  const el = stripEl();
+  if (!el) return; // the panel is showing an error/empty/loading state, not a plan
+  el.innerHTML = html;
+  el.hidden = false;
+}
+
+export function clearDateStrip() {
+  const el = stripEl();
+  if (!el) return;
+  el.innerHTML = "";
+  el.hidden = true;
+}
+
+export function renderDateStripLoading() {
+  fillStrip("\n      <p class=\"date-strip-note\">" + esc(t("dates.loading")) + "</p>\n    ");
+}
+
+export function renderDateStripError() {
+  fillStrip("\n      <p class=\"date-strip-note date-strip-note--err\">"
+    + esc(t("dates.failed")) + "</p>\n    ");
+}
+
+/**
+ * Render a finished sweep. `activeDate` is whatever #date currently holds, which is the chip
+ * that gets aria-pressed. Returns { summary } - the same sentence shown under the strip, for
+ * app.js to push through announce() - or null when there was nothing worth showing.
+ */
+export function renderDateStrip(payload, activeDate) {
+  // The sweep already drops past dates (dates.candidate_dates), so this filter only ever bites
+  // in one case: a tab left open across midnight, re-rendered from cached data by a language
+  // switch. Yesterday must not come back as a pickable chip.
+  const today = localTodayIso();
+  const rows = (payload.dates || []).filter((r) => r.date >= today);
+  if (!rows.length) {
+    clearDateStrip();
+    return null;
+  }
+
+  const best = payload.best || null;
+  const bestRow = best ? rows.find((r) => r.ok && r.date === best.date) || null : null;
+  const { long } = dateFormatters();
+
+  let note = "";
+  if (payload.comparable === false) {
+    // Some days priced live and some by model. A cheapest-day computed across two different
+    // bases is not a comparison, so say that instead of naming a winner as fact.
+    note = t("dates.notComparable");
+  } else if (bestRow) {
+    const bestWhen = long.format(isoToUtcDate(best.date));
+    if (best.date === activeDate) {
+      note = t("dates.sameDay");
+    } else if (bestRow.savings_vs_anchor > 0) {
+      note = t("dates.cheapestNote", {
+        date: bestWhen, money: fmtMoney(best.cost), savings: fmtMoney(bestRow.savings_vs_anchor),
+      });
+    } else {
+      // Either the picked date never priced, or it ties the winner - no savings figure to
+      // claim, so don't invent one.
+      note = t("dates.cheapestPlain", { date: bestWhen, money: fmtMoney(best.cost) });
+    }
+  }
+
+  fillStrip("\n"
+    + "      <p class=\"date-strip-head\">" + esc(t("dates.head", { window: payload.window })) + "</p>\n"
+    + "      <ul class=\"date-strip-list\" role=\"list\">"
+    + rows.map((r) => dateChip(r, best, activeDate)).join("") + "\n"
+    + "      </ul>\n"
+    + (note ? "      <p class=\"date-strip-note\">" + esc(note) + "</p>\n" : "")
+    + "    ");
+  centreOnWinner();
+  return { summary: note };
+}
+
+/** Centre the cheapest chip in the strip's own scroller (falling back to the picked one when
+ * nothing won). A panel this narrow only fits four of seven chips, and the winner sits at an
+ * arbitrary offset in the window, so leaving the scroller at its start regularly hides the one
+ * chip the whole strip exists to point at.
+ *
+ * Deliberately not scrollIntoView(): that walks up and scrolls every ancestor scroller too, and
+ * the sweep lands a moment after the plan did, so it would yank #results out from under anyone
+ * who had already started reading. Nudging scrollLeft by a signed VISUAL delta is also the one
+ * form of this that needs no RTL special case - a bigger scrollLeft moves content left in both
+ * directions, whatever sign the container's own scrollLeft happens to carry. */
+function centreOnWinner() {
+  const el = stripEl();
+  const list = el?.querySelector(".date-strip-list");
+  const target = el?.querySelector(".date-chip--best") || el?.querySelector(".date-chip--active");
+  if (!list || !target) return;
+  const lr = list.getBoundingClientRect();
+  const tr = target.getBoundingClientRect();
+  list.scrollLeft += (tr.left + tr.width / 2) - (lr.left + lr.width / 2);
+}
+
 /** Full render of a successful plan response. `placeLabel` is the free-text search label,
  * if the user searched rather than clicked, for the "X -> Y (place)" heading. `focusPanel`
  * should be true only for a user-initiated render (a new plan finishing) - not for a
@@ -288,6 +479,7 @@ export function renderPlan(data, placeLabel, focusPanel = false) {
     + "      </button>\n"
     + "    </div>\n"
     + recommendationCard(R, rec, isDirect) + "\n"
+    + "    <div id=\"date-strip\" class=\"date-strip\" hidden></div>\n"
     + sheetToggleButton(R.options.length) + "\n"
     + cheapestVsGreenest + "\n"
     + weatherChip(data.weather) + "\n"

@@ -125,5 +125,18 @@
   "lang.buttonAria": "Pumili ng wika",
   "lang.title": "Wika",
   "lang.filter": "Salain ang mga wika…",
-  "lang.close": "Isara"
+  "lang.close": "Isara",
+  "dates.head": "Pinakamurang araw para lumipad (±{window} araw)",
+  "dates.loading": "Sinusuri ang mga kalapit na petsa…",
+  "dates.failed": "Hindi masuri ang mga kalapit na petsa. Nakatayo pa rin ang planong nasa itaas.",
+  "dates.rowFailed": "walang presyo",
+  "dates.cheapest": "pinakamura",
+  "dates.cheapestNote": "Ang {date} ang pinakamurang araw sa hanay na ito, sa {money}, {savings} na mas mura kaysa sa petsang pinili mo.",
+  "dates.cheapestPlain": "Ang {date} ang pinakamurang araw sa hanay na ito, sa {money}.",
+  "dates.sameDay": "Ang petsang pinili mo ang pinakamura na sa hanay na ito.",
+  "dates.notComparable": "May mga araw na live ang presyo at may mga tinantiya, kaya hindi sila direktang maihahambing. Ituring na palatandaan ang pinakamurang araw, hindi katotohanan.",
+  "dates.basis.live": "live",
+  "dates.basis.estimate": "tantiya",
+  "dates.basis.mixed": "bahagyang live",
+  "dates.pickAria": "Planuhin na lang ang {date}"
 }

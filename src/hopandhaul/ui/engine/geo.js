@@ -211,7 +211,7 @@ function pad2(n) {
 
 /** Strict YYYY-MM-DD parse + real-calendar-date validation. Returns {y,m,d} or null - 
  * mirrors what datetime.date.fromisoformat()/date() raise ValueError on. */
-function parseIsoDate(dateStr) {
+export function parseIsoDate(dateStr) {
   const s = String(dateStr);
   if (s.length !== 10 || s[4] !== "-" || s[7] !== "-") return null;
   const y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)), d = Number(s.slice(8, 10));
@@ -223,16 +223,16 @@ function parseIsoDate(dateStr) {
 
 /** Today as a pure {y,m,d} calendar date in the LOCAL timezone - matches Python's
  * datetime.date.today(), which is also local-timezone. */
-function localTodayYMD() {
+export function localTodayYMD() {
   const now = new Date();
   return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
 }
 
-function ymdUtcMs({ y, m, d }) {
+export function ymdUtcMs({ y, m, d }) {
   return Date.UTC(y, m - 1, d);
 }
 
-function cmpYMD(a, b) {
+export function cmpYMD(a, b) {
   return ymdUtcMs(a) - ymdUtcMs(b);
 }
 
@@ -297,12 +297,14 @@ export function estimateFlight(orig, dest, date = null, today = null) {
 
   let anchor = null;
   let anchorAdjusted = false;
+  let bandLo = null;
+  let bandHi = null;
   if (rO === "NA" && rD === "NA") {
     anchor = fareAnchorFor(orig, dest);
     if (anchor) {
-      const lo = ANCHOR_LO_FRAC * anchor.fare_low;
-      const hi = ANCHOR_HI_FRAC * anchor.fare_low;
-      const clamped = Math.max(lo, Math.min(hi, fare));
+      bandLo = ANCHOR_LO_FRAC * anchor.fare_low;
+      bandHi = ANCHOR_HI_FRAC * anchor.fare_low;
+      const clamped = Math.max(bandLo, Math.min(bandHi, fare));
       anchorAdjusted = Math.abs(clamped - fare) >= 0.5;
       fare = clamped;
     }
@@ -325,9 +327,14 @@ export function estimateFlight(orig, dest, date = null, today = null) {
     likely_connection: connects,
   };
   if (anchor) {
+    // See the matching comment in geo.py: `adjusted` is the clamp-time verdict, `in_band` is
+    // where the printed number actually ended up after the date multiplier, floor and rounding.
+    const final = out.price;
     out.anchor = {
       fare_avg: anchor.fare_avg, fare_low: anchor.fare_low,
       pax_day: anchor.pax_day, asof: fareAnchorsAsof(), adjusted: anchorAdjusted,
+      band_lo: pyRound(bandLo, 2), band_hi: pyRound(bandHi, 2),
+      in_band: bandLo - 0.5 <= final && final <= bandHi + 0.5,
     };
   }
   if (dm !== 1.0) out.date_mult = dm;

@@ -125,5 +125,18 @@
   "lang.buttonAria": "Taal kiezen",
   "lang.title": "Taal",
   "lang.filter": "Talen filteren…",
-  "lang.close": "Sluiten"
+  "lang.close": "Sluiten",
+  "dates.head": "Goedkoopste vliegdag (±{window} dagen)",
+  "dates.loading": "Nabije datums controleren…",
+  "dates.failed": "Kon nabije datums niet controleren. Het plan hierboven blijft staan.",
+  "dates.rowFailed": "geen prijs",
+  "dates.cheapest": "goedkoopst",
+  "dates.cheapestNote": "{date} is de goedkoopste dag in dit venster, voor {money}, {savings} minder dan de gekozen datum.",
+  "dates.cheapestPlain": "{date} is de goedkoopste dag in dit venster, voor {money}.",
+  "dates.sameDay": "De gekozen datum is al de goedkoopste in dit venster.",
+  "dates.notComparable": "Sommige dagen zijn live geprijsd en andere geschat, dus ze zijn niet direct vergelijkbaar. Neem de goedkoopste dag als hint, niet als feit.",
+  "dates.basis.live": "live",
+  "dates.basis.estimate": "gesch.",
+  "dates.basis.mixed": "deels live",
+  "dates.pickAria": "Plan in plaats daarvan {date}"
 }

@@ -125,5 +125,18 @@
   "lang.buttonAria": "Choisir la langue",
   "lang.title": "Langue",
   "lang.filter": "Filtrer les langues…",
-  "lang.close": "Fermer"
+  "lang.close": "Fermer",
+  "dates.head": "Jour le moins cher pour voler (±{window} jours)",
+  "dates.loading": "Vérification des dates proches…",
+  "dates.failed": "Impossible de vérifier les dates proches. Le plan ci-dessus reste valable.",
+  "dates.rowFailed": "pas de prix",
+  "dates.cheapest": "le moins cher",
+  "dates.cheapestNote": "{date} est le jour le moins cher de cette fenêtre, à {money}, soit {savings} de moins que la date choisie.",
+  "dates.cheapestPlain": "{date} est le jour le moins cher de cette fenêtre, à {money}.",
+  "dates.sameDay": "La date choisie est déjà la moins chère de cette fenêtre.",
+  "dates.notComparable": "Certains jours ont été tarifés en direct et d'autres estimés, ils ne sont donc pas directement comparables. Prenez le jour le moins cher comme une indication, pas comme un fait.",
+  "dates.basis.live": "en direct",
+  "dates.basis.estimate": "est.",
+  "dates.basis.mixed": "en partie direct",
+  "dates.pickAria": "Planifier le {date} à la place"
 }

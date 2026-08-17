@@ -54,7 +54,7 @@ def _usage() -> str:
         *lines,
         "",
         "examples:",
-        '  hopandhaul go JFK "Tallinn" --date 2026-08-15',
+        '  hopandhaul go JFK "Tallinn" --date 2027-06-15',
         "  hopandhaul-serve",
         "",
         "Every subcommand takes --help. Every module has an offline --selftest.",

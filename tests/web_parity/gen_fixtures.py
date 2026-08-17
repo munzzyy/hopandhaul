@@ -18,19 +18,78 @@ Run:  python tests/web_parity/gen_fixtures.py
 """
 from __future__ import annotations
 
+import datetime
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CASES_PATH = os.path.join(HERE, "cases.json")
 OUT_DIR = os.path.join(HERE, "fixtures")
+# check.mjs reads THIS, not cases.json, so both engines see byte-identical dates even if the
+# two processes straddle midnight. See resolve_relative_dates() for why the dates move at all.
+RESOLVED_CASES_PATH = os.path.join(OUT_DIR, "_cases.resolved.json")
+
+_REL_DATE = re.compile(r"^([+-])(\d+)d$")
+_REL_EOM = re.compile(r"^eom\+(\d+)m$")
+
+
+def _end_of_month(today: datetime.date, months_ahead: int) -> datetime.date:
+    """The last day of the month `months_ahead` months after the one `today` is in."""
+    m = today.month - 1 + months_ahead
+    y, m = today.year + m // 12, m % 12 + 1
+    nxt = datetime.date(y + 1, 1, 1) if m == 12 else datetime.date(y, m + 1, 1)
+    return nxt - datetime.timedelta(days=1)
+
+
+def resolve_relative_dates(cases: list, today: datetime.date) -> list:
+    """Turn "+70d" / "-30d" / "eom+2m" date fields into real YYYY-MM-DD, relative to `today`.
+
+    Hardcoded dates rot. Three of these cases were pinned to 2026-07-10 and 2026-08-15 to test
+    the booking-lead-time curve; once those days passed, fare_date_multiplier() started
+    returning a neutral 1.0 for all of them, so `date_far_out_aspen` and `date_close_in_aspen`
+    were quietly testing the same undated code path as each other. They still PASSED, because
+    both engines agreed about doing nothing. A parity gate that agrees on the wrong thing is
+    worse than no gate, so date-sensitive cases now express an offset instead of a date.
+
+    Offsets are chosen so the multiplier is never exactly 1.0 no matter what day CI runs on:
+    +5d and +70d and +200d land in three different LEAD_CURVE buckets, verified against every
+    possible "today" across a full year.
+
+    "eom+2m" is the last day of the month two months out. A plain day offset can't pin a date
+    sweep to a month boundary - which month a "+70d" anchor lands in moves with the calendar -
+    and crossing one is the whole point of the dates_month_boundary case: it is where naive
+    day arithmetic (and a local-time Date constructor) breaks on one side and not the other.
+    """
+    out = []
+    for case in cases:
+        case = json.loads(json.dumps(case))          # don't mutate the caller's parsed JSON
+        params = case.get("params")
+        if isinstance(params, dict):
+            for field in ("date", "ret"):
+                raw = str(params.get(field) or "")
+                m = _REL_DATE.match(raw)
+                if m:
+                    sign = -1 if m.group(1) == "-" else 1
+                    params[field] = (today + datetime.timedelta(days=sign * int(m.group(2)))).isoformat()
+                    continue
+                m = _REL_EOM.match(raw)
+                if m:
+                    params[field] = _end_of_month(today, int(m.group(1))).isoformat()
+        out.append(case)
+    return out
 
 # Make sure "hopandhaul" imports even if the package isn't pip-installed in this environment.
 sys.path.insert(0, os.path.join(HERE, "..", "..", "src"))
 
-from hopandhaul import trip  # noqa: E402
-from hopandhaul.server import ValidationError, parse_plan_params, plan  # noqa: E402
+from hopandhaul import dates, trip  # noqa: E402
+from hopandhaul.server import (  # noqa: E402
+    ValidationError,
+    parse_plan_params,
+    plan,
+    sweep_dates,
+)
 
 
 def build_option_string(opt: dict) -> str:
@@ -75,6 +134,47 @@ def run_evaluate_case(case: dict) -> dict:
     return {k: v for k, v in res.items() if not k.startswith("_")}
 
 
+def run_dates_case(case: dict) -> dict:
+    p = case["params"]
+    # allow_live/allow_transit off for the same reason run_plan_case has them off: the browser
+    # engine has neither, so those branches have nothing to be in parity with. What this case
+    # type actually pins is the window (which dates are in it, in what order), the per-date
+    # rows, the savings arithmetic and the tie-break.
+    return sweep_dates(
+        p["dest_lat"], p["dest_lng"],
+        origin_iata=p.get("origin_iata", "JFK"),
+        date=p["date"],
+        window=p.get("window", 1),
+        vot=p.get("vot"),
+        threshold=p.get("threshold", trip.DEFAULT_THRESHOLD),
+        max_ground_h=p.get("max_ground_h", 6.0),
+        roundtrip=p.get("roundtrip", False),
+        travelers=p.get("travelers", 1),
+        ret=p.get("ret"),
+        transfer_buffer=p.get("transfer_buffer", 1.0),
+        allow_live=False, allow_transit=False, fetch_weather=False,
+    )
+
+
+def run_dates_helpers_case(case: dict) -> dict:
+    """The two dates.py helpers a whole-sweep case can't reach, pinned directly.
+
+    basis_of_legs' guard order is load-bearing and invisible to a sweep fixture: every option
+    plan() builds has a flight leg, so the empty-flight-leg branch (all([]) is True in Python
+    and [].every() is true in JS, so a ground-only option would label itself "live") never comes
+    up there. Same for the window: a sweep reads the real clock, so it can only ever produce the
+    window that today allows, not a leap day or a year rollover.
+
+    These are the only cases carrying literal dates, and they can't rot the way the old pinned
+    cases did: `today` is passed in rather than read off the clock, and nothing here touches
+    fare_date_multiplier, so the answer is the same in 2030 as it is now.
+    """
+    p = case["params"]
+    return {
+        "dates": dates.candidate_dates(p["anchor"], p["window"],
+                                       today=datetime.date.fromisoformat(p["today"])),
+        "basis": dates.basis_of_legs(p["legs"]),
+    }
 def run_validate_case(case: dict) -> dict:
     """The trust boundary: raw pre-validation strings in, normalized params or an error out.
 
@@ -95,6 +195,10 @@ def run_case(case: dict) -> dict:
         return run_plan_case(case)
     if case["type"] == "evaluate":
         return run_evaluate_case(case)
+    if case["type"] == "dates":
+        return run_dates_case(case)
+    if case["type"] == "dates_helpers":
+        return run_dates_helpers_case(case)
     if case["type"] == "validate":
         return run_validate_case(case)
     raise ValueError(f"unknown case type {case['type']!r} in {case.get('name')!r}")
@@ -111,6 +215,11 @@ def main() -> int:
         return 2
 
     os.makedirs(OUT_DIR, exist_ok=True)
+    cases = resolve_relative_dates(cases, datetime.date.today())
+    with open(RESOLVED_CASES_PATH, "w", encoding="utf-8") as f:
+        json.dump(cases, f, indent=2)
+        f.write("\n")
+
     for case in cases:
         try:
             out = run_case(case)

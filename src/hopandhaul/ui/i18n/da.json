@@ -125,5 +125,18 @@
   "lang.buttonAria": "Vælg sprog",
   "lang.title": "Sprog",
   "lang.filter": "Filtrér sprog…",
-  "lang.close": "Luk"
+  "lang.close": "Luk",
+  "dates.head": "Billigste dag at flyve (±{window} dage)",
+  "dates.loading": "Tjekker datoer i nærheden…",
+  "dates.failed": "Kunne ikke tjekke datoer i nærheden. Planen ovenfor står stadig.",
+  "dates.rowFailed": "ingen pris",
+  "dates.cheapest": "billigst",
+  "dates.cheapestNote": "{date} er den billigste dag i dette vindue, til {money}, {savings} mindre end den dato, du valgte.",
+  "dates.cheapestPlain": "{date} er den billigste dag i dette vindue, til {money}.",
+  "dates.sameDay": "Den dato, du valgte, er allerede den billigste i dette vindue.",
+  "dates.notComparable": "Nogle dage blev prissat live og andre estimeret, så de kan ikke sammenlignes direkte. Tag den billigste dag som et fingerpeg, ikke et faktum.",
+  "dates.basis.live": "live",
+  "dates.basis.estimate": "est.",
+  "dates.basis.mixed": "delvis live",
+  "dates.pickAria": "Planlæg {date} i stedet"
 }

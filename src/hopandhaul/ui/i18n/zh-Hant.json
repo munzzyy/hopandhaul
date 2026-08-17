@@ -125,5 +125,18 @@
   "lang.buttonAria": "選擇語言",
   "lang.title": "語言",
   "lang.filter": "篩選語言…",
-  "lang.close": "關閉"
+  "lang.close": "關閉",
+  "dates.head": "最便宜的出發日（±{window} 天）",
+  "dates.loading": "正在查詢鄰近日期…",
+  "dates.failed": "無法查詢鄰近日期。上面的方案仍然有效。",
+  "dates.rowFailed": "無價格",
+  "dates.cheapest": "最便宜",
+  "dates.cheapestNote": "{date} 是這個區間裡最便宜的一天，{money}，比你選的日期便宜 {savings}。",
+  "dates.cheapestPlain": "{date} 是這個區間裡最便宜的一天，{money}。",
+  "dates.sameDay": "你選的日期已經是這個區間裡最便宜的了。",
+  "dates.notComparable": "部分日期是即時報價，部分是估算，無法直接比較。請把最便宜的一天當作提示，而不是事實。",
+  "dates.basis.live": "即時",
+  "dates.basis.estimate": "預估",
+  "dates.basis.mixed": "部分即時",
+  "dates.pickAria": "改為規劃 {date}"
 }

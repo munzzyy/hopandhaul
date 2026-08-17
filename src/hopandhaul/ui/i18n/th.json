@@ -125,5 +125,18 @@
   "lang.buttonAria": "เลือกภาษา",
   "lang.title": "ภาษา",
   "lang.filter": "กรองรายการภาษา…",
-  "lang.close": "ปิด"
+  "lang.close": "ปิด",
+  "dates.head": "วันที่บินถูกที่สุด (±{window} วัน)",
+  "dates.loading": "กำลังตรวจสอบวันที่ใกล้เคียง…",
+  "dates.failed": "ตรวจสอบวันที่ใกล้เคียงไม่ได้ แผนด้านบนยังใช้ได้อยู่",
+  "dates.rowFailed": "ไม่มีราคา",
+  "dates.cheapest": "ถูกที่สุด",
+  "dates.cheapestNote": "{date} เป็นวันที่ถูกที่สุดในช่วงนี้ ที่ {money} ซึ่งถูกกว่าวันที่คุณเลือก {savings}",
+  "dates.cheapestPlain": "{date} เป็นวันที่ถูกที่สุดในช่วงนี้ ที่ {money}",
+  "dates.sameDay": "วันที่คุณเลือกเป็นวันที่ถูกที่สุดในช่วงนี้อยู่แล้ว",
+  "dates.notComparable": "บางวันได้ราคาจริงและบางวันเป็นการประมาณ จึงเทียบกันตรงๆ ไม่ได้ ให้ถือว่าวันที่ถูกที่สุดเป็นเพียงคำใบ้ ไม่ใช่ข้อเท็จจริง",
+  "dates.basis.live": "ราคาจริง",
+  "dates.basis.estimate": "ประมาณ",
+  "dates.basis.mixed": "จริงบางส่วน",
+  "dates.pickAria": "วางแผนสำหรับ {date} แทน"
 }

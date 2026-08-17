@@ -19,11 +19,16 @@ const REPO_ROOT = path.resolve(HERE, "..", "..");
 const ENGINE_DIR = path.join(REPO_ROOT, "src", "hopandhaul", "ui", "engine");
 const DATA_DIR = path.join(REPO_ROOT, "src", "hopandhaul", "data");
 const FIXTURES_DIR = path.join(HERE, "fixtures");
-const CASES_PATH = path.join(HERE, "cases.json");
+// Read the cases gen_fixtures.py actually ran, not cases.json: date-sensitive cases carry
+// relative offsets ("+70d") that it resolves against the day it ran. Resolving them again here
+// would re-read the clock, so a run that straddles midnight would feed the two engines
+// different dates and report that as a parity failure.
+const CASES_PATH = path.join(FIXTURES_DIR, "_cases.resolved.json");
 
 const engineUrl = (f) => pathToFileURL(path.join(ENGINE_DIR, f)).href;
 const { plan } = await import(engineUrl("plan.js"));
 const trip = await import(engineUrl("trip.js"));
+const { sweepDates, candidateDates, basisOfLegs } = await import(engineUrl("dates.js"));
 const { loadData } = await import(engineUrl("data.js"));
 const { parsePlanParams, ValidationError } = await import(engineUrl("validate.js"));
 
@@ -81,6 +86,33 @@ function runEvaluateCase(c) {
   return stripPrivate(res);
 }
 
+function runDatesCase(c) {
+  const p = c.params;
+  return sweepDates({
+    destLat: p.dest_lat,
+    destLng: p.dest_lng,
+    originIata: p.origin_iata ?? "JFK",
+    date: p.date,
+    window: p.window ?? 1,
+    vot: p.vot ?? null,
+    threshold: p.threshold ?? trip.DEFAULT_THRESHOLD,
+    maxGroundH: p.max_ground_h ?? 6.0,
+    roundtrip: p.roundtrip ?? false,
+    travelers: p.travelers ?? 1,
+    ret: p.ret ?? null,
+    transferBuffer: p.transfer_buffer ?? 1.0,
+  });
+}
+
+function runDatesHelpersCase(c) {
+  const p = c.params;
+  const [y, m, d] = p.today.split("-").map(Number);
+  return {
+    dates: candidateDates(p.anchor, p.window, { y, m, d }),
+    basis: basisOfLegs(p.legs),
+  };
+}
+
 // The trust boundary: raw pre-validation strings in, normalized params or an error out.
 // See the matching comment on gen_fixtures.py's run_validate_case().
 function runValidateCase(c) {
@@ -95,8 +127,25 @@ function runValidateCase(c) {
 function runCase(c) {
   if (c.type === "plan") return runPlanCase(c);
   if (c.type === "evaluate") return runEvaluateCase(c);
+  if (c.type === "dates") return runDatesCase(c);
+  if (c.type === "dates_helpers") return runDatesHelpersCase(c);
   if (c.type === "validate") return runValidateCase(c);
   throw new Error(`unknown case type ${JSON.stringify(c.type)} in ${c.name}`);
+}
+
+const TAG_LABEL = { dates: "cheapest", dates_helpers: "helpers", validate: "verdict" };
+
+/** The one thing worth printing about a passing case. For a dates case that's which day won and
+ * how many were in the window: a window that quietly lost a date is the failure that case type
+ * exists to catch, so the count belongs on screen next to the winner. */
+function tagFor(c, js) {
+  if (c.type === "evaluate") return js.recommended;
+  if (c.type === "dates_helpers") return `${js.basis}, ${js.dates.length} dates`;
+  // validate cases report an `error` string rather than a `code`, so they resolve before the
+  // generic !ok branch below.
+  if (c.type === "validate") return js.ok ? "accepted" : `rejected: ${js.error}`;
+  if (!js.ok) return `error:${js.code}`;
+  return c.type === "dates" ? `${js.best.date} of ${js.dates.length}` : js.result.recommended;
 }
 
 // Deep compare; numbers within a tiny epsilon (should be EXACT after pyRound - this epsilon is
@@ -135,6 +184,10 @@ async function main() {
   }
   await loadData(nodeLoader);
 
+  if (!existsSync(CASES_PATH)) {
+    console.error(`no resolved case list at ${CASES_PATH} - run: python tests/web_parity/gen_fixtures.py`);
+    process.exit(1);
+  }
   const cases = JSON.parse(readFileSync(CASES_PATH, "utf8"));
   let pass = 0;
   let fail = 0;
@@ -165,11 +218,7 @@ async function main() {
       failures.push({ name: c.name, d, js, py });
     } else {
       pass++;
-      let tag;
-      if (c.type === "plan") tag = js.ok ? `recommended: ${js.result.recommended}` : `error: ${js.code}`;
-      else if (c.type === "validate") tag = js.ok ? "accepted" : `rejected: ${js.error}`;
-      else tag = `recommended: ${js.recommended}`;
-      console.log(`ok    ${c.name}  (${c.type}, ${tag})`);
+      console.log(`ok    ${c.name}  (${c.type}, ${TAG_LABEL[c.type] ?? "recommended"}: ${tagFor(c, js)})`);
     }
   }
 

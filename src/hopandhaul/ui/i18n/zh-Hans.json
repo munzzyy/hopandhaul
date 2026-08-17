@@ -125,5 +125,18 @@
   "lang.buttonAria": "选择语言",
   "lang.title": "语言",
   "lang.filter": "筛选语言…",
-  "lang.close": "关闭"
+  "lang.close": "关闭",
+  "dates.head": "最便宜的出发日（±{window} 天）",
+  "dates.loading": "正在查询邻近日期…",
+  "dates.failed": "无法查询邻近日期。上面的方案依然有效。",
+  "dates.rowFailed": "无价格",
+  "dates.cheapest": "最便宜",
+  "dates.cheapestNote": "{date} 是这个区间里最便宜的一天，{money}，比你选的日期便宜 {savings}。",
+  "dates.cheapestPlain": "{date} 是这个区间里最便宜的一天，{money}。",
+  "dates.sameDay": "你选的日期已经是这个区间里最便宜的了。",
+  "dates.notComparable": "部分日期是实时报价，部分是估算，无法直接比较。请把最便宜的一天当作提示，而不是事实。",
+  "dates.basis.live": "实时",
+  "dates.basis.estimate": "预估",
+  "dates.basis.mixed": "部分实时",
+  "dates.pickAria": "改为规划 {date}"
 }

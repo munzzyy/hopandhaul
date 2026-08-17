@@ -125,5 +125,18 @@
   "lang.buttonAria": "Chagua lugha",
   "lang.title": "Lugha",
   "lang.filter": "Chuja lugha…",
-  "lang.close": "Funga"
+  "lang.close": "Funga",
+  "dates.head": "Siku ya bei nafuu zaidi ya kuruka (±{window} siku)",
+  "dates.loading": "Inaangalia tarehe za karibu…",
+  "dates.failed": "Haikuweza kuangalia tarehe za karibu. Mpango ulio hapo juu bado unatumika.",
+  "dates.rowFailed": "hakuna bei",
+  "dates.cheapest": "nafuu zaidi",
+  "dates.cheapestNote": "{date} ndiyo siku ya bei nafuu zaidi katika kipindi hiki, kwa {money}, yaani {savings} chini ya tarehe uliyochagua.",
+  "dates.cheapestPlain": "{date} ndiyo siku ya bei nafuu zaidi katika kipindi hiki, kwa {money}.",
+  "dates.sameDay": "Tarehe uliyochagua tayari ndiyo ya bei nafuu zaidi katika kipindi hiki.",
+  "dates.notComparable": "Baadhi ya siku zilipangiwa bei moja kwa moja na nyingine kwa makadirio, hivyo haziwezi kulinganishwa moja kwa moja. Chukua siku ya bei nafuu zaidi kama dokezo, si ukweli kamili.",
+  "dates.basis.live": "moja kwa moja",
+  "dates.basis.estimate": "makadirio",
+  "dates.basis.mixed": "sehemu moja kwa moja",
+  "dates.pickAria": "Panga {date} badala yake"
 }

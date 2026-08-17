@@ -125,5 +125,18 @@
   "lang.buttonAria": "Dil seçin",
   "lang.title": "Dil",
   "lang.filter": "Dilleri filtrele…",
-  "lang.close": "Kapat"
+  "lang.close": "Kapat",
+  "dates.head": "En ucuz uçuş günü (±{window} gün)",
+  "dates.loading": "Yakın tarihler kontrol ediliyor…",
+  "dates.failed": "Yakın tarihler kontrol edilemedi. Yukarıdaki plan geçerliliğini koruyor.",
+  "dates.rowFailed": "fiyat yok",
+  "dates.cheapest": "en ucuz",
+  "dates.cheapestNote": "{date}, bu aralıktaki en ucuz gün: {money}, seçtiğiniz tarihten {savings} daha az.",
+  "dates.cheapestPlain": "{date}, bu aralıktaki en ucuz gün: {money}.",
+  "dates.sameDay": "Seçtiğiniz tarih zaten bu aralıktaki en ucuz gün.",
+  "dates.notComparable": "Bazı günler canlı fiyatlandı, bazıları tahmin edildi; bu yüzden doğrudan karşılaştırılamazlar. En ucuz günü bir ipucu olarak görün, kesin bilgi olarak değil.",
+  "dates.basis.live": "canlı",
+  "dates.basis.estimate": "tah.",
+  "dates.basis.mixed": "kısmen canlı",
+  "dates.pickAria": "Bunun yerine {date} için plan yap"
 }

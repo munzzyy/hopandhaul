@@ -104,8 +104,20 @@ export function flightProvenanceEstimate(detail, date) {
   if (detail.regions) bits.push(`${detail.regions} market ×${(detail.route_mult ?? 1.0).toFixed(2)}`);
   const an = detail.anchor;
   if (an) {
-    // a REAL number rides along with the model: what this route's passengers actually paid
-    const held = an.adjusted ? "estimate adjusted into that band" : "estimate already inside that band";
+    // a REAL number rides along with the model: what this route's passengers actually paid.
+    // Report where the FINAL fare landed, not where the clamp left it - see geo.js.
+    let held;
+    if (an.in_band === false) {
+      // Both directions - see the matching comment in itinerary.py. The date factor clamps to
+      // [0.75, 1.75], so it can push the fare under the band as well as over it.
+      const way = detail.price > an.band_hi ? "above" : "below";
+      held = `the date factor put the estimate ${way} that band `
+        + `($${pyG(an.band_lo)}-$${pyG(an.band_hi)})`;
+    } else if (an.adjusted) {
+      held = "estimate adjusted into that band";
+    } else {
+      held = "estimate already inside that band";
+    }
     bits.push(`real market check (BTS ${an.asof ?? ""}): avg paid $${pyG(an.fare_avg)}`
       + `, lowest-fare carrier $${pyG(an.fare_low)}, ${held}`);
   }

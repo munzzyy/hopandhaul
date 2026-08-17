@@ -22,10 +22,17 @@ today are skipped, not priced - there's no fare to check for a day that's alread
 Repeated sweeps (or a --date already covered by an earlier `hopandhaul duffel` call) ride
 duffel.py's own per-date offer cache, so overlapping windows cost nothing extra.
 
+The map UI has its own twin of this sweep, server.sweep_dates(), built on server.plan()
+instead of build_and_evaluate() because the browser engine ports plan() and has no live
+Duffel path at all. The two orchestrators stay separate on purpose (this one is the only
+path with --cabin/--nonstop control), but they share the three pure helpers below -
+candidate_dates(), basis_of_legs() and pick_best() - so window construction, basis
+labeling and tie-breaking can never drift between the CLI and the web.
+
 Examples:
-  hopandhaul dates --from JFK --to ASE --date 2026-08-15 --window 3 --auto-gateways
-  python -m hopandhaul.dates --from JFK --to ASE --date 2026-08-15 \
-      --return-date 2026-08-22 --window 2
+  hopandhaul dates --from JFK --to ASE --date 2027-06-15 --window 3 --auto-gateways
+  python -m hopandhaul.dates --from JFK --to ASE --date 2027-06-15 \
+      --return-date 2027-06-22 --window 2
   python -m hopandhaul.dates --selftest                              # offline, no network
 """
 from __future__ import annotations
@@ -44,12 +51,19 @@ MAX_WINDOW = 7
 
 
 # --------------------------------------------------------------------------- window/basis
-def _candidate_dates(anchor: str, window: int) -> list[str]:
+# The three functions in this section are shared with server.sweep_dates(). They stay
+# stdlib-only - no duffel, no server import - because server.py imports this module at the
+# top level, and reaching back the other way would build a second copy of server whenever
+# dates.py runs as __main__.
+def candidate_dates(anchor: str, window: int, today: _date | None = None) -> list[str]:
     """anchor +/- window days, in order, YYYY-MM-DD strings - dates before today are
     dropped (no fare to check for a day that's already gone). Always includes the anchor
-    itself when it isn't in the past (window=0 -> just [anchor], or [] if anchor is past)."""
+    itself when it isn't in the past (window=0 -> just [anchor], or [] if anchor is past).
+
+    `today` is injectable so a caller that needs a deterministic window (a test, or the
+    fixture generator) can pin the filter instead of racing the wall clock across midnight."""
     base = _date.fromisoformat(anchor)
-    today = _date.today()
+    today = today or _date.today()
     out = []
     for delta in range(-window, window + 1):
         d = base + timedelta(days=delta)
@@ -58,17 +72,43 @@ def _candidate_dates(anchor: str, window: int) -> list[str]:
     return out
 
 
-def _basis(rec_row: dict) -> str:
-    """'live' / 'estimate' / 'mixed' for a recommended option's FLIGHT leg(s). Ground legs
-    out of build_and_evaluate are always distance estimates (see duffel.py's
-    _ground_leg_spec_cli), so only the fly legs say anything about whether a real Duffel
-    query - not the calibrated model - actually set the price for this date."""
-    flight_live = [leg["is_live"] for leg in rec_row["itinerary"]["legs"] if leg["mode"] == "fly"]
+def basis_of_legs(legs: list[dict]) -> str:
+    """'live' / 'estimate' / 'mixed' for a set of itinerary legs, read off the FLIGHT legs
+    only. Ground legs are always distance estimates (duffel.py's _ground_leg_spec_cli and
+    server.py's _ground_leg_spec both hardcode is_live False), so they say nothing about
+    whether a real Duffel query - not the calibrated model - set this price.
+
+    The empty/none-live guard has to come first: all([]) is True in Python, so an option
+    with no flight leg at all would otherwise label itself 'live'."""
+    flight_live = [leg["is_live"] for leg in legs if leg["mode"] == "fly"]
     if not flight_live or not any(flight_live):
         return "estimate"
     if all(flight_live):
         return "live"
     return "mixed"
+
+
+def pick_best(rows: list[dict]) -> dict:
+    """The cheapest row that actually priced, ties broken on effective hours and then on
+    window order. min() keeps the FIRST minimum, so a genuine tie goes to the EARLIEST
+    date in the window - the one a traveler would rather be told about."""
+    if not rows:
+        raise ValueError("no candidate dates left in range - every date in the window is "
+                         "already in the past")
+    priced = [r for r in rows if "error" not in r]
+    if not priced:
+        raise ValueError("every candidate date failed to price - see the per-date errors")
+    return min(priced, key=lambda r: (r["cost"], r["hours"]))
+
+
+def _candidate_dates(anchor: str, window: int) -> list[str]:
+    """This module's own view of candidate_dates() - the CLI never pins `today`."""
+    return candidate_dates(anchor, window)
+
+
+def _basis(rec_row: dict) -> str:
+    """basis_of_legs() for a build_and_evaluate() recommended-option row."""
+    return basis_of_legs(rec_row["itinerary"]["legs"])
 
 
 # --------------------------------------------------------------------------- the sweep
@@ -115,13 +155,7 @@ def sweep(origin: str, dest: str, date: str, gateways: list[dict], adults: int =
             "warnings": warnings, "result": res,
         })
 
-    if not rows:
-        raise ValueError("no candidate dates left in range - every date in the window is "
-                         "already in the past")
-    priced = [r for r in rows if "error" not in r]
-    if not priced:
-        raise ValueError("every candidate date failed to price - see the per-date errors")
-    best = min(priced, key=lambda r: (r["cost"], r["hours"]))
+    best = pick_best(rows)
     return {"origin": origin.upper(), "dest": dest.upper(), "anchor_date": date,
            "window": window, "dates": rows, "best": best}
 
@@ -264,6 +298,19 @@ def selftest():
     check("a fully-past anchor+window drops every candidate",
           _candidate_dates("2000-01-01", 3) == [])
 
+    # the injectable `today` pins the filter instead of racing the wall clock. Anchored on
+    # a real today so this can never rot into testing an all-past window the way a literal
+    # would once the calendar catches up to it.
+    def _d(days):
+        return (_date.today() + timedelta(days=days)).isoformat()
+
+    pinned = candidate_dates(_d(100), 2, today=_date.today() + timedelta(days=101))
+    check("candidate_dates(today=...) drops everything before the pinned day, deterministically",
+          pinned == [_d(101), _d(102)])
+    check("a pinned today equal to the anchor keeps the anchor itself",
+          candidate_dates(_d(100), 1, today=_date.today() + timedelta(days=100))
+          == [_d(100), _d(101)])
+
     try:
         sweep("JFK", "ASE", "2030-06-15", [], window=MAX_WINDOW + 1)
         check(f"--window above {MAX_WINDOW} is rejected", False)
@@ -284,6 +331,32 @@ def selftest():
     check("some fly legs live, some not -> 'mixed'", _basis(row([True, False])) == "mixed")
     check("a recommendation with no flight leg at all still resolves ('estimate', not a crash)",
           _basis({"itinerary": {"legs": [{"mode": "bus", "is_live": False}]}}) == "estimate")
+    check("basis_of_legs on an empty leg list is 'estimate', not 'live' (all([]) is True)",
+          basis_of_legs([]) == "estimate")
+
+    # tie-breaking is the whole reason pick_best is shared: two dates that cost the same
+    # must resolve to the EARLIER one on both sides, never to whichever happened to be
+    # scanned first by a different reducer.
+    tie_rows = [{"date": _d(10), "cost": 500.0, "hours": 9.0},
+                {"date": _d(11), "cost": 400.0, "hours": 9.0},
+                {"date": _d(12), "cost": 400.0, "hours": 9.0}]
+    check("pick_best breaks an exact cost tie in favour of the earliest date",
+          pick_best(tie_rows)["date"] == _d(11))
+    check("pick_best breaks a cost tie on effective hours before falling back to date order",
+          pick_best([{"date": _d(10), "cost": 400.0, "hours": 11.0},
+                     {"date": _d(11), "cost": 400.0, "hours": 9.0}])["date"] == _d(11))
+    check("pick_best returns the row object itself, so format_sweep's identity check holds",
+          pick_best(tie_rows) is tie_rows[1])
+    try:
+        pick_best([])
+        check("pick_best on an empty window raises rather than inventing a winner", False)
+    except ValueError:
+        check("pick_best on an empty window raises rather than inventing a winner", True)
+    try:
+        pick_best([{"date": _d(10), "error": "boom"}])
+        check("pick_best raises when every candidate errored", False)
+    except ValueError:
+        check("pick_best raises when every candidate errored", True)
 
     # end-to-end sweep, offline (mocked build_and_evaluate): must call the real primitive
     # once per candidate date and pick the actual minimum, not just the first or the anchor.

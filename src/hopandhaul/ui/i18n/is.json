@@ -125,5 +125,18 @@
   "lang.buttonAria": "Velja tungumál",
   "lang.title": "Tungumál",
   "lang.filter": "Sía tungumál…",
-  "lang.close": "Loka"
+  "lang.close": "Loka",
+  "dates.head": "Ódýrasti flugdagurinn (±{window} dagar)",
+  "dates.loading": "Athuga nálægar dagsetningar…",
+  "dates.failed": "Ekki tókst að athuga nálægar dagsetningar. Áætlunin hér að ofan stendur enn.",
+  "dates.rowFailed": "ekkert verð",
+  "dates.cheapest": "ódýrast",
+  "dates.cheapestNote": "{date} er ódýrasti dagurinn í þessum glugga, á {money}, {savings} minna en dagsetningin sem þú valdir.",
+  "dates.cheapestPlain": "{date} er ódýrasti dagurinn í þessum glugga, á {money}.",
+  "dates.sameDay": "Dagsetningin sem þú valdir er þegar sú ódýrasta í þessum glugga.",
+  "dates.notComparable": "Sumir dagar voru verðlagðir í rauntíma og aðrir áætlaðir, svo þeir eru ekki beint samanburðarhæfir. Líttu á ódýrasta daginn sem vísbendingu, ekki staðreynd.",
+  "dates.basis.live": "beint",
+  "dates.basis.estimate": "áætl.",
+  "dates.basis.mixed": "að hluta beint",
+  "dates.pickAria": "Skipuleggja {date} í staðinn"
 }

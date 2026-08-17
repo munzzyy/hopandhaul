@@ -59,9 +59,29 @@ modules, port the change to the matching file under `engine/` too (`trip.py` -> 
 `geo.py` -> `geo.js`, etc.). A divergence there means the Pages build silently disagrees with
 the CLI.
 
+One pair is not named after its file: `server.py`'s `sweep_dates()` ports to
+`engine/dates.js`. The CLI's own sweep in `dates.py` is a different animal, built on
+`duffel.build_and_evaluate()` rather than `plan()`, so it is deliberately NOT ported. What the
+two share is `dates.py`'s `candidate_dates()`, `basis_of_legs()` and `pick_best()`, the three
+pure helpers that decide the window, the labelling and the tie-break. Change one of those and
+you are changing both sweeps at once.
+
 `tests/web_parity/` is the gate that catches drift: `cases.json` is a shared list of inputs,
 `gen_fixtures.py` runs them through the real Python engine, `check.mjs` runs the same inputs
 through the JS port and deep-equals the two.
+
+Date-sensitive cases carry a relative offset instead of a date, `"+70d"` or `"-30d"` or
+`"eom+2m"`, which `gen_fixtures.py` resolves against the day it runs and writes to
+`fixtures/_cases.resolved.json` for `check.mjs` to read. Do not put a literal travel date in a
+case. Three of them used to be pinned to real dates, and once those days passed the fare
+engine started treating them all as undated, so `date_far_out_aspen` and `date_close_in_aspen`
+became the same test and the gate stayed green while covering nothing. `tools/check_example_dates.py`
+guards the same rot in the README and help text, where prose cannot use an offset.
+
+Two things to know when adding a `dates` case: a window that straddles today changes the array
+LENGTH as the calendar moves, because past days are dropped rather than priced, so assert on
+what is there rather than on a count. And both engines must see the same `today`, which is why
+`check.mjs` reads the resolved list rather than re-reading the clock.
 
 ```
 python tests/web_parity/gen_fixtures.py

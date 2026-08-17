@@ -20,9 +20,9 @@ rate via frankfurter.dev (keyless) when the network allows, else a labelled appr
 bundled table; the native amount + currency are preserved and any conversion is flagged.
 
 Examples:
-  hopandhaul duffel --from JFK --to ASE --date 2026-08-15 --auto-gateways --vot 30
-  python -m hopandhaul.duffel --from JFK --to ASE --date 2026-08-15 --gateway "DEN train 75 6.0"
-  python -m hopandhaul.duffel --probe --from JFK --to LAX --date 2026-08-15   # one live call
+  hopandhaul duffel --from JFK --to ASE --date 2027-06-15 --auto-gateways --vot 30
+  python -m hopandhaul.duffel --from JFK --to ASE --date 2027-06-15 --gateway "DEN train 75 6.0"
+  python -m hopandhaul.duffel --probe --from JFK --to LAX --date 2027-06-15   # one live call
   python -m hopandhaul.duffel --selftest                                     # offline, no network
 """
 from __future__ import annotations
@@ -34,7 +34,7 @@ import os
 import re
 import sys
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from . import __version__, _secrets, geo, itinerary, trip  # deterministic engine + report
 from .integrations import net
@@ -659,6 +659,15 @@ def selftest():
         if not cond:
             fails.append(name)
 
+    # `datetime` here is the CLASS (see the module-level `from datetime import datetime,
+    # timedelta` above), not the module - datetime.date.today() doesn't exist on it, so this
+    # goes through datetime.today().date() instead. Travel dates below are anchored to today
+    # so the LEAD_CURVE booking-window multiplier (geo.fare_date_multiplier) is never
+    # accidentally exercised on a date that's since slid into the past, where it deliberately
+    # goes neutral (1.0) and would silently stop testing what these checks claim to test.
+    def _d(days):
+        return (datetime.today().date() + timedelta(days=days)).isoformat()
+
     check("ISO8601 PT5H30M -> 5.5", iso8601_to_hours("PT5H30M") == 5.5)
     check("ISO8601 PT45M -> 0.75", iso8601_to_hours("PT45M") == 0.75)
     check("ISO8601 P1DT2H -> 26.0", iso8601_to_hours("P1DT2H") == 26.0)
@@ -707,15 +716,15 @@ def selftest():
           o["price"] == 241.5 and o["hours"] == 5.5 and o["stops"] == 1 and o["carrier"] == "AA")
     check("one-way offer is not flagged rt", o["rt"] is False)
 
-    b1 = _offer_request_body("jfk", "ase", "2026-08-15")
+    b1 = _offer_request_body("jfk", "ase", _d(70))
     check("one-way body has 1 slice, 1 adult",
           len(b1["data"]["slices"]) == 1 and len(b1["data"]["passengers"]) == 1)
-    b2 = _offer_request_body("JFK", "ASE", "2026-08-15", return_date="2026-08-22", adults=3)
+    b2 = _offer_request_body("JFK", "ASE", _d(70), return_date=_d(77), adults=3)
     check("RT body has 2 slices (reversed) and 3 adults",
           len(b2["data"]["slices"]) == 2
           and b2["data"]["slices"][1]["origin"] == "ASE"
           and b2["data"]["slices"][1]["destination"] == "JFK"
-          and b2["data"]["slices"][1]["departure_date"] == "2026-08-22"
+          and b2["data"]["slices"][1]["departure_date"] == _d(77)
           and len(b2["data"]["passengers"]) == 3)
     ort = _parse_offer({"total_amount": "480.00", "total_currency": "USD",
                         "owner": {"iata_code": "UA"},
@@ -744,6 +753,12 @@ def selftest():
     # provenance + a verify link for both legs.
     import unittest.mock as _mock
 
+    # DEN's mocked segment date must track the request date below (_d(70)) - EGE returns None
+    # (no offer) so it falls through to _price_flight_cli's geo.estimate_flight(date=...), which
+    # is the exact call fare_date_multiplier() goes neutral on for a past date - a future date
+    # here is what keeps that fallback check honest.
+    _live_seg_date = datetime.today().date() + timedelta(days=70)
+
     def _fake_search_cheapest(origin, dest, date, adults=1, cabin="economy", nonstop=False,
                               return_date=None):
         if dest.upper() == "EGE":
@@ -753,8 +768,10 @@ def selftest():
                 "rt": False, "checked_bags_included": 1, "refundable": False, "changeable": True,
                 "native_price": 210.0,
                 "segments": [{"from_iata": origin.upper(), "to_iata": dest.upper(),
-                             "depart_at": datetime(2026, 8, 15, 9, 30),
-                             "arrive_at": datetime(2026, 8, 15, 12, 30),
+                             "depart_at": datetime(_live_seg_date.year, _live_seg_date.month,
+                                                   _live_seg_date.day, 9, 30),
+                             "arrive_at": datetime(_live_seg_date.year, _live_seg_date.month,
+                                                   _live_seg_date.day, 12, 30),
                              "carrier": "United Airlines", "flight_number": "UA55"}]}
 
     # patch this module's OWN globals (not a dotted string path) - same reasoning as the
@@ -765,7 +782,7 @@ def selftest():
     with _mock.patch.object(_this_module, "search_cheapest", side_effect=_fake_search_cheapest), \
          _mock.patch.object(_this_module, "have_keys", return_value=True):
         res_cli, warn_cli = build_and_evaluate(
-            "JFK", "ASE", "2026-08-15",
+            "JFK", "ASE", _d(70),
             [{"hub_airport": "DEN", "ground_mode": "bus", "ground_cost": 75.0, "ground_hours": 4.0},
              {"hub_airport": "EGE", "ground_mode": "rental", "ground_cost": 90.0, "ground_hours": 2.0}],
             adults=1, cabin="economy", nonstop=False, vot=None, transfer_buffer=1.0, threshold=200)
@@ -799,7 +816,7 @@ def selftest():
     # the whole point of _price_flight_cli's fallback.
     with _mock.patch.object(_this_module, "have_keys", return_value=False):
         res_nokey, warn_nokey = build_and_evaluate(
-            "JFK", "ASE", "2026-08-15",
+            "JFK", "ASE", _d(70),
             [{"hub_airport": "DEN", "ground_mode": "bus", "ground_cost": 75.0, "ground_hours": 4.0}],
             adults=1, cabin="economy", nonstop=False, vot=None, transfer_buffer=1.0, threshold=200)
     check("build_and_evaluate works with zero keys configured (falls back to ESTIMATE)",

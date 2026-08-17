@@ -125,9 +125,21 @@ def flight_provenance_estimate(detail: dict | None, date: str | None) -> str:
         bits.append(f"{detail['regions']} market ×{detail.get('route_mult', 1.0):.2f}")
     an = detail.get("anchor")
     if an:
-        # a REAL number rides along with the model: what this route's passengers actually paid
-        held = ("estimate adjusted into that band" if an.get("adjusted")
-                else "estimate already inside that band")
+        # a REAL number rides along with the model: what this route's passengers actually paid.
+        # Report where the FINAL fare landed, not where the clamp left it - the date multiplier
+        # runs afterwards and regularly lifts the number back out of the band.
+        if an.get("in_band") is False:
+            # The date factor runs in BOTH directions: it clamps to [0.75, 1.75], so an advance
+            # booking on a cheap month can push the fare under the band just as easily as a
+            # last-minute one pushes it over. Saying "above" either way is wrong 58 route-days
+            # out of the ones this repo's own airports can produce.
+            way = "above" if detail["price"] > an["band_hi"] else "below"
+            held = (f"the date factor put the estimate {way} that band "
+                    f"(${an['band_lo']:g}-${an['band_hi']:g})")
+        elif an.get("adjusted"):
+            held = "estimate adjusted into that band"
+        else:
+            held = "estimate already inside that band"
         bits.append(f"real market check (BTS {an.get('asof', '')}): avg paid ${an['fare_avg']:g}"
                     f", lowest-fare carrier ${an['fare_low']:g}, {held}")
     if detail.get("date_mult"):
@@ -316,18 +328,26 @@ def selftest() -> int:
         if not cond:
             fails.append(name)
 
+    # this module never touches geo.fare_date_multiplier() - `date` here only anchors clock/
+    # day-rollover labels, so past-vs-future is never load-bearing for correctness. Anchored
+    # to today anyway so these fixtures don't read as a stale, long-past example date.
+    def _d(days):
+        return (datetime.date.today() + datetime.timedelta(days=days)).isoformat()
+
+    _travel = datetime.date.fromisoformat(_d(70))
+
     jfk = {"iata": "JFK", "name": "John F Kennedy International Airport", "city": "New York"}
     den = {"iata": "DEN", "name": "Denver International Airport", "city": "Denver"}
     ase = {"iata": "ASE", "name": "Aspen/Pitkin County Airport", "city": "Aspen"}
 
     # ---- link builders
-    link = google_flights_link("JFK", "ASE", "2026-08-15")
+    link = google_flights_link("JFK", "ASE", _d(70))
     check("google flights link has the right host + path",
           link.startswith("https://www.google.com/travel/flights?q="))
     check("google flights link encodes spaces as + (urlencode, not raw text)",
           "+" in link and " " not in link)
     check("google flights link contains both IATA codes and the date",
-          "JFK" in link and "ASE" in link and "2026-08-15" in link)
+          "JFK" in link and "ASE" in link and _d(70) in link)
     link_no_date = google_flights_link("JFK", "ASE")
     check("google flights link omits 'on ...' when no date is given", "+on+" not in link_no_date)
 
@@ -341,7 +361,7 @@ def selftest() -> int:
           " " not in r2r and " " not in weird)
 
     check("verify_link picks Google Flights for a fly leg",
-          verify_link("fly", jfk, den, "2026-08-15").startswith("https://www.google.com/travel/flights"))
+          verify_link("fly", jfk, den, _d(70)).startswith("https://www.google.com/travel/flights"))
     check("verify_link picks Rome2Rio for a ground leg",
           verify_link("train", den, ase).startswith("https://www.rome2rio.com/map/"))
 
@@ -352,9 +372,9 @@ def selftest() -> int:
 
     # ---- provenance strings
     est_detail = {"regions": "NA-NA", "route_mult": 1.0, "date_mult": 1.08, "likely_connection": False}
-    prov = flight_provenance_estimate(est_detail, "2026-08-15")
+    prov = flight_provenance_estimate(est_detail, _d(70))
     check("flight provenance names the date and the route-market multiplier",
-          "2026-08-15" in prov and "NA-NA" in prov and "1.00" in prov and "1.08" in prov)
+          _d(70) in prov and "NA-NA" in prov and "1.00" in prov and "1.08" in prov)
     check("flight provenance with no detail still returns something honest",
           flight_provenance_estimate(None, None) == "route-band estimate")
 
@@ -371,16 +391,16 @@ def selftest() -> int:
     # ---- timeline: single direct flight leg
     direct_legs = [{
         "mode": "fly", "cost": 284.0, "hours": 2.5, "from": jfk, "to": den,
-        "price_basis": "route-band estimate for 2026-08-15", "verify_url": "https://x",
+        "price_basis": f"route-band estimate for {_d(70)}", "verify_url": "https://x",
         "is_live": False, "segments": None,
     }]
-    tl = build_timeline(direct_legs, date="2026-08-15")
+    tl = build_timeline(direct_legs, date=_d(70))
     check("direct timeline has exactly one leg", len(tl["legs"]) == 1)
     row = tl["legs"][0]
     check("direct flight departs at the default 08:00 anchor", row["depart_clock"] == "08:00")
     check("direct flight arrives 2h30 later at 10:30", row["arrive_clock"] == "10:30")
     check("direct flight's depart/arrive land on the same given date",
-          row["depart_day"] == row["arrive_day"] == "2026-08-15")
+          row["depart_day"] == row["arrive_day"] == _d(70))
     check("a fly leg carries a checkin_by ~2h before departure", row["checkin_by"]["clock"] == "06:00")
     check("build_timeline with no date falls back to relative 'Day N' labels",
           build_timeline(direct_legs)["legs"][0]["depart_day"] == "Day 1")
@@ -396,7 +416,7 @@ def selftest() -> int:
         {"mode": "train", "cost": 75.0, "hours": 6.0, "from": den, "to": ase,
          "price_basis": "ground estimate", "verify_url": "https://y", "is_live": False, "segments": None},
     ]
-    tl2 = build_timeline(split_legs, date="2026-08-15", transfer_buffer_h=1.0)
+    tl2 = build_timeline(split_legs, date=_d(70), transfer_buffer_h=1.0)
     check("split timeline has both legs", len(tl2["legs"]) == 2)
     fly_row, ground_row = tl2["legs"]
     check("fly leg departs 08:00, arrives 11:00 (3h)",
@@ -413,10 +433,10 @@ def selftest() -> int:
     # ---- timeline: day rollover past midnight is labelled, not silently wrapped to 00:00
     long_leg = [{"mode": "fly", "cost": 900.0, "hours": 18.0, "from": jfk, "to": den,
                 "price_basis": "x", "verify_url": "https://x", "is_live": False, "segments": None}]
-    tl3 = build_timeline(long_leg, date="2026-08-15", depart_local="20:00")
+    tl3 = build_timeline(long_leg, date=_d(70), depart_local="20:00")
     r3 = tl3["legs"][0]
     check("an overnight leg rolls its arrival to the next calendar day",
-          r3["depart_day"] == "2026-08-15" and r3["arrive_day"] == "2026-08-16")
+          r3["depart_day"] == _d(70) and r3["arrive_day"] == _d(71))
     check("the rolled-over arrival clock is correct (20:00 + 18h = 14:00)", r3["arrive_clock"] == "14:00")
 
     # ---- timeline: a live leg's real segment times are used as-is, and a later estimate leg
@@ -426,15 +446,15 @@ def selftest() -> int:
         "price_basis": "live fare from United Airlines", "verify_url": "https://x",
         "segments": [{
             "from": jfk, "to": den,
-            "depart_at": datetime.datetime(2026, 8, 15, 14, 5),
-            "arrive_at": datetime.datetime(2026, 8, 15, 16, 47),
+            "depart_at": datetime.datetime(_travel.year, _travel.month, _travel.day, 14, 5),
+            "arrive_at": datetime.datetime(_travel.year, _travel.month, _travel.day, 16, 47),
             "carrier": "United Airlines", "flight_number": "UA1234",
         }],
     }, {
         "mode": "train", "cost": 75.0, "hours": 6.0, "from": den, "to": ase,
         "price_basis": "ground estimate", "verify_url": "https://y", "is_live": False, "segments": None,
     }]
-    tl4 = build_timeline(live_leg, date="2026-08-15", transfer_buffer_h=1.0)
+    tl4 = build_timeline(live_leg, date=_d(70), transfer_buffer_h=1.0)
     live_row, next_row = tl4["legs"]
     check("live leg uses the real Duffel segment departure/arrival times, not the 08:00 synthetic anchor",
           live_row["depart_clock"] == "14:05" and live_row["arrive_clock"] == "16:47")

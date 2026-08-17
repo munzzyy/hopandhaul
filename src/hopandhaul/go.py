@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-go.py - the one-shot trip plan: `hopandhaul go JFK "Tallinn" --date 2026-08-15`.
+go.py - the one-shot trip plan: `hopandhaul go JFK "Tallinn" --date 2027-06-15`.
 
 Everything the map click does, in a terminal, with ZERO keys: resolves the origin and
 destination (IATA code, or a city/airport name looked up in the bundled 4,175-airport DB),
@@ -10,8 +10,8 @@ leg-by-leg itinerary and per-leg price provenance. Live extras turn on by themse
 available: real Transitous ground schedules (keyless) and real Duffel fares (with a key).
 
 Examples:
-  hopandhaul go JFK TLL --date 2026-08-15
-  hopandhaul go "New York" "Santorini" --date 2026-08-15 --travelers 2
+  hopandhaul go JFK TLL --date 2027-06-15
+  hopandhaul go "New York" "Santorini" --date 2027-06-15 --travelers 2
   hopandhaul go LAX "Victoria BC" --offline        (no network calls at all)
   python -m hopandhaul.go --selftest               (offline, no network)
 """
