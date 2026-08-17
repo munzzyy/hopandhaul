@@ -22,12 +22,15 @@ code isn't in the airport database), `no_airport_near_point` (nothing within the
 nearest-airport search radius), `origin_is_destination` (the clicked point resolves to the
 same airport as `origin` — nothing to plan), `geocoding_not_configured` / `geocode_lookup_failed`
 (no Geoapify key / the provider call failed), `no_airport_found` (`/api/nearest` found
-nothing), `internal_error` (an unexpected server-side failure, logged with the real
+nothing), `dates_all_past` / `dates_all_failed` / `date_lookup_failed` (`/api/dates`: the
+whole window is in the past, nothing in it priced, or one individual day failed),
+`internal_error` (an unexpected server-side failure, logged with the real
 exception; never sent to the client).
 
 HTTP status codes follow normal REST conventions (`400` for a malformed request, `403` for a
 rejected Host header, `404` for an unknown path or missing asset, `500` for a genuine server
-fault). `/api/plan` is the one exception: it always answers `200` and puts success/failure in
+fault). `/api/plan` and `/api/dates` are the exceptions: a malformed query param still gets a
+`400`, but once the request itself is valid they answer `200` and put success or failure in
 the JSON body's `"ok"` field, because a "no route found" or "provider unavailable" result is a
 normal, expected outcome for a planning request, not an HTTP-level error.
 
@@ -143,7 +146,7 @@ applies the $200 rule to recommend one.
   {
     "ok": true,
     "pricing_source": "estimate | mixed | duffel-live",
-    "date": "2026-08-15", "return_date": null, "roundtrip": false,
+    "date": "2027-06-15", "return_date": null, "roundtrip": false,
     "travelers": 1, "threshold": 200.0, "vot": null,
     "origin": {"iata": "JFK", "lat": ..., "lng": ..., "name": "...", "city": "...", "hub": 1},
     "dest": {"iata": "ASE", "lat": ..., "lng": ..., "dist_km": 3.2, "click": {"lat": ..., "lng": ...}},
@@ -221,13 +224,13 @@ checkable schedule:
     "mode": "fly",
     "from": {"iata": "JFK", "name": "New York JFK", "city": "New York"},
     "to": {"iata": "DEN", "name": "Denver", "city": "Denver"},
-    "depart_clock": "08:00", "depart_day": "2026-08-15",
-    "arrive_clock": "11:00", "arrive_day": "2026-08-15",
+    "depart_clock": "08:00", "depart_day": "2027-06-15",
+    "arrive_clock": "11:00", "arrive_day": "2027-06-15",
     "duration_h": 3.0,
-    "checkin_by": {"clock": "06:00", "day": "2026-08-15"},
+    "checkin_by": {"clock": "06:00", "day": "2027-06-15"},
     "cost": 210.0,
-    "price_basis": "route-band estimate for 2026-08-15; NA-NA market ×1.00; date factor ×1.08",
-    "verify_url": "https://www.google.com/travel/flights?q=Flights+from+JFK+to+DEN+on+2026-08-15",
+    "price_basis": "route-band estimate for 2027-06-15; NA-NA market ×1.00; date factor ×1.08",
+    "verify_url": "https://www.google.com/travel/flights?q=Flights+from+JFK+to+DEN+on+2027-06-15",
     "is_live": false, "carrier": null, "flight_number": null
   }],
   "any_live": false, "example_day": true, "depart_local": "08:00"
@@ -261,6 +264,79 @@ The same live-vs-estimate split shows up one level up too: `direct` and each ent
 `gateways[].fly` are the raw pricing dict `itinerary` was built from, so a caller who wants the
 provenance without the formatted timeline can read `estimate_detail` (estimate) or `segments`/
 `carrier`/`native_price` (live) directly.
+
+## `GET /api/dates?lat=<f>&lng=<f>&date=<YYYY-MM-DD>&...`
+
+Prices `date` and the days either side of it, and reports which one comes out cheapest. This
+is the web twin of the `hopandhaul dates` CLI sweep. Both build their window, label each day's
+basis and break ties through the same three helpers in `dates.py`, so the two cannot disagree
+about which day won.
+
+**Required:** `lat`, `lng`, and `date`. Unlike `/api/plan`, `date` is not optional here: a
+sweep with nothing to centre on has nothing to sweep.
+
+**Optional query params:** every one `/api/plan` takes, with the same meanings and defaults,
+plus:
+
+| Param | Type | Default | Meaning |
+|---|---|---|---|
+| `window` | int | `3` | Days to price either side of `date`. Clamped to 0-7, so at most 15 dates |
+
+`ret` behaves differently here than on `/api/plan`. Each candidate departure carries its own
+return, shifted by the same number of days, so the trip LENGTH stays fixed while its placement
+in the window moves. A 7-night trip stays a 7-night trip on every row.
+
+```json
+{
+  "ok": true,
+  "origin_iata": "JFK", "dest_iata": "ASE",
+  "anchor_date": "2026-10-01", "window": 1,
+  "comparable": true, "live_cut_off": false,
+  "dates": [
+    {"date": "2026-09-30", "return_date": null, "ok": true,
+     "recommended": "Fly direct to ASE", "cost": 250.0, "hours": 6.2,
+     "basis": "estimate", "pricing_source": "estimate", "savings_vs_anchor": 10.0},
+    {"date": "2026-10-01", "...": "the anchor, savings_vs_anchor is always 0.0"},
+    {"date": "2026-10-02", "...": "a negative savings means this day costs MORE"}
+  ],
+  "best": {"date": "2026-09-30", "cost": 250.0, "hours": 6.2,
+           "basis": "estimate", "recommended": "Fly direct to ASE"}
+}
+```
+
+- `dates` is in chronological order, one row per candidate day. A day that could not be priced
+  has `ok: false` and its own `error`/`code` instead of a cost, and does not sink the sweep.
+- `savings_vs_anchor` is `anchor cost - this day's cost`, so positive means cheaper than the
+  day you asked for. It is `null` when the anchor itself never priced.
+- `basis` is `live`, `estimate` or `mixed`, describing that day's flight legs.
+- **`comparable` is the flag that matters.** A window is priced all-live or all-estimate,
+  never a mix. Two rate limiters sit in series on the live path and running out partway
+  through is the normal case, so if the live pass comes back on more than one basis the whole
+  window is thrown away and re-priced offline, and `live_cut_off` goes true. `comparable` is
+  then recomputed from the final rows rather than asserted. A false means the winner is a hint
+  rather than a fact, and a caller should say so instead of naming a cheapest day. The bundled
+  UI refuses to name one.
+- Days already in the past are dropped from the window rather than priced. The fare model has
+  no booking-lead-time curve to read backwards, so it would price them exactly like an undated
+  request while the row claimed to be a comparison.
+
+Failure codes, on top of everything `/api/plan` can return (the structural refusals, unknown
+origin and no-airport-near-point, are probed once up front so they fail the whole sweep with
+the real reason instead of emitting N identical error rows):
+
+- `date` missing: `400 {"ok": false, "error": "date is required", "code": "invalid_param"}`.
+- `window` outside 0-7 or not a whole number: `400 ... "code": "invalid_param"`.
+- Every day in the window is already past:
+  `200 {"ok": false, "error": "every date in that window is already in the past",
+  "code": "dates_all_past"}`.
+- No day in the window could be priced at all:
+  `200 {"ok": false, "error": "none of the dates in that window could be priced",
+  "code": "dates_all_failed"}`.
+- A single day failing carries `date_lookup_failed` on its own row, not on the sweep.
+
+Transit and weather are off for every candidate. Real ground schedules cost seconds per plan
+and do not change which DATE is cheapest, only fares do. The day the caller actually picks
+gets a full `/api/plan` with transit and all.
 
 ## `GET /favicon.ico`
 

@@ -130,17 +130,17 @@ hopandhaul dates --from JFK --to ASE --date 2027-06-15 --window 3 --auto-gateway
 
 ```
 CHEAPEST DATE SWEEP: JFK -> ASE
-anchor 2026-08-15 +/- 3 day(s) (7 date(s) checked; dates already past are skipped)
+anchor 2027-06-15 +/- 3 day(s) (7 date(s) checked; dates already past are skipped)
 
-   2026-08-12       $610     6h12   live       Fly direct to ASE
-   2026-08-13       $590     6h12   live       Fly direct to ASE
-   2026-08-14       $605     6h12   live       Fly direct to ASE
- → 2026-08-15       $455     8h54   live       DEN + bus
-   2026-08-16       $620     6h12   live       Fly direct to ASE
-   2026-08-17       $640     6h12   live       Fly direct to ASE
-   2026-08-18       $600     6h12   live       Fly direct to ASE
+   2027-06-12       $610     6h12   live       Fly direct to ASE
+   2027-06-13       $590     6h12   live       Fly direct to ASE
+   2027-06-14       $605     6h12   live       Fly direct to ASE
+ → 2027-06-15       $455     8h54   live       DEN + bus
+   2027-06-16       $620     6h12   live       Fly direct to ASE
+   2027-06-17       $640     6h12   live       Fly direct to ASE
+   2027-06-18       $600     6h12   live       Fly direct to ASE
 
-CHEAPEST: 2026-08-15 - $455 via DEN + bus (live-priced)
+CHEAPEST: 2027-06-15 - $455 via DEN + bus (live-priced)
 ```
 
 With a `DUFFEL_API_KEY` set, every date is a real fare lookup. With no key, every date runs
@@ -155,6 +155,19 @@ twice costs nothing extra. `--return-date` shifts along with each candidate depa
 round trip's length stays fixed while its placement in the window moves. Takes the same
 `--gateway` / `--auto-gateways` / `--adults` / `--cabin` / `--nonstop` / `--threshold` /
 `--vot` flags as `hopandhaul duffel`.
+
+The map UI does the same thing. Put a date in and a strip of chips appears under the
+recommendation, one per day in the window, each with its own price and its own basis tag.
+Click one and the plan re-runs on that date. It is served by `GET /api/dates` and it runs
+client-side on the Pages build too.
+
+One rule worth knowing about, because it changes what you see: a window is priced all-live or
+all-estimate, never a mix. If the live pass runs out of rate-limit budget partway through, the
+whole window is thrown away and re-priced offline rather than leaving you comparing three real
+fares against four modelled ones. A window like that reports the cheapest day as a hint rather
+than a fact, and the UI declines to crown a winner. Days already in the past are dropped from
+the window instead of priced, since the fare model has no booking-lead-time curve to read
+backwards and would quietly price them like no date at all.
 
 ## What's real vs estimated
 
