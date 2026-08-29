@@ -28,11 +28,14 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import contextlib
+import functools
+import io
 import json
 import math
 import sys
 
-from . import geo, go, trip
+from . import duffel, geo, go, trip
 
 EXACT_LIMIT = 9   # cities to visit (home excluded) - Held-Karp above this gets slow fast
 
@@ -201,14 +204,21 @@ def build_cost_matrix(airports: list[dict], **price_kwargs) -> tuple[list[list[f
     return matrix, legs
 
 
-def _dedupe_by_iata(airports: list[dict]) -> list[dict]:
-    seen, out = set(), []
-    for a in airports:
+def _dedupe_by_iata(entries: list[tuple[str, dict]]) -> tuple[list[dict], list[dict]]:
+    """entries: (query, airport) pairs in resolution order, home always first. A --visit
+    query that resolves to an airport already claimed by an earlier one (home included) - two
+    spellings of the same city, or a visit that just happens to be home - used to vanish from
+    the tour with no explanation. Returns (airports, excluded), where excluded records which
+    query collided with which earlier one and why, so a 5-city ask that routes 4 stops says
+    why instead of looking like a bug."""
+    seen, airports, excluded = {}, [], []
+    for q, a in entries:
         if a["iata"] in seen:
+            excluded.append({"query": q, "iata": a["iata"], "same_as": seen[a["iata"]]})
             continue
-        seen.add(a["iata"])
-        out.append(a)
-    return out
+        seen[a["iata"]] = q
+        airports.append(a)
+    return airports, excluded
 
 
 def plan_multicity(home_query: str, visit_queries: list[str], *, round_trip: bool = True,
@@ -221,18 +231,18 @@ def plan_multicity(home_query: str, visit_queries: list[str], *, round_trip: boo
     home, _ = go.resolve_airport(home_query)
     if not home:
         raise ValueError(f"no airport matches home {home_query!r}")
-    airports = [home]
+    entries = [(home_query, home)]
     unresolved = []
     for q in visit_queries:
         a, _ = go.resolve_airport(q)
         if a is None:
             unresolved.append(q)
         else:
-            airports.append(a)
+            entries.append((q, a))
     if unresolved:
         raise ValueError(f"no airport matches: {', '.join(unresolved)}")
 
-    airports = _dedupe_by_iata(airports)
+    airports, excluded = _dedupe_by_iata(entries)
     if len(airports) < 3:
         raise ValueError("need a home base plus at least 2 distinct cities to route a tour")
 
@@ -253,6 +263,7 @@ def plan_multicity(home_query: str, visit_queries: list[str], *, round_trip: boo
         "total_cost": solved["cost"], "itinerary": itinerary,
         "airports": {a["iata"]: {"iata": a["iata"], "name": a["name"], "city": a.get("city")}
                     for a in airports},
+        "excluded": excluded,
     }
 
 
@@ -267,7 +278,11 @@ def _fmt_hours(h: float) -> str:
     return f"{hh}h{mm:02d}" if mm else f"{hh}h"
 
 
-def format_report(res: dict) -> str:
+def format_report(res: dict, money_fmt=None) -> str:
+    """money_fmt, when given, replaces the default $ formatting for every cost in the report -
+    the --currency flag renders the same USD totals build_cost_matrix() computed in another
+    currency this way, without the pricing/tour math itself ever seeing a non-USD number."""
+    money = money_fmt or _fmt_money
     L = []
     kind = "round trip" if res["round_trip"] else "open tour"
     L.append(f"MULTI-CITY TOUR: {' -> '.join(res['stops'])}"
@@ -281,16 +296,22 @@ def format_report(res: dict) -> str:
     airports = res["airports"]
     for i, leg in enumerate(res["itinerary"], start=1):
         a_from, a_to = airports[leg["from"]], airports[leg["to"]]
-        legs_str = " + ".join(f"{hop['mode']} {_fmt_money(hop['cost'])}" for hop in leg["legs"])
+        legs_str = " + ".join(f"{hop['mode']} {money(hop['cost'])}" for hop in leg["legs"])
         kind_tag = "multimodal" if leg["is_split"] else "direct"
         L.append(f"  {i}. {a_from['iata']} -> {a_to['iata']}  "
-                 f"{_fmt_money(leg['cost']).rjust(7)}  {_fmt_hours(leg['hours']).rjust(6)}  "
+                 f"{money(leg['cost']).rjust(7)}  {_fmt_hours(leg['hours']).rjust(6)}  "
                  f"{kind_tag.ljust(10)} ({legs_str})")
     L.append("")
-    L.append(f"TOTAL: {_fmt_money(res['total_cost'])} across {len(res['itinerary'])} legs")
+    L.append(f"TOTAL: {money(res['total_cost'])} across {len(res['itinerary'])} legs")
     if not res["exact"]:
         L.append(f"  ({EXACT_LIMIT}+ cities to visit: nearest-neighbor + 2-opt found a good "
                  f"tour, not necessarily the cheapest possible one)")
+    if res.get("excluded"):
+        L.append("")
+        L.append("NOTES:")
+        for x in res["excluded"]:
+            L.append(f"  - {x['query']!r} matched the same airport ({x['iata']}) as "
+                     f"{x['same_as']!r}; not routed as a separate stop.")
     return "\n".join(L)
 
 
@@ -322,6 +343,9 @@ def _build_parser(prog: str = "hopandhaul multicity") -> argparse.ArgumentParser
                    help="hours added per connection on a split leg (default 1.0)")
     p.add_argument("--max-ground-hours", type=float, default=6.0, dest="max_ground_h",
                    help="longest ground leg a gateway split may use (default 6.0)")
+    p.add_argument("--currency", default="USD",
+                   help="display currency for the text report (e.g. EUR, GBP, JPY); "
+                        "the $200 rule and --json output always stay USD (default USD)")
     p.add_argument("--json", action="store_true", help="emit JSON instead of a report")
     p.add_argument("--selftest", action="store_true", help="run built-in checks and exit")
     return p
@@ -355,7 +379,9 @@ def main(argv=None) -> int:
     if args.json:
         print(json.dumps(res, indent=2))
     else:
-        print(format_report(res))
+        cur = duffel.resolve_display_currency(args.currency)
+        money_fmt = functools.partial(duffel.format_money, currency=cur) if cur != "USD" else None
+        print(format_report(res, money_fmt=money_fmt))
     return 0
 
 
@@ -471,6 +497,8 @@ def selftest() -> int:
     open_res = plan_multicity("JFK", ["Aspen", "Boston"], threshold=50, round_trip=False)
     check("an open tour's itinerary has one fewer leg than a round trip's (no closing leg)",
           len(open_res["itinerary"]) == len(open_res["stops"]) - 1)
+    check("no excluded entries when every --visit city is distinct from home and each other",
+          res_a["excluded"] == [])
 
     # Case 8: travelers scale a leg's cost the same way trip.py's own group math does -
     # per-person modes (fly) x N, so 4 travelers on the same route costs strictly less than
@@ -496,7 +524,46 @@ def selftest() -> int:
     rc_neg = main(["--home", "JFK", "--visit", "Aspen,Boston", "--threshold", "-5"])
     check("negative --threshold is rejected with a clean exit code", rc_neg == 2)
 
-    print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (10 cases)")
+    # Case 11: a --visit query that collides with an already-resolved airport (home or an
+    # earlier --visit) used to just vanish from the tour with no explanation. It must now be
+    # reported, and the tour still routes the distinct stops it actually has.
+    res_dup_home = plan_multicity("JFK", ["JFK", "Aspen", "Boston"], threshold=50)
+    check("a --visit query that duplicates home is excluded and reported, not silently dropped",
+          any(x["iata"] == "JFK" and x["query"] == "JFK" and x["same_as"] == "JFK"
+              for x in res_dup_home["excluded"]))
+    check("the tour still routes the distinct stops (home + Aspen + Boston)",
+          set(res_dup_home["stops"]) == {"JFK", "ASE", "BOS"})
+
+    res_dup_visit = plan_multicity("JFK", ["Aspen", "Boston", "Aspen"], threshold=50)
+    check("a repeated --visit query is excluded and reported, not silently dropped",
+          any(x["query"] == "Aspen" and x["iata"] == "ASE" and x["same_as"] == "Aspen"
+              for x in res_dup_visit["excluded"]))
+    check("the repeated-visit tour still has exactly the 3 distinct stops",
+          set(res_dup_visit["stops"]) == {"JFK", "ASE", "BOS"} and len(res_dup_visit["stops"]) == 3)
+    dup_report = format_report(res_dup_visit)
+    check("the text report surfaces the exclusion instead of staying silent about it",
+          "NOTES" in dup_report and "not routed as a separate stop" in dup_report)
+
+    # Case 12: --currency is a final-render conversion only - the $200/hop pricing stays USD
+    # (see price_leg/build_cost_matrix, untouched above), but the text report renders in the
+    # requested currency, and an unrecognized code falls back to USD with a stderr note
+    # instead of mislabeling a dollar figure with a currency it was never converted to.
+    out_buf, err_buf = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
+        rc_eur = main(["--home", "JFK", "--visit", "Aspen,Boston", "--threshold", "50",
+                      "--currency", "eur"])
+    check("--currency renders the multicity report in that currency",
+          rc_eur == 0 and "€" in out_buf.getvalue())
+    check("a known --currency prints no unknown-currency note", "no FX rate" not in err_buf.getvalue())
+
+    out_buf2, err_buf2 = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out_buf2), contextlib.redirect_stderr(err_buf2):
+        rc_unk = main(["--home", "JFK", "--visit", "Aspen,Boston", "--threshold", "50",
+                      "--currency", "ZZZ"])
+    check("an unrecognized --currency still succeeds, falling back to USD with a stderr note",
+          rc_unk == 0 and "$" in out_buf2.getvalue() and "no FX rate" in err_buf2.getvalue())
+
+    print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (12 cases)")
     return 1 if fails else 0
 
 
