@@ -389,14 +389,21 @@ def _price_flight(origin, dest, date, ret, travelers, session, ctx, deadline):
                 ctx["live_used"] = True
                 ctx["provider"] = live["source"]
                 if live.get("converted"):
-                    ctx["fx_used"] = True
+                    # A STATIC-table conversion gets its own flag - the bundled table is
+                    # pinned to a date and can be months stale, unlike a real ECB rate, so the
+                    # note below only calls a fare "approximate" when that's actually true.
+                    if live.get("rate_source") == "static":
+                        ctx["fx_static"] = True
+                    else:
+                        ctx["fx_used"] = True
                 elif live.get("currency") not in (None, "USD"):
                     ctx["fx_unknown"] = live["currency"]
                 return {"price": live["price"], "hours": live["hours"],
                         "source": live["source"], "rt": live.get("rt", False),
                         "segments": live.get("segments", []), "carrier": live.get("carrier"),
                         "native_price": live.get("native_price"), "currency": live.get("currency"),
-                        "converted": live.get("converted", False)}
+                        "converted": live.get("converted", False),
+                        "rate_source": live.get("rate_source", "native")}
         # network/HTTP-shaped failures only - a real bug in the normalization code should
         # surface as a crash, not silently and permanently masquerade as "provider is down".
         # net.FetchError is what fetch_json() raises for every wrapped provider failure
@@ -714,8 +721,11 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
                      "Each leg's itinerary says which it is. Verify before booking.")
     if ctx.get("live_error"):
         notes.append("Some live flight lookups failed and fell back to estimates.")
-    if ctx.get("fx_used"):
-        notes.append("Some fares were converted to USD at an approximate rate; verify at booking.")
+    if ctx.get("fx_static"):
+        notes.append("Some fares used a static FX table (not live rates) to convert to USD; "
+                     "verify at booking.")
+    elif ctx.get("fx_used"):
+        notes.append("Some fares were converted to USD using today's live exchange rate.")
     if ctx.get("fx_unknown"):
         notes.append(f"A fare priced in {ctx['fx_unknown']} had no USD rate and is shown as-is.")
     if travelers > 1:
@@ -1474,6 +1484,84 @@ def selftest():
           "live" in live_leg0["price_basis"].lower())
     check("an itinerary with a live leg is not flagged example_day",
           live_direct["itinerary"]["example_day"] is False)
+
+    # ---- FX provenance: a fare converted via the bundled STATIC table gets its own note and
+    # its own price-basis wording, distinct from a fare converted at today's real live rate -
+    # "approximate" used to fire for both alike, which told a user nothing about which fares
+    # actually needed a second look before booking.
+    # Each variant reuses the same JFK->ASE(+gateways)/date key _cached_live_search hashes on,
+    # so the offer cache is cleared before EVERY one of these three runs (not just after) -
+    # otherwise the second/third mock would silently serve the first mock's cached offer
+    # instead of actually exercising its own rate_source.
+    # A leg needs real per-hop segment data to render as a LIVE itinerary row at all (see
+    # build_timeline()'s any_live gate) - an empty segments list here would fall back to
+    # 'route-band estimate' provenance regardless of rate_source, testing nothing about FX.
+    def _fx_fx_segments(origin_iata, dest_iata):
+        return [{"from_iata": origin_iata, "to_iata": dest_iata,
+                 "depart_at": datetime.datetime(_live_seg_date.year, _live_seg_date.month,
+                                                _live_seg_date.day, 9, 0),
+                 "arrive_at": datetime.datetime(_live_seg_date.year, _live_seg_date.month,
+                                                _live_seg_date.day, 14, 0)}]
+
+    def _fake_live_search_static_fx(session, origin_iata, dest_iata, date, adults, return_date):
+        return {"price": 300.0, "hours": 5.0, "stops": 0, "carrier": "British Airways",
+                "currency": "GBP", "converted": True, "rate_source": "static", "source": "duffel",
+                "rt": False, "native_price": 236.22,
+                "segments": _fx_fx_segments(origin_iata, dest_iata)}
+    with _OFFER_CACHE_LOCK:
+        _OFFER_CACHE.clear()
+    # A deep bucket on purpose: by this point earlier checks have already spent down the
+    # module-level _DUFFEL_BUCKET, and a rate-limited miss here would silently fall through
+    # to the ESTIMATE branch and fail these checks for a reason that has nothing to do with FX.
+    with _mock.patch.object(flights, "have_keys", return_value=True), \
+         _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
+         _mock.patch.object(flights, "search_cheapest", side_effect=_fake_live_search_static_fx), \
+         _mock.patch.object(_this_module, "_DUFFEL_BUCKET",
+                            TokenBucket(rate_per_s=100.0, capacity=100.0)):
+        out_static_fx = plan(39.19, -106.82, origin_iata="JFK", date=_d(70),
+                             fetch_weather=False, allow_live=True, allow_transit=False)
+    check("a static-FX-table fare adds the static-rate note, not the generic 'approximate' one",
+          any("static" in n.lower() for n in out_static_fx["notes"]))
+    static_direct = next(o for o in out_static_fx["result"]["options"]
+                         if o["name"].startswith("Fly direct"))
+    check("the static-rate leg's provenance names the static table, not a bare 'converted' claim",
+          "static" in static_direct["itinerary"]["legs"][0]["price_basis"].lower())
+
+    def _fake_live_search_live_fx(session, origin_iata, dest_iata, date, adults, return_date):
+        return {"price": 300.0, "hours": 5.0, "stops": 0, "carrier": "Air France",
+                "currency": "EUR", "converted": True, "rate_source": "live", "source": "duffel",
+                "rt": False, "native_price": 277.78,
+                "segments": _fx_fx_segments(origin_iata, dest_iata)}
+    with _OFFER_CACHE_LOCK:
+        _OFFER_CACHE.clear()
+    with _mock.patch.object(flights, "have_keys", return_value=True), \
+         _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
+         _mock.patch.object(flights, "search_cheapest", side_effect=_fake_live_search_live_fx), \
+         _mock.patch.object(_this_module, "_DUFFEL_BUCKET",
+                            TokenBucket(rate_per_s=100.0, capacity=100.0)):
+        out_live_fx = plan(39.19, -106.82, origin_iata="JFK", date=_d(70),
+                           fetch_weather=False, allow_live=True, allow_transit=False)
+    check("a live-ECB-rate fare notes today's live rate, never the word 'static'",
+          any("live exchange rate" in n.lower() for n in out_live_fx["notes"])
+          and not any("static" in n.lower() for n in out_live_fx["notes"]))
+
+    def _fake_live_search_unknown_fx(session, origin_iata, dest_iata, date, adults, return_date):
+        return {"price": 400.0, "hours": 5.0, "stops": 0, "carrier": "Ruritania Air",
+                "currency": "ZZZ", "converted": False, "rate_source": "unknown", "source": "duffel",
+                "rt": False, "native_price": 400.0, "segments": []}
+    with _OFFER_CACHE_LOCK:
+        _OFFER_CACHE.clear()
+    with _mock.patch.object(flights, "have_keys", return_value=True), \
+         _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
+         _mock.patch.object(flights, "search_cheapest", side_effect=_fake_live_search_unknown_fx), \
+         _mock.patch.object(_this_module, "_DUFFEL_BUCKET",
+                            TokenBucket(rate_per_s=100.0, capacity=100.0)):
+        out_unknown_fx = plan(39.19, -106.82, origin_iata="JFK", date=_d(70),
+                              fetch_weather=False, allow_live=True, allow_transit=False)
+    check("a fare in a currency with no FX rate at all still notes it's shown as-is",
+          any("had no USD rate" in n for n in out_unknown_fx["notes"]))
+    with _OFFER_CACHE_LOCK:            # don't leak these mocked offers into later checks
+        _OFFER_CACHE.clear()
 
     # ---- date sweep, offline: one row per candidate day, chronological, all on one basis.
     sw = sweep_dates(39.19, -106.82, origin_iata="JFK", date=_d(70), window=1,

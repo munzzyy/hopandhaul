@@ -248,6 +248,16 @@ instead of breaking.
 Native speaker and you spot something off? A translation fix in
 `src/hopandhaul/ui/i18n/<code>.json` is about the friendliest PR there is.
 
+The language switches; the money doesn't, yet. The web UI still quotes every price in USD
+no matter which of the 46 languages it's showing. The CLI commands (`go`, `duffel`,
+`multicity`, `dates`) already take `--currency EUR` (or GBP, JPY, INR, and most other
+world currencies) to print the report in that currency instead - the $200 rule and every
+internal comparison stay in USD, only the final printed number changes:
+
+```
+hopandhaul go JFK "Tallinn" --date 2027-06-15 --currency EUR
+```
+
 ## Architecture, briefly
 
 - `trip.py`: the $200-rule math. Given a set of priced options, decides what to recommend and

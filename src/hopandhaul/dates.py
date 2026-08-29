@@ -38,6 +38,9 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import contextlib
+import functools
+import io
 import json
 import sys
 from datetime import date as _date
@@ -173,7 +176,11 @@ def _fmt_hours(h: float) -> str:
     return f"{hh}h{mm:02d}" if mm else f"{hh}h"
 
 
-def format_sweep(out: dict, origin: str, dest: str) -> str:
+def format_sweep(out: dict, origin: str, dest: str, money_fmt=None) -> str:
+    """money_fmt, when given, replaces the default $ formatting for every cost - the same
+    --currency flag `hopandhaul duffel`/`hopandhaul go` take, threaded through here so a date
+    sweep doesn't quote USD when the rest of a session's output does not."""
+    money = money_fmt or _fmt_money
     L = [f"CHEAPEST DATE SWEEP: {origin.upper()} -> {dest.upper()}",
         f"anchor {out['anchor_date']} +/- {out['window']} day(s) "
         f"({len(out['dates'])} date(s) checked; dates already past are skipped)", ""]
@@ -183,11 +190,11 @@ def format_sweep(out: dict, origin: str, dest: str) -> str:
             continue
         mark = "→" if r is out["best"] else " "
         rt = f"  (ret {r['return_date']})" if r["return_date"] else ""
-        L.append(f" {mark} {r['date']}{rt}   {_fmt_money(r['cost']).rjust(8)}   "
+        L.append(f" {mark} {r['date']}{rt}   {money(r['cost']).rjust(8)}   "
                  f"{_fmt_hours(r['hours']).rjust(6)}   {r['basis']:<8}   {r['recommended']}")
     L.append("")
     b = out["best"]
-    L.append(f"CHEAPEST: {b['date']} - {_fmt_money(b['cost'])} via {b['recommended']} "
+    L.append(f"CHEAPEST: {b['date']} - {money(b['cost'])} via {b['recommended']} "
              f"({b['basis']}-priced)")
     if any(r.get("basis") != "live" for r in out["dates"] if "error" not in r):
         L.append("  some dates above used the calibrated ESTIMATE, not a confirmed live "
@@ -195,8 +202,8 @@ def format_sweep(out: dict, origin: str, dest: str) -> str:
     L.append("")
     L.append("Full report for the cheapest date:")
     L.append("")
-    L.append(trip.format_report(b["result"], origin, dest))
-    itin = duffel.format_itineraries(b["result"])
+    L.append(trip.format_report(b["result"], origin, dest, money_fmt=money_fmt))
+    itin = duffel.format_itineraries(b["result"], money_fmt=money_fmt)
     if itin:
         L.append("")
         L.append(itin)
@@ -243,6 +250,9 @@ def main(argv=None):
     p.add_argument("--transfer-buffer", type=float, default=1.0,
                    help="hours added per connection (default 1.0; splits are separate tickets)")
     p.add_argument("--threshold", type=float, default=trip.DEFAULT_THRESHOLD)
+    p.add_argument("--currency", default="USD",
+                   help="display currency for the text report (e.g. EUR, GBP, JPY); "
+                        "the $200 rule and --json output always stay USD (default USD)")
     p.add_argument("--json", action="store_true")
     p.add_argument("--selftest", action="store_true")
     args = p.parse_args(argv)
@@ -276,7 +286,9 @@ def main(argv=None):
         print(json.dumps(_json_summary(out), indent=2))
         return 0
 
-    print(format_sweep(out, args.origin, args.dest))
+    cur = duffel.resolve_display_currency(args.currency)
+    money_fmt = functools.partial(duffel.format_money, currency=cur) if cur != "USD" else None
+    print(format_sweep(out, args.origin, args.dest, money_fmt=money_fmt))
     return 0
 
 
@@ -407,6 +419,23 @@ def selftest():
           off_day["basis"] == "estimate")
     check("format_sweep renders every checked date plus a cheapest-date summary line",
           format_sweep(out, "JFK", "ASE").count("2030-06-1") >= 6)   # 5 rows + the CHEAPEST line
+
+    # --currency: a final-render conversion only - format_sweep takes the same money_fmt
+    # trip.format_report/duffel.format_itineraries do, and threads it through both.
+    eur_sweep = format_sweep(out, "JFK", "ASE",
+                             money_fmt=functools.partial(duffel.format_money, currency="EUR"))
+    check("format_sweep renders every row and the embedded full report in the given currency",
+          "€" in eur_sweep and "$" not in eur_sweep)
+    check("format_sweep still renders in plain $ when money_fmt is omitted (unchanged default)",
+          "$" in format_sweep(out, "JFK", "ASE"))
+
+    out_buf, err_buf = io.StringIO(), io.StringIO()
+    with _mock.patch.object(duffel, "build_and_evaluate", side_effect=_fake_build_and_evaluate), \
+         contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
+        rc_unk = main(["--from", "JFK", "--to", "ASE", "--date", "2030-06-15", "--window", "0",
+                      "--currency", "ZZZ"])
+    check("dates' CLI --currency falls back an unrecognized code to USD with a stderr note",
+          rc_unk == 0 and "$" in out_buf.getvalue() and "no FX rate" in err_buf.getvalue())
 
     # return-date shifting: the trip LENGTH (7 nights) must stay fixed while the departure
     # date moves across the window, not the absolute return date.

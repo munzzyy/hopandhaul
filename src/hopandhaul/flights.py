@@ -15,9 +15,12 @@ falls back to the labeled distance estimates, same as always.
 
 Normalized result shape:
   {"price": <usd float>, "hours": float, "stops": int, "carrier": str,
-   "currency": str, "converted": bool, "source": "duffel", "rt": bool,
+   "currency": str, "converted": bool, "rate_source": str, "source": "duffel", "rt": bool,
    "checked_bags_included": int|None, "refundable": bool, "changeable": bool,
    "native_price": float|None, "segments": list[dict]}
+"rate_source" is one of duffel.to_usd()'s 'native'/'live'/'static'/'unknown' - what actually
+priced the USD conversion, so a caller can warn only when the fare rests on the stale bundled
+FX table, not on today's real rate.
 "segments" is the real per-hop schedule - departure/arrival clock, carrier, flight number - 
 itinerary.py uses it to show a live leg's actual timeline instead of a synthetic example one.
 """
@@ -61,7 +64,8 @@ def search_cheapest(session, origin, dest, date, nonstop=False, cabin="economy",
         return None
     return {"price": r["price"], "hours": r["hours"], "stops": r["stops"],
             "carrier": r["carrier"], "currency": r["currency"],
-            "converted": r["converted"], "source": "duffel", "rt": r.get("rt", False),
+            "converted": r["converted"], "rate_source": r.get("rate_source", "native"),
+            "source": "duffel", "rt": r.get("rt", False),
             "checked_bags_included": r.get("checked_bags_included"),
             "refundable": r.get("refundable", False), "changeable": r.get("changeable", False),
             "native_price": r.get("native_price"), "segments": r.get("segments", [])}

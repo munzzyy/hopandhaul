@@ -18,6 +18,9 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import contextlib
+import functools
+import io
 import json
 import sys
 
@@ -96,6 +99,9 @@ def main(argv=None) -> int:
     p.add_argument("--max-ground-hours", type=float, default=6.0, dest="max_ground_h")
     p.add_argument("--offline", action="store_true",
                    help="no network at all: bundled data + estimates only")
+    p.add_argument("--currency", default="USD",
+                   help="display currency for the text report (e.g. EUR, GBP, JPY); "
+                        "the $200 rule and --json output always stay USD (default USD)")
     p.add_argument("--json", action="store_true")
     p.add_argument("--selftest", action="store_true")
     args = p.parse_args(argv)
@@ -178,8 +184,10 @@ def main(argv=None) -> int:
     # plan's dest airport is the truth, not the pre-geocode name match
     o_lbl = f"{out['origin']['iata']} {out['origin'].get('city') or ''}".strip()
     d_lbl = f"{out['dest']['iata']} {out['dest'].get('city') or ''}".strip()
-    print(trip.format_report(_with_private_rows(out["result"]), o_lbl, d_lbl))
-    itin = duffel.format_itineraries(out["result"])
+    cur = duffel.resolve_display_currency(args.currency)
+    money_fmt = functools.partial(duffel.format_money, currency=cur) if cur != "USD" else None
+    print(trip.format_report(_with_private_rows(out["result"]), o_lbl, d_lbl, money_fmt=money_fmt))
+    itin = duffel.format_itineraries(out["result"], money_fmt=money_fmt)
     if itin:
         print()
         print(itin)
@@ -246,6 +254,22 @@ def selftest() -> int:
     check("a return date before the departure date is rejected",
           main(["JFK", "ASE", "--date", "2026-08-15", "--return-date", "2026-08-01",
                 "--offline"]) == 2)
+
+    # --currency: a final-render conversion only - the $200 rule and every internal number
+    # stay USD, but a known code renders the report in its own symbol, no stderr note.
+    out_buf, err_buf = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
+        rc_eur = main(["JFK", "ASE", "--offline", "--currency", "eur"])
+    check("--currency accepts a lowercase code and renders the report in that currency",
+          rc_eur == 0 and "€" in out_buf.getvalue())
+    check("a known --currency prints no unknown-currency note",
+          "no FX rate" not in err_buf.getvalue())
+
+    out_buf2, err_buf2 = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out_buf2), contextlib.redirect_stderr(err_buf2):
+        rc_unk = main(["JFK", "ASE", "--offline", "--currency", "ZZZ"])
+    check("an unrecognized --currency still succeeds, falling back to USD with a stderr note",
+          rc_unk == 0 and "$" in out_buf2.getvalue() and "no FX rate" in err_buf2.getvalue())
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (offline checks)")
     return 1 if fails else 0

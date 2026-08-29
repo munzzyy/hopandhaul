@@ -17,7 +17,10 @@ and a verify link - printed as plain text by format_itineraries().
 Currency: Duffel returns each offer in the airline's filing currency. To keep the money math
 honest (flight + ground summed in one currency) we convert to USD - with today's real ECB
 rate via frankfurter.dev (keyless) when the network allows, else a labelled approximate
-bundled table; the native amount + currency are preserved and any conversion is flagged.
+bundled table; the native amount + currency are preserved and any conversion is flagged with
+which rate source priced it (live/static/unknown). All of that stays internal - the report
+itself renders in USD unless --currency asks for something else, which only changes the
+final print (format_money()/from_usd()), never the $200-rule math underneath it.
 
 Examples:
   hopandhaul duffel --from JFK --to ASE --date 2027-06-15 --auto-gateways --vot 30
@@ -28,7 +31,10 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import contextlib
+import functools
 import importlib.resources
+import io
 import json
 import os
 import re
@@ -134,18 +140,86 @@ def is_live_key() -> bool:
     return (_secrets.get("DUFFEL_API_KEY") or "").startswith("duffel_live")
 
 
-def to_usd(amount: float, currency: str) -> tuple[float, bool]:
-    """(usd_amount, converted?). converted is False when currency is USD or unknown.
-    Prefers today's real ECB rate (frankfurter.dev, keyless) and falls back to the bundled
-    approximate table offline."""
+def to_usd(amount: float, currency: str) -> tuple[float, bool, str]:
+    """(usd_amount, converted?, rate_source). converted is False when currency is USD or
+    unknown; rate_source is 'native' (already USD), 'live' (today's ECB rate via
+    frankfurter.dev), 'static' (the bundled approximate table) or 'unknown' (no rate at all,
+    passed through unconverted). Separating 'live' from 'static' is what lets a caller warn
+    only when the number actually rests on the stale bundled table, not on a real daily rate."""
     cur = (currency or "USD").upper()
     if cur == "USD":
-        return round(amount, 2), False
+        return round(amount, 2), False, "native"
     live = _live_rates()
-    rate = (live or {}).get(cur) or FX_USD.get(cur)
-    if not rate:
-        return round(amount, 2), False  # unknown currency: pass through native, flag upstream
-    return round(amount * rate, 2), True
+    rate = (live or {}).get(cur)
+    if rate:
+        return round(amount * rate, 2), True, "live"
+    rate = FX_USD.get(cur)
+    if rate:
+        return round(amount * rate, 2), True, "static"
+    return round(amount, 2), False, "unknown"  # unknown currency: pass through native, flag upstream
+
+
+def from_usd(amount_usd: float, currency: str) -> tuple[float, bool, str]:
+    """(native_amount, converted?, rate_source) - the inverse of to_usd(): express a USD
+    amount in `currency` using the same rate table (live ECB first, bundled static fallback).
+    This is purely a final-render conversion for --currency; every internal comparison (the
+    $200 rule, evaluate()'s cost sorting) stays in USD regardless of what this returns."""
+    cur = (currency or "USD").upper()
+    if cur == "USD":
+        return round(amount_usd, 2), False, "native"
+    live = _live_rates()
+    rate = (live or {}).get(cur)
+    if rate:
+        return round(amount_usd / rate, 2), True, "live"
+    rate = FX_USD.get(cur)
+    if rate:
+        return round(amount_usd / rate, 2), True, "static"
+    return round(amount_usd, 2), False, "unknown"
+
+
+# Symbol/prefix for the currencies a traveler is actually likely to ask --currency for.
+# Deliberately not exhaustive - format_money() falls back to "<amount> <CODE>" for anything
+# not listed here, which is unambiguous even for a currency this table has never heard of.
+_CURRENCY_SYMBOLS = {
+    "USD": "$", "CAD": "CA$", "AUD": "A$", "NZD": "NZ$", "HKD": "HK$", "SGD": "S$",
+    "MXN": "MX$", "GBP": "£", "EUR": "€", "JPY": "¥", "CNY": "¥",
+    "INR": "₹", "KRW": "₩", "BRL": "R$", "TRY": "₺", "ILS": "₪",
+    "VND": "₫", "THB": "฿", "PHP": "₱",
+}
+
+
+def is_known_currency(currency: str) -> bool:
+    """True if to_usd()/from_usd() can actually price this code (USD, a live ECB rate, or
+    the bundled static table) - used to warn once at the CLI boundary instead of quietly
+    handing back a USD figure mislabeled with a currency it never converted to."""
+    cur = (currency or "").upper()
+    return cur == "USD" or cur in FX_USD or cur in (_live_rates() or {})
+
+
+def resolve_display_currency(code: str | None) -> str:
+    """--currency CLI arg -> the uppercased code to actually render with. Falls back to USD
+    (with a one-line stderr note) for a code this repo has no rate for at all, rather than
+    silently mislabeling a USD figure with a currency it was never converted to."""
+    cur = (code or "USD").upper()
+    if cur != "USD" and not is_known_currency(cur):
+        print(f"note: no FX rate for {cur!r}; showing USD instead", file=sys.stderr)
+        return "USD"
+    return cur
+
+
+def format_money(amount_usd: float, currency: str = "USD") -> str:
+    """Convert a USD amount to `currency` and format it with that currency's own symbol -
+    the --currency flag's one job. Internal math never calls this; it is the last step
+    before a number reaches a terminal, after evaluate()/build_and_evaluate() are done."""
+    cur = (currency or "USD").upper()
+    amt, _converted, rate_source = from_usd(amount_usd, cur)
+    body = f"{amt:,.0f}" if abs(amt - round(amt)) < 0.005 else f"{amt:,.2f}"
+    if cur != "USD" and rate_source == "unknown":
+        # no rate for this currency anywhere: `amt` is still the plain USD figure, so say so
+        # rather than label an unconverted dollar amount with a currency it never touched.
+        return f"${body} (USD; no rate for {cur})"
+    sym = _CURRENCY_SYMBOLS.get(cur)
+    return f"{sym}{body}" if sym else f"{body} {cur}"
 
 
 def iso8601_to_hours(s: str) -> float:
@@ -272,13 +346,14 @@ def _parse_offer(o: dict) -> dict:
     segs = first.get("segments") or []
     native = float(o["total_amount"])
     cur = (o.get("total_currency") or "USD").upper()
-    usd, converted = to_usd(native, cur)
+    usd, converted, rate_source = to_usd(native, cur)
     owner = (o.get("owner") or {}).get("iata_code", "?")
     out = {
         "price": usd,                    # USD (converted if needed) - what the engine sums
         "native_price": round(native, 2),
         "currency": cur,
         "converted": converted,
+        "rate_source": rate_source,      # 'native' | 'live' | 'static' | 'unknown'
         "fx_ok": cur == "USD" or converted,   # a rate existed (live ECB or bundled table)
         "hours": iso8601_to_hours(first.get("duration", "")),  # OUTBOUND journey time
         "stops": max(0, len(segs) - 1),
@@ -380,7 +455,7 @@ def _price_flight_cli(origin_a, dest_a, date, adults, cabin, nonstop, return_dat
         rt = True
     return {"price": round(price, 2), "hours": est["hours"], "source": "estimate", "rt": rt,
             "estimate_detail": est, "fx_ok": True, "converted": False, "currency": "USD",
-            "native_price": None, "carrier": None, "segments": []}
+            "rate_source": "native", "native_price": None, "carrier": None, "segments": []}
 
 
 def _flight_leg_spec_cli(origin_a, dest_a, f, date):
@@ -424,6 +499,22 @@ def _ground_leg_spec_cli(gw_iata_a, dest_a, mode, cost, hours):
     }
 
 
+def _fx_warning(label: str, leg: dict) -> str | None:
+    """One-line FX caveat for a priced (non-estimate) flight leg, or None if its price needs
+    no caveat. A STATIC-table conversion gets its own explicit call-out - the bundled table
+    is pinned to FX_AS_OF and can be months stale, unlike a 'live' ECB rate - so a user
+    pricing an international multi-currency trip knows which fares to double check before
+    booking, instead of every conversion (even today's real rate) reading as equally shaky."""
+    if not leg["fx_ok"]:
+        return f"{label} in {leg['currency']}: no FX rate, treated as USD."
+    if leg.get("rate_source") == "static":
+        return (f"{label} converted {leg['currency']}->USD: FX rate is a static "
+                f"approximation (as of {FX_AS_OF}), not live - verify at booking.")
+    if leg["converted"]:
+        return f"{label} converted {leg['currency']}->USD at today's live rate."
+    return None
+
+
 def build_and_evaluate(origin, dest, date, gateways, adults, cabin, nonstop,
                        vot, transfer_buffer, threshold, return_date=None):
     """Duffel flight fares are itinerary totals for ALL passengers (and both directions when
@@ -445,10 +536,10 @@ def build_and_evaluate(origin, dest, date, gateways, adults, cabin, nonstop,
     leg_specs_by_name[direct_name] = [_flight_leg_spec_cli(origin_a, dest_a, direct, date)]
     if direct["source"] == "estimate":
         warnings.append(f"No live Duffel offer {origin}->{dest}; priced with a distance ESTIMATE.")
-    elif not direct["fx_ok"]:
-        warnings.append(f"Direct fare in {direct['currency']}: no FX rate, treated as USD.")
-    elif direct["converted"]:
-        warnings.append(f"Direct fare converted {direct['currency']}->USD (approx).")
+    else:
+        fx_warn = _fx_warning("Direct fare", direct)
+        if fx_warn:
+            warnings.append(fx_warn)
 
     for g in gateways:
         gw_a = _airport_or_stub(g["hub_airport"])
@@ -456,6 +547,10 @@ def build_and_evaluate(origin, dest, date, gateways, adults, cabin, nonstop,
         if fly["source"] == "estimate":
             warnings.append(f"No live Duffel offer {origin}->{g['hub_airport']}; "
                             "priced with a distance ESTIMATE.")
+        else:
+            fx_warn = _fx_warning(f"{g['hub_airport']} gateway fare", fly)
+            if fx_warn:
+                warnings.append(fx_warn)
         ground_cost = trip.scale_leg_cost(g["ground_mode"], g["ground_cost"], adults) * rt_mult
         name = f"{g['hub_airport']} + {g['ground_mode']}"
         options.append(trip.parse_option(
@@ -499,10 +594,12 @@ def _airport_label(a: dict) -> str:
     return f"{a['iata']} ({a['name']})"
 
 
-def _format_itinerary_block(option: dict) -> str:
+def _format_itinerary_block(option: dict, money_fmt=None) -> str:
     """Human-readable leg-by-leg schedule for one priced option - real airports, an example
     (or, when live, a real) clock schedule, per-leg price provenance, and a verify link. This is
-    what turns 'DEN + train  $XXX' into something a person can actually check."""
+    what turns 'DEN + train  $XXX' into something a person can actually check. money_fmt, when
+    given, renders each leg's cost in a --currency other than USD (see format_money())."""
+    money = money_fmt or _fmt_money
     itin = option.get("itinerary") or {}
     legs = itin.get("legs") or []
     if not legs:
@@ -523,15 +620,16 @@ def _format_itinerary_block(option: dict) -> str:
         if leg.get("checkin_by"):
             checkin = leg["checkin_by"]
             lines.append(f"         be at the airport by {checkin['day']} {checkin['clock']}")
-        lines.append(f"         {_fmt_money(leg['cost'])} · {leg['price_basis']}")
+        lines.append(f"         {money(leg['cost'])} · {leg['price_basis']}")
         lines.append(f"         verify: {leg['verify_url']}")
     return "\n".join(lines)
 
 
-def format_itineraries(res: dict) -> str:
+def format_itineraries(res: dict, money_fmt=None) -> str:
     """Itinerary blocks for every option in an evaluate()d result, in the same order as the
-    options table trip.format_report() already printed."""
-    blocks = [_format_itinerary_block(o) for o in res["options"]]
+    options table trip.format_report() already printed. money_fmt, when given, renders every
+    leg cost in a --currency other than USD instead of the default $ formatting."""
+    blocks = [_format_itinerary_block(o, money_fmt=money_fmt) for o in res["options"]]
     blocks = [b for b in blocks if b]
     if not blocks:
         return ""
@@ -562,6 +660,9 @@ def main(argv=None):
     p.add_argument("--transfer-buffer", type=float, default=1.0,
                    help="hours added per connection (default 1.0; splits are separate tickets)")
     p.add_argument("--threshold", type=float, default=trip.DEFAULT_THRESHOLD)
+    p.add_argument("--currency", default="USD",
+                   help="display currency for the text report (e.g. EUR, GBP, JPY); "
+                        "the $200 rule and --json output always stay USD (default USD)")
     p.add_argument("--json", action="store_true")
     p.add_argument("--probe", action="store_true", help="one live O->D->date lookup, print summary")
     p.add_argument("--selftest", action="store_true")
@@ -569,6 +670,8 @@ def main(argv=None):
 
     if args.selftest:
         return selftest()
+
+    cur = resolve_display_currency(args.currency)
 
     # Validate the date shape at the CLI boundary (same rule the HTTP surface enforces in
     # server.parse_plan_params). A malformed --date used to be passed straight through and
@@ -603,7 +706,7 @@ def main(argv=None):
             return 1
         rt = f" ROUND-TRIP (ret {args.return_date})" if best.get("rt") else ""
         print(f"cheapest {args.origin.upper()}->{args.dest.upper()} {args.date}{rt}: "
-              f"${best['price']} ({best['native_price']} {best['currency']}"
+              f"{format_money(best['price'], cur)} ({best['native_price']} {best['currency']}"
               f"{' ~USD' if best['converted'] else ''}), {best['hours']}h out, "
               f"{best['stops']} stop(s), {best['carrier']}")
         return 0
@@ -641,9 +744,10 @@ def main(argv=None):
     if args.json:
         print(json.dumps({k: v for k, v in res.items() if not k.startswith("_")}, indent=2))
     else:
-        print(trip.format_report(res, args.origin, args.dest))
+        money_fmt = functools.partial(format_money, currency=cur) if cur != "USD" else None
+        print(trip.format_report(res, args.origin, args.dest, money_fmt=money_fmt))
         print()
-        itin_block = format_itineraries(res)
+        itin_block = format_itineraries(res, money_fmt=money_fmt)
         if itin_block:
             print(itin_block)
     return 0
@@ -675,18 +779,61 @@ def selftest():
     # keep the selftest genuinely offline: pin the one-shot live-FX lookup to "already tried,
     # nothing came back" so to_usd() exercises the bundled fallback table deterministically.
     _FX_LIVE["tried"], _FX_LIVE["rates"] = True, None
-    usd, conv = to_usd(100.0, "USD")
-    check("USD passthrough (no conversion flag)", usd == 100.0 and conv is False)
-    gbp, conv2 = to_usd(100.0, "GBP")
-    check("GBP converts to USD (>100, flagged)", gbp > 100 and conv2 is True)
-    unk, conv3 = to_usd(100.0, "ZZZ")
-    check("unknown currency passes through, unconverted", unk == 100.0 and conv3 is False)
+    usd, conv, src = to_usd(100.0, "USD")
+    check("USD passthrough (no conversion flag, source 'native')",
+          usd == 100.0 and conv is False and src == "native")
+    gbp, conv2, src2 = to_usd(100.0, "GBP")
+    check("GBP converts to USD (>100, flagged, source 'static' offline)",
+          gbp > 100 and conv2 is True and src2 == "static")
+    unk, conv3, src3 = to_usd(100.0, "ZZZ")
+    check("unknown currency passes through, unconverted, source 'unknown'",
+          unk == 100.0 and conv3 is False and src3 == "unknown")
     check("offline FX source names the bundled table + its as-of date",
           "approximate table" in fx_source() and FX_AS_OF in fx_source())
     _FX_LIVE["rates"] = {"GBP": 1.30}
     check("a live ECB rate takes precedence over the bundled table when present",
-          to_usd(100.0, "GBP") == (130.0, True) and "frankfurter" in fx_source())
+          to_usd(100.0, "GBP") == (130.0, True, "live") and "frankfurter" in fx_source())
     _FX_LIVE["rates"] = None
+
+    # from_usd() is to_usd()'s inverse - what --currency actually calls. Round-tripping a
+    # native amount through to_usd() then back through from_usd() must land on the original
+    # figure (modulo rounding), and the rate_source label must agree between the two
+    # directions since they read the exact same table.
+    _FX_LIVE["tried"], _FX_LIVE["rates"] = True, None
+    usd_native, conv_native, src_native = from_usd(100.0, "USD")
+    check("from_usd USD passthrough matches to_usd's",
+          (usd_native, conv_native, src_native) == (100.0, False, "native"))
+    eur_amt, eur_conv, eur_src = from_usd(100.0, "EUR")
+    check("from_usd converts USD into a static-table currency, flagged 'static' offline",
+          eur_amt != 100.0 and eur_conv is True and eur_src == "static")
+    back_to_usd, _, _ = to_usd(eur_amt, "EUR")
+    check("to_usd(from_usd(x)) round-trips back to x within rounding",
+          abs(back_to_usd - 100.0) < 0.02)
+    unk_amt, unk_conv, unk_src = from_usd(100.0, "ZZZ")
+    check("from_usd on an unknown currency passes the USD figure through unconverted",
+          unk_amt == 100.0 and unk_conv is False and unk_src == "unknown")
+
+    # format_money() is the actual --currency rendering step: symbol/placement per currency,
+    # and an honest fallback (never a mislabeled dollar figure) for a code with no rate.
+    check("format_money renders USD exactly like the plain $ formatter",
+          format_money(1234.0) == "$1,234" and format_money(99.999) == "$100")
+    check("format_money renders a known currency with its own symbol, not a bare number",
+          format_money(100.0, "eur").startswith("€") and format_money(100.0, "GBP").startswith("£"))
+    check("format_money is case-insensitive on the currency code",
+          format_money(100.0, "eur") == format_money(100.0, "EUR"))
+    unknown_money = format_money(100.0, "ZZZ")
+    check("format_money on an unknown currency shows the true USD figure, labeled, not a fake ZZZ amount",
+          unknown_money.startswith("$100") and "ZZZ" in unknown_money)
+
+    check("is_known_currency is true for USD and a bundled-table currency, false for junk",
+          is_known_currency("USD") and is_known_currency("eur") and not is_known_currency("ZZZ"))
+    check("resolve_display_currency passes a known code through uppercased",
+          resolve_display_currency("eur") == "EUR" and resolve_display_currency(None) == "USD")
+    _resolved_err = io.StringIO()
+    with contextlib.redirect_stderr(_resolved_err):
+        _resolved_unknown = resolve_display_currency("ZZZ")
+    check("resolve_display_currency falls back an unknown code to USD with a stderr note",
+          _resolved_unknown == "USD" and "no FX rate" in _resolved_err.getvalue())
 
     # Every keyless provider this repo calls wants an identifying User-Agent, and frankfurter
     # was the one call still going out anonymous. Spy on the request instead of making it.
@@ -810,6 +957,52 @@ def selftest():
           itin_text.count(" -> ") >= 2 * len(res_cli["options"]))
     check("format_itineraries includes the verify links as plain URLs (CLI text output)",
           "verify: https://" in itin_text)
+
+    # --currency: format_itineraries/trip.format_report take money_fmt and render every cost
+    # in that currency instead of the default $ - this is what go.py/duffel.py's --currency
+    # flag actually calls, purely at render time (res_cli's own numbers stay USD throughout).
+    eur_fmt = functools.partial(format_money, currency="EUR")
+    eur_report = trip.format_report(res_cli, "JFK", "ASE", money_fmt=eur_fmt)
+    check("format_report renders with a custom money_fmt when one is given",
+          "€" in eur_report and "$" not in eur_report)
+    plain_report = trip.format_report(res_cli, "JFK", "ASE")
+    check("format_report still renders in plain $ when money_fmt is omitted (unchanged default)",
+          "$" in plain_report and "€" not in plain_report)
+    eur_itin = format_itineraries(res_cli, money_fmt=eur_fmt)
+    check("format_itineraries renders leg costs with the given money_fmt too", "€" in eur_itin)
+
+    # _fx_warning: a STATIC-table conversion gets its own explicit call-out, distinct from a
+    # live-ECB-rate conversion (which needs no extra scrutiny) and from a currency with no
+    # rate at all (already handled by the existing fx_ok branch).
+    usd_leg = {"fx_ok": True, "converted": False, "rate_source": "native", "currency": "USD"}
+    check("_fx_warning has nothing to say about an already-USD fare",
+          _fx_warning("Direct fare", usd_leg) is None)
+    live_leg = {"fx_ok": True, "converted": True, "rate_source": "live", "currency": "EUR"}
+    live_warn = _fx_warning("Direct fare", live_leg)
+    check("_fx_warning on a live-rate conversion names today's live rate, not 'static'",
+          live_warn is not None and "live rate" in live_warn.lower() and "static" not in live_warn.lower())
+    static_leg = {"fx_ok": True, "converted": True, "rate_source": "static", "currency": "GBP"}
+    static_warn = _fx_warning("Direct fare", static_leg)
+    check("_fx_warning on a static-table conversion says so explicitly, with the as-of date",
+          static_warn is not None and "static" in static_warn.lower() and FX_AS_OF in static_warn)
+    no_rate_leg = {"fx_ok": False, "converted": False, "rate_source": "unknown", "currency": "ZZZ"}
+    check("_fx_warning on a currency with no rate at all still flags it",
+          _fx_warning("Direct fare", no_rate_leg) is not None
+          and "no FX rate" in _fx_warning("Direct fare", no_rate_leg))
+
+    def _fake_search_cheapest_static_fx(origin, dest, date, adults=1, cabin="economy",
+                                        nonstop=False, return_date=None):
+        return {"price": 300.0, "hours": 3.0, "stops": 0, "carrier": "British Airways",
+                "currency": "GBP", "converted": True, "rate_source": "static", "fx_ok": True,
+                "source": "duffel", "rt": False, "native_price": 236.22, "segments": []}
+    with _mock.patch.object(_this_module, "search_cheapest",
+                            side_effect=_fake_search_cheapest_static_fx), \
+         _mock.patch.object(_this_module, "have_keys", return_value=True):
+        _res_static, warn_static = build_and_evaluate(
+            "JFK", "ASE", _d(70), [], adults=1, cabin="economy", nonstop=False,
+            vot=None, transfer_buffer=1.0, threshold=200)
+    check("build_and_evaluate's own direct-fare warning names the static table, not just 'approx'",
+          any("static" in w.lower() and FX_AS_OF in w for w in warn_static))
 
     # with NO key configured at all, build_and_evaluate() must still work end to end (distance
     # ESTIMATES throughout, same as the map UI with no key) rather than requiring one - this is

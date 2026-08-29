@@ -349,17 +349,22 @@ def _fmt_hours(h: float) -> str:
     return f"{hh}h{mm:02d}" if mm else f"{hh}h"
 
 
-def format_report(res: dict, origin: str | None, dest: str | None) -> str:
+def format_report(res: dict, origin: str | None, dest: str | None, money_fmt=None) -> str:
+    """money_fmt, when given, replaces the default $ formatting for every dollar figure in
+    the report - go.py/duffel.py's --currency flag renders the same USD numbers evaluate()
+    already computed in another currency this way, without evaluate()'s own math (or the
+    JS-parity-tested numeric output) ever seeing a currency other than USD."""
+    money = money_fmt or _fmt_money
     L = []
     where = f"{origin} → {dest}" if origin and dest else (dest or origin or "trip")
     L.append(f"TRIP: {where}")
     baseline_phrase = ("vs the cheapest direct" if res.get("baseline_kind") == "cheapest direct"
                        else "vs the cheapest option given (no direct flight was supplied)")
     rule = (f"Rule: recommend a fly-cheaper-then-ground split only if it saves "
-            f"≥ {_fmt_money(res['threshold'])} {baseline_phrase}.")
+            f"≥ {money(res['threshold'])} {baseline_phrase}.")
     L.append(rule)
     if res["vot"]:
-        L.append(f"Value of time: {_fmt_money(res['vot'])}/hr (used to rank cash vs hours).")
+        L.append(f"Value of time: {money(res['vot'])}/hr (used to rank cash vs hours).")
     if res["transfer_buffer"]:
         L.append(f"Transfer buffer: +{_fmt_hours(res['transfer_buffer'])} added per connection.")
     if res.get("travelers", 1) > 1:
@@ -378,17 +383,17 @@ def format_report(res: dict, origin: str | None, dest: str | None) -> str:
         tag = _STATUS_TAG.get(o["status"], o["status"])
         if o.get("over_time_budget"):
             tag += "  ⏱ over time budget"
-        legs = " + ".join(f"{leg['mode']} {_fmt_money(leg['cost'])}" for leg in o["legs"])
+        legs = " + ".join(f"{leg['mode']} {money(leg['cost'])}" for leg in o["legs"])
         line = (f" {mark} {o['name'][:name_w].ljust(name_w)}  "
-                f"{_fmt_money(o['cost']).rjust(7)}  {_fmt_hours(o['hours_eff']).rjust(6)}  "
+                f"{money(o['cost']).rjust(7)}  {_fmt_hours(o['hours_eff']).rjust(6)}  "
                 f"{('multimodal' if o['is_split'] else 'direct').ljust(10)}  {tag}")
         L.append(line)
         sub = f"       ({legs})"
         if not o["is_baseline"]:
             if o["savings_vs_baseline"] > 0:
-                sub += f"  saves {_fmt_money(o['savings_vs_baseline'])}"
+                sub += f"  saves {money(o['savings_vs_baseline'])}"
             elif o["savings_vs_baseline"] < 0:
-                sub += f"  costs {_fmt_money(-o['savings_vs_baseline'])} more"
+                sub += f"  costs {money(-o['savings_vs_baseline'])} more"
             if o["extra_hours_vs_baseline"] > 0:
                 sub += f", +{_fmt_hours(o['extra_hours_vs_baseline'])}"
             elif o["extra_hours_vs_baseline"] < 0:
@@ -405,7 +410,7 @@ def format_report(res: dict, origin: str | None, dest: str | None) -> str:
         L.append(f"  (the {_fmt_hours(res['max_hours'])} time budget excluded at least one "
                  f"otherwise-qualifying option)")
     if rec["is_baseline"]:
-        why_base = (f"No alternative clears the {_fmt_money(res['threshold'])} rule "
+        why_base = (f"No alternative clears the {money(res['threshold'])} rule "
                     f"(or beats it on time)")
         if res.get("time_budget_binding"):
             why_base += f" within the {_fmt_hours(res['max_hours'])} time budget"
@@ -415,20 +420,20 @@ def format_report(res: dict, origin: str | None, dest: str | None) -> str:
         if rec["dominant"]:
             why.append("It is both cheaper and faster than flying direct")
         elif rec["status"] in ("split_qualifies", "alt_qualifies"):
-            why.append(f"It saves {_fmt_money(rec['savings_vs_baseline'])} "
-                       f"(≥ {_fmt_money(res['threshold'])} rule)")
+            why.append(f"It saves {money(rec['savings_vs_baseline'])} "
+                       f"(≥ {money(res['threshold'])} rule)")
         L.append(f"  → RECOMMENDED: {rec['name']}. {', '.join(why)}.")
         # trade-off / break-even reasoning
         if rec["extra_hours_vs_baseline"] > 0 and rec["breakeven_vot"] is not None:
             L.append(f"    It adds {_fmt_hours(rec['extra_hours_vs_baseline'])} vs direct for "
-                     f"{_fmt_money(rec['savings_vs_baseline'])} saved.")
+                     f"{money(rec['savings_vs_baseline'])} saved.")
             L.append(f"    Break-even: prefer the direct flight only if your time is worth more "
-                     f"than {_fmt_money(rec['breakeven_vot'])}/hr.")
+                     f"than {money(rec['breakeven_vot'])}/hr.")
             if res["vot"]:
                 delta = round(rec["savings_vs_baseline"] - res["vot"] * rec["extra_hours_vs_baseline"], 2)
                 verdict = "still ahead" if delta >= 0 else "behind"
-                L.append(f"    At your {_fmt_money(res['vot'])}/hr, the split is {verdict} by "
-                         f"{_fmt_money(abs(delta))} after valuing the extra time.")
+                L.append(f"    At your {money(res['vot'])}/hr, the split is {verdict} by "
+                         f"{money(abs(delta))} after valuing the extra time.")
         elif rec["extra_hours_vs_baseline"] <= 0:
             L.append("    …and it is no slower than flying direct, a clean win.")
 

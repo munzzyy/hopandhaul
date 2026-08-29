@@ -150,13 +150,21 @@ def flight_provenance_estimate(detail: dict | None, date: str | None) -> str:
 
 
 def flight_provenance_live(live: dict) -> str:
-    """'where this number comes from' for a LIVE (Duffel) flight leg."""
+    """'where this number comes from' for a LIVE (Duffel) flight leg. A STATIC-table FX
+    conversion is called out by name (the bundled table is pinned to a date and can be
+    months stale) rather than lumped in with a real live ECB rate under the same generic
+    'converted' phrase - the two carry very different reasons to double check the number."""
     carrier = live.get("carrier") or "an airline"
     bits = [f"live fare from {carrier}"]
     native = live.get("native_price")
     cur = live.get("currency")
     if native is not None and cur and cur != "USD":
-        conv = " (converted to USD, verify at booking)" if live.get("converted") else ""
+        if live.get("rate_source") == "static":
+            conv = " (converted to USD via a static FX table, not live - verify at booking)"
+        elif live.get("converted"):
+            conv = " (converted to USD at today's live rate)"
+        else:
+            conv = ""
         bits.append(f"priced {native} {cur}{conv}")
     return "; ".join(bits)
 
@@ -382,6 +390,15 @@ def selftest() -> int:
     live_prov = flight_provenance_live(live_detail)
     check("live provenance names the carrier and flags a currency conversion",
           "United Airlines" in live_prov and "GBP" in live_prov and "converted" in live_prov)
+
+    live_detail_static = {**live_detail, "rate_source": "static"}
+    static_prov = flight_provenance_live(live_detail_static)
+    check("a STATIC-table conversion is named explicitly, not lumped in with a live rate",
+          "static" in static_prov.lower() and "not live" in static_prov.lower())
+    live_detail_live = {**live_detail, "rate_source": "live"}
+    live_rate_prov = flight_provenance_live(live_detail_live)
+    check("a live-rate conversion says so and never claims 'static'",
+          "live rate" in live_rate_prov.lower() and "static" not in live_rate_prov.lower())
 
     check("curated ground provenance says so and carries the note",
           "curated" in ground_provenance({"source": "curated", "notes": "well-known Amtrak run"}, None))
