@@ -38,6 +38,10 @@
   --hub:       var(--dim);
   --map-bg:    #0c1519;
   --map-ref:   #55707c;              /* faint direct-flight reference line */
+  --map-water: #0e1c22;              /* self-drawn atlas base (atlas.js) - open water */
+  --map-land:  #1b2f37;
+  --map-coast: #33505c;
+  --map-border:#2b4550;
   --focus:     0 0 0 3px rgba(71, 182, 255, .5);
   --shadow-1:  0 1px 3px  rgba(2, 10, 14, .40);   /* chips, legend, tags */
   --shadow-2:  0 6px 18px rgba(2, 10, 14, .45);   /* floating panels */
@@ -63,8 +67,12 @@
   --warn:      #8a6100;
   --bad:       #c8323e;
   --hub:       var(--dim);
-  --map-bg:    #bfdbe6;              /* Voyager water tint - no white flash */
+  --map-bg:    #bfdbe6;              /* atlas water tint - no white flash */
   --map-ref:   #8a989e;
+  --map-water: #bfdbe6;
+  --map-land:  #f0ede4;
+  --map-coast: #b9c9ce;
+  --map-border:#cdbfa0;
   --focus:     0 0 0 3px rgba(8, 109, 189, .35);
   --shadow-1:  0 1px 3px  rgba(27, 43, 51, .10);
   --shadow-2:  0 6px 18px rgba(27, 43, 51, .12);
@@ -89,6 +97,10 @@
   --hub:       var(--dim);
   --map-bg:    #000000;
   --map-ref:   #4d5761;
+  --map-water: #000000;
+  --map-land:  #1c1f26;
+  --map-coast: #3d434e;
+  --map-border:#2b2f38;
   --focus:     0 0 0 3px rgba(94, 194, 255, .55);
   --shadow-1:  0 1px 3px  rgba(0, 0, 0, .55);
   --shadow-2:  0 6px 18px rgba(0, 0, 0, .60);
@@ -116,6 +128,10 @@
   --hub:       var(--dim);
   --map-bg:    #0a0704;
   --map-ref:   #6b4e26;
+  --map-water: #0a0704;
+  --map-land:  #1c140b;
+  --map-coast: #4a3418;
+  --map-border:#3a2810;
   --focus:     0 0 0 3px rgba(255, 176, 0, .55);
   --shadow-1:  0 1px 3px  rgba(0, 0, 0, .55);
   --shadow-2:  0 6px 18px rgba(0, 0, 0, .60);
@@ -142,6 +158,10 @@
   --hub:       var(--dim);
   --map-bg:    #000000;
   --map-ref:   #ffffff;
+  --map-water: #000000;
+  --map-land:  #262626;
+  --map-coast: #ffffff;
+  --map-border:#cfcfcf;
   --focus:     0 0 0 3px #ffd400;
   --shadow-1:  none;                 /* real high-contrast modes drop soft shadows too - the
                                          white 1px border alone (already 21:1) draws every
@@ -178,6 +198,11 @@
   --hub:       var(--dim);
   --map-bg:    #c9b98a;
   --map-ref:   #9c7f4d;
+  --map-water: #c9b98a;
+  --map-land:  #f2e4c8;
+  --map-coast: #6b4a20;
+  --map-border:#b99a63;
+  --map-graticule: rgba(107, 74, 32, .16);   /* poster-map lat/lng lines - a deliberate detail */
   --focus:     0 0 0 3px rgba(13, 110, 99, .35);
   --shadow-1:  0 1px 3px  rgba(59, 36, 18, .18);
   --shadow-2:  0 6px 18px rgba(59, 36, 18, .22);
@@ -202,6 +227,11 @@
   --hub:       var(--dim);
   --map-bg:    #c3b083;
   --map-ref:   #8d7346;
+  --map-water: #c3b083;
+  --map-land:  #e3d3b0;
+  --map-coast: #5f4a26;
+  --map-border:#a98b5c;
+  --map-graticule: rgba(63, 47, 24, .18);    /* old-map lat/lng lines, aged-ink faint */
   --focus:     0 0 0 3px rgba(44, 74, 110, .35);
   --shadow-1:  0 1px 3px  rgba(63, 47, 24, .20);
   --shadow-2:  0 6px 18px rgba(63, 47, 24, .24);
@@ -226,6 +256,10 @@
   --hub:       var(--dim);
   --map-bg:    #8fd0c8;
   --map-ref:   #5c9089;
+  --map-water: #8fd0c8;
+  --map-land:  #eef5ec;
+  --map-coast: #3f6b64;
+  --map-border:#a9c9c0;
   --focus:     0 0 0 3px rgba(0, 115, 143, .35);
   --shadow-1:  0 1px 3px  rgba(18, 53, 49, .12);
   --shadow-2:  0 6px 18px rgba(18, 53, 49, .14);
@@ -879,6 +913,30 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 
 @media (pointer: coarse) {
   .leaflet-touch .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; }
+}
+
+/* "Detailed map" toggle - a real <button> inside a .leaflet-bar shell so it matches the zoom
+   control's chrome, not an <a> (Leaflet's own control links aren't focusable/actionable the
+   way a semantic button is). */
+.hh-detail-control { display: flex; }
+.hh-detail-btn {
+  font-family: inherit; cursor: pointer; border: 0; background: var(--panel); color: var(--ink);
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; padding: 0;
+}
+@media (hover: hover) {
+  .hh-detail-btn:hover { background: var(--panel-2); }
+}
+.hh-detail-btn[aria-pressed="true"] { color: var(--accent); }
+@media (pointer: coarse) {
+  .hh-detail-btn { width: 44px; height: 44px; }
+}
+
+/* Optional live OpenStreetMap layer (map.js setDetailedMap) - one cartography, so dark themes
+   get a CSS filter instead of a second tile set. Scoped by data-map-scheme, not data-theme
+   directly: that attribute already collapses all 8 themes down to the two color schemes this
+   filter actually needs to key off. */
+[data-map-scheme="dark"] .hh-osm-tile {
+  filter: invert(1) hue-rotate(180deg) saturate(0.7) brightness(0.9);
 }
 
 /* inputs */
