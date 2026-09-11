@@ -102,3 +102,15 @@ export function loadLangPref() {
 export function saveLangPref(code) {
   writePref(LANG_KEY, code);
 }
+
+const MAP_DETAIL_KEY = "hopandhaul:mapDetail";
+
+/** Whether the visitor last opted into the live OpenStreetMap "detailed" layer - off (the
+ * self-drawn atlas, no network) unless they've explicitly turned it on before. */
+export function loadMapDetail() {
+  return readPref(MAP_DETAIL_KEY) === "1";
+}
+
+export function saveMapDetail(on) {
+  writePref(MAP_DETAIL_KEY, on ? "1" : "0");
+}

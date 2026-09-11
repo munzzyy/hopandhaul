@@ -12,7 +12,7 @@
 // generic fetch handler below on first successful load, so whichever language a visitor
 // actually chooses works offline from then on, and they're dropped on every version bump
 // along with the rest of the runtime cache.
-const CACHE_VERSION = "hopandhaul-shell-v9";
+const CACHE_VERSION = "hopandhaul-shell-v10";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -20,6 +20,7 @@ const SHELL_FILES = [
   "./app.js",
   "./state.js",
   "./api.js",
+  "./atlas.js",
   "./map.js",
   "./geo-labels.js",
   "./results.js",
@@ -60,6 +61,7 @@ const SHELL_FILES = [
 const OPTIONAL_DATA_FILES = [
   "./data/airports.json", "./data/gateways.json",
   "./data/ferries.json", "./data/landgrid.json", "./data/fareanchors.json",
+  "./data/basemap.json",
 ];
 
 self.addEventListener("install", (event) => {

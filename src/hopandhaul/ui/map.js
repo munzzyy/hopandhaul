@@ -2,9 +2,14 @@
 import { esc, fmtMoney, fmtH, modeIcon, modeLabel } from "./format.js";
 import { t, currentLangCode } from "./i18n.js";
 import { CONTINENTS, COUNTRIES, continentName } from "./geo-labels.js";
+import { createAtlas } from "./atlas.js";
+import { loadMapDetail, saveMapDetail } from "./state.js";
 
 let map = null;
-let tileLayer = null;
+let atlasLayer = null;   // self-drawn base (atlas.js) - the default, zero-key, offline-capable
+let osmLayer = null;     // optional live detail layer, created on first opt-in
+let detailBtn = null;
+let detailOn = false;
 let lastPlan = null; // { data, rec } - replayed by setMapTheme() so a theme toggle redraws colors
 let currentTheme = null; // last theme actually applied - lets setMapTheme() no-op when unchanged
 
@@ -13,51 +18,108 @@ let currentTheme = null; // last theme actually applied - lets setMapTheme() no-
 // exactly one world on screen.
 const WORLD_BOUNDS = L.latLngBounds([-85, -180], [85, 180]);
 
-function tileUrl(theme) {
-  // *_nolabels bases: the tile images carry no place names, so the only labels on the map are
-  // our own translated overlay (renderGeoLabels), instead of tile text baked in English.
-  const style = theme === "dark" ? "dark_nolabels" : "rastertiles/voyager_nolabels";
-  return `https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png`;
+// No {s} subdomains: OSM deprecated the a/b/c.tile.openstreetmap.org split, one hostname now.
+const OSM_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+function ensureOsmLayer() {
+  if (!osmLayer) {
+    osmLayer = L.tileLayer(OSM_URL, {
+      attribution: "&copy; OpenStreetMap contributors",
+      className: "hh-osm-tile", // CSS dark-mode filter hook, see styles.css
+      maxZoom: 19,
+      noWrap: true,
+      bounds: WORLD_BOUNDS,
+    });
+    // Offline, or the tile host is unreachable: fall back to the atlas rather than leaving the
+    // map a grid of broken-image icons. tileerror can fire per-tile under a flaky connection
+    // too, so this only reacts once per "session" of errors rather than thrashing layers.
+    osmLayer.on("tileerror", () => {
+      if (detailOn) setDetailedMap(false);
+    });
+  }
+  return osmLayer;
+}
+
+/** Flip between the self-drawn atlas and the live OpenStreetMap layer. Only ever fetches OSM
+ * tiles once the visitor explicitly opts in - the whole point of the atlas base is that the app
+ * never needs a network request just to show a map. */
+export function setDetailedMap(on) {
+  if (!map || on === detailOn) return;
+  detailOn = on;
+  saveMapDetail(on);
+  if (on) {
+    map.removeLayer(atlasLayer);
+    ensureOsmLayer().addTo(map);
+  } else {
+    if (osmLayer) map.removeLayer(osmLayer);
+    atlasLayer.addTo(map);
+  }
+  if (detailBtn) detailBtn.setAttribute("aria-pressed", String(on));
+}
+
+const DetailControl = L.Control.extend({
+  options: { position: "topright" },
+  onAdd() {
+    const container = L.DomUtil.create("div", "leaflet-bar hh-detail-control");
+    const btn = L.DomUtil.create("button", "hh-detail-btn", container);
+    btn.type = "button";
+    detailBtn = btn;
+    refreshDetailBtnLabel();
+    btn.setAttribute("aria-pressed", String(detailOn));
+    btn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg>';
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+    L.DomEvent.on(btn, "click", () => setDetailedMap(!detailOn));
+    return container;
+  },
+});
+
+function refreshDetailBtnLabel() {
+  if (detailBtn) detailBtn.setAttribute("aria-label", t("map.detailToggleAria"));
 }
 
 export function initMap() {
-  // theme-boot.js sets data-theme pre-paint to one of 8 theme codes, not just "dark"/"light" - 
+  // theme-boot.js sets data-theme pre-paint to one of 8 theme codes, not just "dark"/"light" -
   // read the light/dark SCHEME the browser already resolved from it (every [data-theme] block
   // in styles.css sets color-scheme) rather than assuming the raw attribute value IS the base,
-  // so the very first tile request matches what's on screen for every theme, not just the two
-  // literally named "dark" and "light".
+  // so the very first paint matches what's on screen for every theme, not just the two
+  // literally named "dark" and "light". The OSM dark-mode CSS filter keys off the same scheme.
   const bootBase = getComputedStyle(document.documentElement).colorScheme === "dark" ? "dark" : "light";
   currentTheme = bootBase;
+  document.documentElement.setAttribute("data-map-scheme", bootBase);
   map = L.map("map", {
     zoomControl: true,
     minZoom: 2,
     maxBounds: WORLD_BOUNDS,
     maxBoundsViscosity: 1,
   }).setView([41, -30], 3);
-  tileLayer = L.tileLayer(tileUrl(bootBase), {
-    attribution: "&copy; OpenStreetMap &copy; CARTO",
-    subdomains: "abcd",
-    maxZoom: 19,
-    noWrap: true,
-    bounds: WORLD_BOUNDS,
-  }).addTo(map);
+  atlasLayer = createAtlas().addTo(map);
+  detailOn = loadMapDetail();
+  if (detailOn) {
+    map.removeLayer(atlasLayer);
+    ensureOsmLayer().addTo(map);
+  }
+  new DetailControl().addTo(map);
   geoLabels.addTo(map);
   map.on("zoomend moveend", renderGeoLabels);
   renderGeoLabels();
   return map;
 }
 
-/** Swap the basemap for the given theme - Voyager (warm cream, "travel atlas") in light,
- * dark_nolabels in dark. Both label-free; our own overlay carries the (translated) place names.
- * Tiles only, and a no-op when `theme` matches what's already applied - callers like
- * refreshThemeLabel() run on every language switch too, and shouldn't trigger a tile reload when
- * the theme didn't change. Redrawing the plan overlay is the theme-change caller's job (apply()
- * in theme.js): route colors are hex snapshots taken at draw time, so they go stale on ANY theme
- * change - including one between two themes that share a tile base, where this correctly no-ops. */
+/** Swap the basemap palette for the given theme (base "dark" or "light", one of the two color
+ * schemes every one of the 8 themes resolves to). The atlas reads its colors live from CSS
+ * custom properties, so this just redraws its tiles with whatever the just-applied theme set;
+ * the OSM layer has one cartography, but gets a CSS filter in dark themes (see styles.css).
+ * A no-op when `theme` matches what's already applied - callers like refreshThemeLabel() run on
+ * every language switch too, and shouldn't trigger a redraw when the theme didn't change.
+ * Redrawing the plan overlay is the theme-change caller's job (apply() in theme.js): route
+ * colors are hex snapshots taken at draw time, so they go stale on ANY theme change - including
+ * one between two themes that share a scheme, where this correctly no-ops. */
 export function setMapTheme(theme) {
-  if (!tileLayer || theme === currentTheme) return;
+  if (!atlasLayer || theme === currentTheme) return;
   currentTheme = theme;
-  tileLayer.setUrl(tileUrl(theme));
+  document.documentElement.setAttribute("data-map-scheme", theme);
+  atlasLayer.redraw();
 }
 
 /** Re-run draw() with whatever plan is currently cached, with no theme/tile change - used to
@@ -98,6 +160,7 @@ function overlaps(a, b) {
  * change. Labels are non-interactive, so map clicks pass straight through to pick a destination. */
 export function renderGeoLabels() {
   if (!map) return;
+  refreshDetailBtnLabel(); // cheap no-op most calls (zoom/pan); catches the language-switch call
   geoLabels.clearLayers();
   const locale = currentLangCode();
   regionNamesFor(locale);

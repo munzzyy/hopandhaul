@@ -108,6 +108,7 @@
   "map.originPin": "Origin: {name} ({iata})",
   "map.fromPin": "From: {name} ({iata})",
   "map.destPin": "Destination: {name} ({iata})",
+  "map.detailToggleAria": "Toggle detailed street map (uses a live connection)",
   "mode.flight": "flight",
   "mode.train": "train",
   "mode.bus": "bus",
