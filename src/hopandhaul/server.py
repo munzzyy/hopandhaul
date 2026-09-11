@@ -472,13 +472,16 @@ def _resolve_segment_airport(iata, fallback):
     return geo.by_iata(iata) or fallback
 
 
-def _flight_leg_spec(origin, dest, f, cost, date):
-    """itinerary.py leg spec for a flight leg, built from _price_flight()'s return dict - 
+def _flight_leg_spec(origin, dest, f, cost, date, ret=None):
+    """itinerary.py leg spec for a flight leg, built from _price_flight()'s return dict -
     `cost` is the already-computed group/round-trip total (_flight_cost()'s output), passed in
     rather than re-read from `f["price"]` so the itinerary never disagrees with the option's own
-    printed cost."""
+    printed cost. `ret` is the return date, when this fare covers a real round trip - it only
+    ever changes the verify link (a one-way Google Flights query used to be built even when the
+    price shown covered both directions)."""
     is_live = f.get("source") not in (None, "estimate")
     segments = None
+    likely_connection = False
     if is_live and f.get("segments"):
         segments = [{
             "from": _resolve_segment_airport(s.get("from_iata"), origin),
@@ -488,23 +491,41 @@ def _flight_leg_spec(origin, dest, f, cost, date):
         } for s in f["segments"]]
         price_basis = itinerary.flight_provenance_live(f)
     else:
-        price_basis = itinerary.flight_provenance_estimate(f.get("estimate_detail"), date)
+        detail = f.get("estimate_detail")
+        price_basis = itinerary.flight_provenance_estimate(detail, date)
+        likely_connection = bool(detail and detail.get("likely_connection"))
     return {
         "mode": "fly", "cost": round(cost, 2), "hours": f["hours"],
         "from": origin, "to": dest, "price_basis": price_basis,
-        "verify_url": itinerary.verify_link("fly", origin, dest, date),
-        "is_live": is_live, "segments": segments,
+        "verify_url": itinerary.verify_link("fly", origin, dest, date, ret),
+        "is_live": is_live, "segments": segments, "likely_connection": likely_connection,
     }
 
 
-def _ground_leg_spec(g, dest, cost, road_km):
+def _ground_leg_spec(g, dest, cost, road_km, frm=None):
     """itinerary.py leg spec for a ground leg - always an estimate (see README: no free, open
-    multimodal fares API worth calling here)."""
+    multimodal fares API worth calling here). `frm` overrides the leg's own start point when it
+    isn't `g` itself (an origin-side split's ground leg runs origin -> g, not g -> dest)."""
+    origin_pt = frm if frm is not None else g
     return {
         "mode": g["ground_mode"], "cost": round(cost, 2), "hours": g["ground_hours"],
-        "from": g, "to": dest,
+        "from": origin_pt, "to": dest,
         "price_basis": itinerary.ground_provenance(g, road_km),
-        "verify_url": itinerary.verify_link(g["ground_mode"], g, dest),
+        "verify_url": itinerary.verify_link(g["ground_mode"], origin_pt, dest),
+        "is_live": False, "segments": None,
+    }
+
+
+def _final_leg_spec(dest, place, final, cost):
+    """itinerary.py leg spec for the last-mile leg from the resolved destination AIRPORT onward
+    to the actual clicked/searched point - see geo.final_leg()."""
+    gw_like = {"ground_mode": final["mode"], "ferry": final.get("ferry"), "source": "auto",
+              "notes": final.get("notes", "")}
+    return {
+        "mode": final["mode"], "cost": round(cost, 2), "hours": final["hours"],
+        "from": dest, "to": place,
+        "price_basis": itinerary.ground_provenance(gw_like, final.get("distance_km")),
+        "verify_url": itinerary.verify_link(final["mode"], dest, place),
         "is_live": False, "segments": None,
     }
 
@@ -544,22 +565,33 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     rt_mult = 2 if roundtrip else 1          # ground legs ride both ways on a round-trip
 
     gws = geo.discover_gateways(dest, origin=origin, max_ground_h=max_ground_h)
+    # Origin-side splits: the SAME call, roles swapped - "gateways near ORIGIN, excluding dest
+    # from candidacy" is exactly discover_gateways(origin, origin=dest, ...). A major-hub origin
+    # naturally yields nothing here (discover_gateways gates on the FIRST arg's hub tier), so
+    # this never needs its own "is the origin remote enough" check - JFK->anywhere always comes
+    # back empty, JTR->anywhere finds ATH the same way JTR-as-dest already would.
+    origin_gws = geo.discover_gateways(origin, origin=dest, max_ground_h=max_ground_h)
 
     # REAL ground schedules (Transitous, keyless): look up each transit-able gateway leg's
     # actual timetable to the clicked point, concurrently, under a short budget. A hit
     # replaces the leg's formula duration with the real door-to-door time and carries the
     # real operators into provenance. Fares on those legs remain estimates - GTFS has none.
-    if allow_transit and transit and gws:
-        lookups = [g for g in gws if g["ground_mode"] in ("train", "bus", "ferry")]
+    # Origin-side gateway legs run ORIGIN -> gateway, not gateway -> the clicked point, so their
+    # transit lookup is keyed on the origin airport's coordinates instead of dest_lat/dest_lng.
+    if allow_transit and transit and (gws or origin_gws):
+        lookups = [(g, g["lat"], g["lng"], dest_lat, dest_lng) for g in gws
+                  if g["ground_mode"] in ("train", "bus", "ferry")]
+        lookups += [(g, origin["lat"], origin["lng"], g["lat"], g["lng"]) for g in origin_gws
+                   if g["ground_mode"] in ("train", "bus", "ferry")]
         if lookups:
             # 2 workers max - Transitous is a shared community instance and asks callers to
             # keep request volume low. The wait ceiling sits ABOVE the per-call timeout (8s
             # in transit.ground_options), so a slow-but-successful lookup is never discarded
             # by its own coordinator.
             ex_t = concurrent.futures.ThreadPoolExecutor(max_workers=min(2, len(lookups)))
-            futs = {ex_t.submit(transit.ground_options, g["lat"], g["lng"],
-                                dest_lat, dest_lng, date, g["ground_mode"]): g
-                    for g in lookups}
+            futs = {ex_t.submit(transit.ground_options, from_lat, from_lng,
+                                to_lat, to_lng, date, g["ground_mode"]): g
+                    for g, from_lat, from_lng, to_lat, to_lng in lookups}
             done_t, _ = concurrent.futures.wait(list(futs), timeout=9.0)
             for f in done_t:
                 g = futs[f]
@@ -587,21 +619,25 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             session = None
             ctx["live_error"] = True
 
-    # Price every flight leg (direct + each gateway hub). When live, run them concurrently - 
-    # each live offer-request is a slow, independent round-trip, so a click stays responsive.
-    # A shared deadline bounds the whole fan-out: one slow provider degrades to estimates
-    # instead of holding every thread for its own full per-call timeout.
+    # Price every flight leg (direct + each dest-side gateway hub + each origin-side gateway
+    # hub). Each entry is a (from, to) pair rather than always "origin -> something": an
+    # origin-side split flies FROM the gateway TO dest, the other direction from every other
+    # leg here. When live, run them concurrently - each live offer-request is a slow,
+    # independent round-trip, so a click stays responsive. A shared deadline bounds the whole
+    # fan-out: one slow provider degrades to estimates instead of holding every thread for its
+    # own full per-call timeout.
     # A caller that runs plan() several times back to back (sweep_dates) has to divide ONE
     # wall-clock budget between them, so it passes its own share in here. Left unset this is
     # the single-click budget it has always been.
-    flight_targets = [dest, *gws]
+    flight_pairs = [(origin, dest), *((origin, g) for g in gws), *((g, dest) for g in origin_gws)]
     deadline = time.monotonic() + (time_budget_s or PLAN_TIME_BUDGET_S)
 
-    def _price(target):
+    def _price(pair):
         local = {}
-        return _price_flight(origin, target, date, ret, travelers, session, local, deadline), local
+        frm, to = pair
+        return _price_flight(frm, to, date, ret, travelers, session, local, deadline), local
 
-    if session and date and len(flight_targets) > 1:
+    if session and date and len(flight_pairs) > 1:
         # Not a `with` block on purpose: ThreadPoolExecutor.__exit__ calls shutdown(wait=True),
         # which blocks until every submitted worker returns - including ones we've already
         # given up on below. That defeated PLAN_TIME_BUDGET_S entirely: a single hung provider
@@ -610,29 +646,29 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         # with wait=False, cancel_futures=True: any thread still in flight keeps running in
         # the background (its result is discarded, though the offer cache still benefits if
         # it finishes) while this request returns as soon as the deadline is up.
-        ex = concurrent.futures.ThreadPoolExecutor(max_workers=min(6, len(flight_targets)))
-        futures = [ex.submit(_price, t) for t in flight_targets]
+        ex = concurrent.futures.ThreadPoolExecutor(max_workers=min(6, len(flight_pairs)))
+        futures = [ex.submit(_price, p) for p in flight_pairs]
         priced = []
         remaining = max(0.0, deadline - time.monotonic())
         done, _not_done = concurrent.futures.wait(futures, timeout=remaining)
-        fmap = dict(zip(futures, flight_targets, strict=False))
+        fmap = dict(zip(futures, flight_pairs, strict=False))
         for f in futures:
             if f in done:
                 priced.append(f.result())
             else:
                 f.cancel()
-                target = fmap[f]
+                frm, to = fmap[f]
                 local = {"live_error": True}
                 # session=None -> _price_flight can't touch the network (the live branch requires
                 # a truthy session), so this is pure estimation and won't block past the deadline.
                 # Pass the real date/ret so the fallback estimate stays on the same date-adjusted,
                 # round-trip basis as every other priced leg - not an undated one-way that
                 # silently mixes bases in one comparison.
-                priced.append((_price_flight(origin, target, date, ret, travelers,
+                priced.append((_price_flight(frm, to, date, ret, travelers,
                                              None, local, deadline), local))
         ex.shutdown(wait=False, cancel_futures=True)
     else:
-        priced = [_price(t) for t in flight_targets]
+        priced = [_price(p) for p in flight_pairs]
     for _pr, local in priced:              # merge per-worker flags back into the shared ctx
         for k, v in local.items():
             if v:
@@ -646,21 +682,50 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             return f["price"] * 2
         return f["price"]
 
+    # The last-mile leg: geo.final_leg() prices the honest last hop from the resolved
+    # destination AIRPORT onward to the actual clicked/searched point. Computed once and
+    # appended to EVERY option's string/geo/emissions/itinerary below (including the direct-
+    # flight baseline) so the split-vs-direct comparison stays fair - see the module docstring
+    # and geo.final_leg()'s own docstring for the honesty rules.
+    final = geo.final_leg(dest, dest_lat, dest_lng)
+    final_place = {"iata": "", "name": f"{dest_lat:.4f}, {dest_lng:.4f}", "city": None,
+                   "lat": dest_lat, "lng": dest_lng, "hub": 3}
+    final_suffix = ""
+    final_geo_entry = final_emissions_entry = final_leg_spec_row = None
+    if final and final.get("possible"):
+        final_cost = trip.scale_leg_cost(final["mode"], final["cost"], travelers) * rt_mult
+        final_suffix = f" ; {final['mode']} {final_cost} {final['hours']}"
+        final_geo_entry = {"type": "ground", "mode": final["mode"],
+                           "from": _pt(dest), "to": _pt(final_place)}
+        final_dist_km = ((final["ferry"]["crossing_km"] if final.get("ferry")
+                         else final["distance_km"]) * rt_mult)
+        final_emissions_entry = {"mode": final["mode"], "road_km": final_dist_km}
+        final_leg_spec_row = _final_leg_spec(dest, final_place, final, final_cost)
+
+    def _append_final(name):
+        if final_geo_entry:
+            geo_by_name[name].append(final_geo_entry)
+            emissions_legs_by_name[name].append(final_emissions_entry)
+            leg_specs_by_name[name].append(final_leg_spec_row)
+
     # direct
     df = priced[0][0]
     direct_name = f"Fly direct to {dest['iata']}"
     direct_cost = _flight_cost(df)
-    options.append(trip.parse_option(f"{direct_name} | fly {direct_cost} {df['hours']}"))
+    options.append(trip.parse_option(
+        f"{direct_name} | fly {direct_cost} {df['hours']}{final_suffix}"))
     geo_by_name[direct_name] = [{"type": "flight", "from": _pt(origin), "to": _pt(dest)}]
-    leg_specs_by_name[direct_name] = [_flight_leg_spec(origin, dest, df, direct_cost, date)]
+    leg_specs_by_name[direct_name] = [_flight_leg_spec(origin, dest, df, direct_cost, date, ret)]
     # emissions distance is always the great-circle flight distance, regardless of whether the
     # fare itself came from a live quote or an estimate - CO2e only cares about km flown, not $.
     direct_km = geo.haversine_km(origin["lat"], origin["lng"], dest["lat"], dest["lng"]) * rt_mult
     emissions_legs_by_name[direct_name] = [{"mode": "fly", "distance_km": direct_km}]
+    _append_final(direct_name)
 
-    # splits (fly to a cheaper hub, then ground it) - ground legs are one-way per-person
-    # estimates: scale per-person modes ×travelers (vehicles stay flat) and ×2 on a round-trip.
-    for g, (gf, _local) in zip(gws, priced[1:], strict=False):
+    # dest-side splits (fly to a cheaper hub near the DESTINATION, then ground it) - ground
+    # legs are one-way per-person estimates: scale per-person modes ×travelers (vehicles stay
+    # flat) and ×2 on a round-trip.
+    for g, (gf, _local) in zip(gws, priced[1:1 + len(gws)], strict=False):
         ground_cost = trip.scale_leg_cost(g["ground_mode"], g["ground_cost"], travelers) * rt_mult
         # ground distance: same road-winding factor geo.py's own estimator uses, so a curated
         # gateway (which only ships a ground_time_h/ground_cost_usd, no distance) gets an
@@ -679,7 +744,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         if g["iata"] == origin["iata"]:
             name = f"{g['ground_mode'].capitalize()} only from {origin['iata']}"
             options.append(trip.parse_option(
-                f"{name} | {g['ground_mode']} {ground_cost} {g['ground_hours']}"))
+                f"{name} | {g['ground_mode']} {ground_cost} {g['ground_hours']}{final_suffix}"))
             geo_by_name[name] = [
                 {"type": "ground", "mode": g["ground_mode"], "from": _pt(origin), "to": _pt(dest)},
             ]
@@ -687,13 +752,14 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             leg_specs_by_name[name] = [
                 _ground_leg_spec(g, dest, ground_cost, ground_km / max(rt_mult, 1)),
             ]
+            _append_final(name)
             continue
         g["fly"] = gf
         fly_cost = _flight_cost(gf)
         name = f"{g['iata']} + {g['ground_mode']}"
         options.append(trip.parse_option(
             f"{name} | fly {fly_cost} {gf['hours']} ; "
-            f"{g['ground_mode']} {ground_cost} {g['ground_hours']}"))
+            f"{g['ground_mode']} {ground_cost} {g['ground_hours']}{final_suffix}"))
         geo_by_name[name] = [
             {"type": "flight", "from": _pt(origin), "to": _pt(g)},
             {"type": "ground", "mode": g["ground_mode"], "from": _pt(g), "to": _pt(dest)},
@@ -704,9 +770,43 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             {"mode": g["ground_mode"], "road_km": ground_km},
         ]
         leg_specs_by_name[name] = [
-            _flight_leg_spec(origin, g, gf, fly_cost, date),
+            _flight_leg_spec(origin, g, gf, fly_cost, date, ret),
             _ground_leg_spec(g, dest, ground_cost, ground_km / max(rt_mult, 1)),
         ]
+        _append_final(name)
+
+    # origin-side splits (ground it from ORIGIN to a better-connected hub near origin, then
+    # fly from there to dest) - the symmetric case the dest-side loop above can't reach: a
+    # remote/expensive ORIGIN airport (JTR flying home) never shows up as a "dest" gateway
+    # search, so a return leg from one used to be priced direct-only even when grounding to a
+    # real hub and flying from there was hundreds of dollars cheaper. Single-sided only - never
+    # combined with a dest-side split in the same option.
+    for g, (gf, _local) in zip(origin_gws, priced[1 + len(gws):], strict=False):
+        ground_cost = trip.scale_leg_cost(g["ground_mode"], g["ground_cost"], travelers) * rt_mult
+        if g.get("ferry"):
+            ground_km = g["ferry"]["crossing_km"] * rt_mult
+        else:
+            ground_km = (geo.haversine_km(origin["lat"], origin["lng"], g["lat"], g["lng"])
+                         * geo.ROAD_WINDING * rt_mult)
+        fly_cost = _flight_cost(gf)
+        name = f"{g['ground_mode'].capitalize()} to {g['iata']} + fly"
+        options.append(trip.parse_option(
+            f"{name} | {g['ground_mode']} {ground_cost} {g['ground_hours']} ; "
+            f"fly {fly_cost} {gf['hours']}{final_suffix}"))
+        geo_by_name[name] = [
+            {"type": "ground", "mode": g["ground_mode"], "from": _pt(origin), "to": _pt(g)},
+            {"type": "flight", "from": _pt(g), "to": _pt(dest)},
+        ]
+        fly_km = geo.haversine_km(g["lat"], g["lng"], dest["lat"], dest["lng"]) * rt_mult
+        emissions_legs_by_name[name] = [
+            {"mode": g["ground_mode"], "road_km": ground_km},
+            {"mode": "fly", "distance_km": fly_km},
+        ]
+        leg_specs_by_name[name] = [
+            _ground_leg_spec(g, g, ground_cost, ground_km / max(rt_mult, 1), frm=origin),
+            _flight_leg_spec(g, dest, gf, fly_cost, date, ret),
+        ]
+        _append_final(name)
 
     res = trip.evaluate(options, threshold=threshold, vot=vot,
                         transfer_buffer=transfer_buffer, travelers=travelers)
@@ -758,13 +858,20 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             notes.append(itinerary.note("notes.roundtripEstimatedSeparate", return_date=ret))
         else:
             notes.append(itinerary.note("notes.roundtripEstimated2x"))
-    if any(g.get("ferry") for g in gws):
+    if any(g.get("ferry") for g in gws + origin_gws):
         notes.append(itinerary.note("notes.ferryRealCorridor"))
-    if any(g.get("transit") for g in gws):
+    if any(g.get("transit") for g in gws + origin_gws):
         notes.append(itinerary.note("notes.transitLiveSchedule"))
-    if dest.get("dist_km", 0) > 120:
+    if final and final.get("possible"):
+        notes.append(itinerary.note("notes.finalLeg", mode=final["mode"], iata=dest["iata"],
+                                    km=round(final["distance_km"])))
+    elif dest.get("dist_km", 0) > 120:
         notes.append(itinerary.note("notes.lastMileGap", iata=dest["iata"],
                                     km=int(dest["dist_km"])))
+    if ctx["live_used"]:
+        # live fares (Duffel) never include baggage in the quoted price - only the client
+        # engine never reaches this branch (it has no live path at all), so this is server-only.
+        notes.append(itinerary.note("notes.liveBaggageCaveat"))
     notes.append(itinerary.note("notes.co2eEstimate"))
 
     # destination weather - best-effort, never blocks a plan (weather is at the clicked point)
@@ -788,6 +895,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         "dest": {**_pt(dest, full=True), "dist_km": dest.get("dist_km"),
                  "click": {"lat": dest_lat, "lng": dest_lng}},
         "gateways": [_gw(g) for g in gws],
+        "origin_gateways": [_gw(g) for g in origin_gws],
         "direct": df,
         "result": clean,
         "weather": wx,

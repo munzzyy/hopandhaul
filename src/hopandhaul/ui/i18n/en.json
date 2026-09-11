@@ -159,5 +159,8 @@
   "notes.lastMileGap": "The nearest airport, {iata}, is about {km} kilometers from the clicked point, so the last mile to your exact spot isn't included.",
   "notes.co2eEstimate": "The carbon estimate for each option is a rough figure based on flight and ground distance, not a certified footprint. The lowest-carbon option is flagged as greenest, but it is never automatically recommended over the cheapest one.",
   "notes.originSuspended": "{iata} has no bookable service right now because of closed or restricted airspace or ground crossings. Pick a different origin.",
-  "notes.airportSuspended": "No served airport is near this point. Airspace or service there is currently suspended."
+  "notes.airportSuspended": "No served airport is near this point. Airspace or service there is currently suspended.",
+  "notes.finalLeg": "Every option above also includes a final {mode} leg from {iata} onward to your exact destination (about {km} kilometers), priced as an estimate.",
+  "notes.legLikelyConnecting": "This fare is priced assuming a connecting flight, not a nonstop.",
+  "notes.liveBaggageCaveat": "This live fare may not include checked bags. Verify baggage allowance on the booking page before you pay."
 }

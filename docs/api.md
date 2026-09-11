@@ -171,6 +171,7 @@ applies the $200 rule to recommend one.
     "origin": {"iata": "JFK", "lat": ..., "lng": ..., "name": "...", "city": "...", "hub": 1},
     "dest": {"iata": "ASE", "lat": ..., "lng": ..., "dist_km": 3.2, "click": {"lat": ..., "lng": ...}},
     "gateways": [{"iata": "DEN", "ground_mode": "bus", "ground_hours": 4.0, "ground_cost": 34, "...": "..."}],
+    "origin_gateways": [{"iata": "ATH", "ground_mode": "ferry", "ground_hours": 2.5, "ground_cost": 60, "...": "..."}],
     "direct": {"price": 620, "hours": 5.5, "source": "estimate", "rt": false},
     "result": {
       "recommended": "Fly direct to ASE",
@@ -200,8 +201,48 @@ applies the $200 rule to recommend one.
   `estimateAddDateForLive`, `estimateNoProvider`, `mixedLiveEstimate`, `liveLookupFailed`,
   `fxStatic`, `fxLive`, `fxUnknown`, `groupTotals`, `roundtripReal`,
   `roundtripEstimatedSeparate`, `roundtripEstimated2x`, `ferryRealCorridor`,
-  `transitLiveSchedule`, `lastMileGap`, `co2eEstimate`, `originSuspended`, `airportSuspended`
-  (all under the `notes.` prefix). Read the notes before trusting the number.
+  `transitLiveSchedule`, `lastMileGap`, `finalLeg`, `co2eEstimate`, `originSuspended`,
+  `airportSuspended`, `legLikelyConnecting`, `liveBaggageCaveat` (all under the `notes.`
+  prefix). Read the notes before trusting the number.
+  - `notes.finalLeg` and `notes.lastMileGap` are mutually exclusive: `finalLeg` fires whenever
+    the resolved destination airport is more than 12km from the clicked point AND an honest
+    last-mile leg exists (real ferry corridor or plain overland - see "The last-mile leg"
+    below); `lastMileGap` is the fallback for the remaining case, where the airport is far from
+    the click but the gap is genuinely impossible to cross honestly (only open sea, no corridor).
+  - `notes.legLikelyConnecting` never appears at the top level - it rides inside a flight leg's
+    own `label` field (see "Itinerary..." below), not in the response's top-level `notes` array.
+  - `notes.liveBaggageCaveat` is server-only: it appears whenever any leg in the plan priced off
+    a real Duffel fare. The browser engine (`ui/engine/plan.js`) has no live-fare code path at
+    all, so it can never emit this key - not a parity gap, just a branch that literally can't be
+    reached client-side.
+
+### The last-mile leg
+
+An airport is a proxy for the place someone actually asked about, not the place itself:
+"Interlaken" resolves to BRN, about 40km and an hour of train away. Every option in
+`result.options` - including the direct-flight baseline - includes a final ground leg from the
+resolved destination airport (`dest.iata`) onward to the actual clicked point (`dest.click`)
+whenever that gap is more than 12km (`geo.FINAL_LEG_MIN_KM`). The leg is priced through the same
+machinery as a gateway's ground leg: a real ferry corridor when one dominantly covers the gap
+(`gateways[].ferry`'s sibling logic, reused symmetrically), otherwise plain overland, chosen by
+the same region-aware mode/distance rules. It shows up as the LAST entry in each option's
+`itinerary.legs` and `geo` arrays, and its cost/hours are folded into that option's headline
+`cost`/`hours_eff` - since it's added uniformly to every option, the split-vs-direct comparison
+stays fair. When the gap is real but there is no honest way to cross it (open sea, no ferry
+corridor) the leg is silently omitted and `notes.lastMileGap` explains why instead.
+
+### Origin-side splits: `origin_gateways`
+
+`gateways` only ever searches near the DESTINATION. `origin_gateways` is the symmetric search
+near the ORIGIN airport, for exactly the case `gateways` structurally cannot reach: a
+remote/expensive origin (e.g. `origin=JTR`) whose return-home leg used to be priced direct-only
+even when grounding to a real hub first and flying from there was cheaper. Each entry has the
+same shape as a `gateways[]` entry; the corresponding option in `result.options` is named
+`"<Mode> to <IATA> + fly"` (e.g. `"Ferry to ATH + fly"`) and its leg order is reversed from a
+normal split: ground FIRST (origin -> the gateway), then fly (the gateway -> dest). Single-sided
+only - an origin-side split is never combined with a dest-side split in the same option. A
+well-connected origin (a major hub, and no curated gateway table for it) naturally yields an
+empty `origin_gateways` list - there is no separate "is this origin remote enough" flag to check.
 
 ### Gateway extras: `gateways[].ferry` and `gateways[].transit`
 
@@ -262,7 +303,8 @@ checkable schedule:
     "cost": 210.0,
     "price_basis": "route-band estimate for 2027-06-15; NA-NA market ×1.00; date factor ×1.08",
     "verify_url": "https://www.google.com/travel/flights?q=Flights+from+JFK+to+DEN+on+2027-06-15",
-    "is_live": false, "carrier": null, "flight_number": null
+    "is_live": false, "carrier": null, "flight_number": null,
+    "label": null
   }],
   "any_live": false, "example_day": true, "depart_local": "08:00"
 }
@@ -286,10 +328,18 @@ checkable schedule:
   applied (estimate) or which carrier/fare priced it (live). Free text, like `notes` elsewhere
   in this response, and not translated by the UI's i18n catalog.
 - `verify_url`: a one-click way to check the number: a Google Flights search
-  (`?q=Flights+from+XXX+to+YYY+on+YYYY-MM-DD`) for a flight leg, a Rome2Rio map link
+  (`?q=Flights+from+XXX+to+YYY+on+YYYY-MM-DD`, or `...on+YYYY-MM-DD+through+YYYY-MM-DD` when
+  the plan is a real round trip with a return date) for a flight leg, a Rome2Rio map link
   (`/map/{from}/{to}`) for a ground leg.
 - `is_live` / `carrier` / `flight_number`: only real (not invented), and `null`/`false` on every
   estimate leg.
+- `label`: `null` on almost every leg. On a flight leg whose fare was priced ASSUMING a
+  connection (the small/remote-airport pricing path in `geo.estimate_flight` -
+  `likely_connection`), this carries `{"key": "notes.legLikelyConnecting", "params": {}}` -
+  render it through the same `notes.` catalog. The single-arc map geometry doesn't change; this
+  is purely so the leg doesn't read as a bare nonstop when the price already isn't one. Never
+  set on a live segment row (a real multi-segment connection already shows itself as more than
+  one row).
 
 The same live-vs-estimate split shows up one level up too: `direct` and each entry in
 `gateways[].fly` are the raw pricing dict `itinerary` was built from, so a caller who wants the

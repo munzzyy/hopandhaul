@@ -117,12 +117,12 @@
    "duration_h": 3.67,
    "frequency_per_day": 7,
    "seasonal": false,
-   "price_usd_lo": 27,
-   "price_usd_hi": 34,
+   "price_usd_lo": 21,
+   "price_usd_hi": 27,
    "price_basis": "adult 2nd class one-way",
    "vehicle": true,
    "price_source": "https://www.tsugarukaikyo.co.jp/global/en/hakodate-aomori/",
-   "price_asof": "2026-07",
+   "price_asof": "2026-09",
    "notes": "Shortest Honshu-Hokkaido sea crossing, budget alternative to the Shinkansen. Two operators combine for 14 daily round trips."
   },
   {

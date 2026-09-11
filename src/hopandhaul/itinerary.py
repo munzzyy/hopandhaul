@@ -120,15 +120,22 @@ def _airport_label(a: dict) -> dict:
 
 
 # --------------------------------------------------------------------------- verify links
-def google_flights_link(origin_iata: str, dest_iata: str, date: str | None = None) -> str:
+def google_flights_link(origin_iata: str, dest_iata: str, date: str | None = None,
+                        return_date: str | None = None) -> str:
     """Deep link to check a flight leg's price against reality.
-    Format: https://www.google.com/travel/flights?q=Flights+from+XXX+to+YYY+on+YYYY-MM-DD
+    Format: https://www.google.com/travel/flights?q=Flights+from+XXX+to+YYY+on+YYYY-MM-DD, or
+    "...on YYYY-MM-DD through YYYY-MM-DD" for a round trip - a one-way query used to be built
+    even when the priced fare covered a real round trip, which sent a reader to check half the
+    price they were actually shown. `return_date` is ignored unless `date` is also given (a
+    round trip with no outbound date has no honest range to print either).
     IATA codes are always short ASCII-letters-only strings by the time they reach here (see
     server.py's _v_iata / geo.by_iata), but the query text is still built through urlencode
     rather than hand-joined, so this stays correct even if a caller ever hands it a place name
     with spaces/punctuation instead."""
     q = f"Flights from {origin_iata} to {dest_iata}"
-    if date:
+    if date and return_date:
+        q += f" on {date} through {return_date}"
+    elif date:
         q += f" on {date}"
     return "https://www.google.com/travel/flights?" + urllib.parse.urlencode({"q": q})
 
@@ -146,11 +153,13 @@ def rome2rio_link(from_place: str, to_place: str) -> str:
     return f"https://www.rome2rio.com/map/{_slug(from_place)}/{_slug(to_place)}"
 
 
-def verify_link(mode: str, origin: dict, dest: dict, date: str | None = None) -> str:
+def verify_link(mode: str, origin: dict, dest: dict, date: str | None = None,
+                return_date: str | None = None) -> str:
     """Pick the right verify link for a leg's mode: Google Flights for anything that flies,
-    Rome2Rio (city-to-city) for everything on the ground."""
+    Rome2Rio (city-to-city) for everything on the ground. `return_date` only ever matters for
+    a flight leg - a ground leg has no round-trip query shape to build."""
     if mode in FLIGHT_MODES:
-        return google_flights_link(origin["iata"], dest["iata"], date)
+        return google_flights_link(origin["iata"], dest["iata"], date, return_date)
     from_place = origin.get("city") or origin.get("name") or origin["iata"]
     to_place = dest.get("city") or dest.get("name") or dest["iata"]
     return rome2rio_link(from_place, to_place)
@@ -322,6 +331,11 @@ def build_timeline(legs: list[dict], *, date: str | None = None,
             "is_live": False,
             "carrier": None,
             "flight_number": None,
+            # the option's own fare narrative already assumed a connection to price this leg
+            # (a tiny/remote field far from the other end - see geo.estimate_flight's
+            # likely_connection) - the leg must say so instead of implying nonstop just
+            # because the geometry drawn on the map is a single arc.
+            "label": note("notes.legLikelyConnecting") if leg.get("likely_connection") else None,
         })
         clock_min = arrive_min
 
@@ -365,6 +379,9 @@ def _live_segments_to_rows(leg: dict, segments: list[dict], date: str | None,
             "is_live": True,
             "carrier": seg.get("carrier"),
             "flight_number": seg.get("flight_number"),
+            # a live leg's real segment count already shows a genuine connection (more than one
+            # row); "likely connecting" is for the ESTIMATE path only, where nothing else says so.
+            "label": None,
         })
         last_arrive_min = arr_day * 1440 + _hhmm_to_min(arr_dt.strftime("%H:%M"))
     return rows, last_arrive_min
@@ -401,6 +418,16 @@ def selftest() -> int:
           "JFK" in link and "ASE" in link and _d(70) in link)
     link_no_date = google_flights_link("JFK", "ASE")
     check("google flights link omits 'on ...' when no date is given", "+on+" not in link_no_date)
+
+    rt_link = google_flights_link("JFK", "ASE", _d(70), _d(77))
+    check("a round-trip google flights link carries BOTH dates ('through'), not just the outbound",
+          _d(70) in rt_link and _d(77) in rt_link and "through" in rt_link)
+    check("a return_date with no outbound date is dropped (no honest range to print)",
+          "through" not in google_flights_link("JFK", "ASE", None, _d(77)))
+    check("verify_link forwards return_date for a flight leg",
+          "through" in verify_link("fly", jfk, den, _d(70), _d(77)))
+    check("verify_link ignores return_date for a ground leg (no round-trip query shape)",
+          "through" not in verify_link("train", den, ase, _d(70), _d(77)))
 
     r2r = rome2rio_link("New York", "Denver, CO")
     check("rome2rio link has the right host + path shape",
@@ -466,6 +493,21 @@ def selftest() -> int:
           build_timeline(direct_legs)["legs"][0]["depart_day"] == "Day 1")
     check("an estimate-only timeline is flagged example_day",
           tl["example_day"] is True and tl["any_live"] is False)
+    check("a leg with no likely_connection flag renders with no label",
+          row["label"] is None)
+
+    # a leg whose fare narrative already assumed a connection (small/remote-airport pricing)
+    # must say so, not read as a bare "fly" leg that looks nonstop.
+    connecting_legs = [{
+        "mode": "fly", "cost": 310.0, "hours": 5.1, "from": jfk, "to": ase,
+        "price_basis": "route-band estimate; fare priced assuming a connecting flight",
+        "verify_url": "https://x", "is_live": False, "segments": None, "likely_connection": True,
+    }]
+    tl_conn = build_timeline(connecting_legs, date=_d(70))
+    conn_row = tl_conn["legs"][0]
+    check("a leg priced assuming a connection carries a structured 'likely connecting' label, "
+          "not a bare fly leg that reads as nonstop",
+          conn_row["label"] == {"key": "notes.legLikelyConnecting", "params": {}})
 
     # ---- timeline: fly + ground split, connection buffer must land between legs, and the
     # summed elapsed time must equal each leg's own hours plus exactly one transfer buffer - 
@@ -558,7 +600,8 @@ def selftest() -> int:
         "notes.groupTotals", "notes.roundtripReal", "notes.roundtripEstimatedSeparate",
         "notes.roundtripEstimated2x", "notes.ferryRealCorridor", "notes.transitLiveSchedule",
         "notes.lastMileGap", "notes.co2eEstimate", "notes.originSuspended",
-        "notes.airportSuspended",
+        "notes.airportSuspended", "notes.finalLeg", "notes.legLikelyConnecting",
+        "notes.liveBaggageCaveat",
     ]
     missing = [k for k in emittable_keys if k[len("notes."):] not in _en_notes()]
     check(f"every note key this module can emit resolves in en.json (missing: {missing})",

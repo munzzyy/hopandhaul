@@ -1000,6 +1000,71 @@ def discover_gateways(dest: dict, origin: dict | None = None, max_ground_h: floa
     return result[:max_gateways]
 
 
+# --------------------------------------------------------------------------- the last-mile leg
+# discover_gateways() and estimate_flight() both stop at an AIRPORT. The map click (or a
+# resolved place name) is almost never actually the airport - "Interlaken" resolves to BRN,
+# 40km and an hour of train away, and every option (including the direct flight) used to just
+# report "you're done" at the runway. final_leg() prices the honest last hop from the resolved
+# destination airport onward to the real point, the same way discover_gateways prices a
+# gateway's ground leg - real ferry corridor first, then plain overland, honestly refusing when
+# only open sea separates the two and no corridor covers it.
+FINAL_LEG_MIN_KM = 12.0   # at/under this the airport already serves its own city (Aspen town vs ASE)
+
+
+def final_leg(dest_airport: dict, lat: float, lng: float) -> dict | None:
+    """The ground leg from the resolved destination AIRPORT onward to the actual place someone
+    clicked or searched for. None when the airport already serves its own city (<=
+    FINAL_LEG_MIN_KM). Otherwise a dict: {"possible": False} when only open sea separates the
+    two and no real ferry corridor covers it - the airport-serves-its-own-city assumption simply
+    doesn't hold and there is no honest leg to add, so the caller must fall back to the existing
+    notes.lastMileGap warning rather than fabricate one; or {"possible": True, "mode", "hours",
+    "cost", "distance_km", "notes", "ferry": {...}|absent} when a real leg exists."""
+    d = haversine_km(dest_airport["lat"], dest_airport["lng"], lat, lng)
+    if d <= FINAL_LEG_MIN_KM:
+        return None
+    place = {"iata": "", "lat": lat, "lng": lng}
+    region = region_of(lat, lng)
+
+    # Same three water-honesty rules discover_gateways() uses, applied to airport -> place
+    # instead of gateway -> dest: a dominant real ferry corridor IS the connection; different
+    # landmasses with no corridor means no leg at all; same landmass but a sea_gap with no
+    # detour also means no leg.
+    corridor = ferry_corridor_for(dest_airport, place)
+    usable = (corridor is not None
+              and (corridor.get("frequency_per_day") or 0) >= MIN_FERRY_FREQ_PER_DAY)
+    ferry = None
+    if usable and corridor["crossing_km"] >= CROSSING_DOMINANT * d:
+        ferry = corridor
+    elif landmass_of(dest_airport) != landmass_of(place):
+        if not usable:
+            return {"possible": False}
+        ferry = corridor
+    elif sea_gap(dest_airport, place):
+        return {"possible": False}
+
+    if ferry:
+        leg = ferry_leg_from_corridor(ferry, region)
+        return {
+            "possible": True, "mode": "ferry", "hours": leg["hours"], "cost": leg["cost"],
+            "distance_km": round(d, 1), "notes": _ferry_note(ferry),
+            "ferry": {
+                "id": ferry["id"], "name": ferry["name"], "operators": ferry.get("operators") or [],
+                "duration_h": ferry["duration_h"], "frequency_per_day": ferry.get("frequency_per_day"),
+                "seasonal": bool(ferry.get("seasonal")), "price_usd_lo": ferry.get("price_usd_lo"),
+                "price_usd_hi": ferry.get("price_usd_hi"), "price_asof": ferry.get("price_asof"),
+                "port_a": ferry["a_port"]["name"], "port_b": ferry["b_port"]["name"],
+                "crossing_km": leg["crossing_km"], "fare_usd": leg["fare_usd"],
+                "fare_is_real": leg["fare_is_real"], "access_cost": leg["access_cost"],
+                "access_hours": leg["access_hours"],
+            },
+        }
+
+    mode = pick_ground_mode(d, region)
+    g = estimate_ground(d, mode, region)
+    return {"possible": True, "mode": mode, "hours": g["hours"], "cost": g["cost"],
+            "distance_km": round(d, 1), "notes": f"final leg: ~{int(d)}km {mode}"}
+
+
 # --------------------------------------------------------------------------- self-test
 def selftest():
     fails = []
@@ -1365,6 +1430,26 @@ def selftest():
           "(hub 3), not hub 1",
           by_iata("WSI")["name"] == "Western Sydney International Airport"
           and by_iata("WSI")["hub"] == 3)
+
+    # ---- the last-mile leg: an airport is a proxy for the place someone actually asked about,
+    # not the place itself.
+    brn = by_iata("BRN")
+    interlaken = final_leg(brn, 46.6855, 7.8585)   # Interlaken town, ~40km/1h from BRN
+    check(f"Interlaken final leg from BRN is possible and priced (got {interlaken})",
+          interlaken is not None and interlaken["possible"]
+          and interlaken["cost"] > 0 and interlaken["hours"] > 0)
+    ase = by_iata("ASE")
+    check("a click on the airport's own town (<=12km) needs no final leg",
+          final_leg(ase, 39.19, -106.82) is None)
+    her = by_iata("HER")
+    santorini_click = final_leg(her, 36.3932, 25.4615)   # Santorini (Fira), real ferry from Heraklion
+    check(f"a real ferry corridor covers a genuine island final leg (got {santorini_click})",
+          santorini_click is not None and santorini_click["possible"]
+          and santorini_click.get("ferry") is not None)
+    ogg = by_iata("OGG")   # Maui - the inter-island Honolulu ferry shut down in 2009
+    honolulu_click = final_leg(ogg, 21.3069, -157.8583)   # downtown Honolulu, Oahu
+    check("an island final leg with no real corridor and no land route is honestly impossible",
+          honolulu_click == {"possible": False})
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (geo checks)")
     return 1 if fails else 0

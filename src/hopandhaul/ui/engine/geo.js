@@ -813,3 +813,55 @@ export function discoverGateways(dest, origin = null, { maxGroundH = 6.0, maxGat
   }
   return result.slice(0, maxGateways);
 }
+
+// --------------------------------------------------------------------------- the last-mile leg
+// mirrors geo.final_leg(): discoverGateways()/estimateFlight() both stop at an AIRPORT. The
+// last hop onward to the actual clicked/searched point gets the same real-ferry-first, then
+// plain-overland, then honestly-impossible treatment discoverGateways() already gives a gateway
+// leg - see the matching comment in geo.py.
+export const FINAL_LEG_MIN_KM = 12.0;
+
+export function finalLeg(destAirport, lat, lng) {
+  const d = haversineKm(destAirport.lat, destAirport.lng, lat, lng);
+  if (d <= FINAL_LEG_MIN_KM) return null;
+  const place = { iata: "", lat, lng };
+  const region = regionOf(lat, lng);
+
+  const corridor = ferryCorridorFor(destAirport, place);
+  const usable = corridor !== null
+    && (corridor.frequency_per_day || 0) >= MIN_FERRY_FREQ_PER_DAY;
+  let ferry = null;
+  if (usable && corridor.crossing_km >= CROSSING_DOMINANT * d) {
+    ferry = corridor;
+  } else if (landmassOf(destAirport) !== landmassOf(place)) {
+    if (!usable) return { possible: false };
+    ferry = corridor;
+  } else if (seaGap(destAirport, place)) {
+    return { possible: false };
+  }
+
+  if (ferry) {
+    const leg = ferryLegFromCorridor(ferry, region);
+    return {
+      possible: true, mode: "ferry", hours: leg.hours, cost: leg.cost,
+      distance_km: pyRound(d, 1), notes: _ferryNote(ferry),
+      ferry: {
+        id: ferry.id, name: ferry.name, operators: ferry.operators || [],
+        duration_h: ferry.duration_h, frequency_per_day: ferry.frequency_per_day ?? null,
+        seasonal: Boolean(ferry.seasonal), price_usd_lo: ferry.price_usd_lo ?? null,
+        price_usd_hi: ferry.price_usd_hi ?? null, price_asof: ferry.price_asof ?? null,
+        port_a: ferry.a_port.name, port_b: ferry.b_port.name,
+        crossing_km: leg.crossing_km, fare_usd: leg.fare_usd,
+        fare_is_real: leg.fare_is_real, access_cost: leg.access_cost,
+        access_hours: leg.access_hours,
+      },
+    };
+  }
+
+  const mode = pickGroundMode(d, region);
+  const g = estimateGround(d, mode, region);
+  return {
+    possible: true, mode: g.mode, hours: g.hours, cost: g.cost,
+    distance_km: pyRound(d, 1), notes: `final leg: ~${Math.trunc(d)}km ${mode}`,
+  };
+}

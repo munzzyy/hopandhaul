@@ -49,12 +49,20 @@ function airportLabel(a) {
   return { iata: a?.iata ?? null, name: a?.name ?? null, city: a?.city ?? null };
 }
 
+/** Build a structured {key, params} note - mirrors itinerary.note() (Python). */
+function note(key, params = {}) {
+  return { key, params };
+}
+
 // --------------------------------------------------------------------------- verify links
 /** Deep link to check a flight leg's price against reality.
- * Format: https://www.google.com/travel/flights?q=Flights+from+XXX+to+YYY+on+YYYY-MM-DD */
-export function googleFlightsLink(originIata, destIata, date = null) {
+ * Format: https://www.google.com/travel/flights?q=Flights+from+XXX+to+YYY+on+YYYY-MM-DD, or
+ * "...on YYYY-MM-DD through YYYY-MM-DD" for a round trip - mirrors itinerary.google_flights_link.
+ * returnDate is ignored unless date is also given. */
+export function googleFlightsLink(originIata, destIata, date = null, returnDate = null) {
   let q = `Flights from ${originIata} to ${destIata}`;
-  if (date) q += ` on ${date}`;
+  if (date && returnDate) q += ` on ${date} through ${returnDate}`;
+  else if (date) q += ` on ${date}`;
   return "https://www.google.com/travel/flights?" + new URLSearchParams({ q }).toString();
 }
 
@@ -88,8 +96,8 @@ export function rome2rioLink(fromPlace, toPlace) {
   return `https://www.rome2rio.com/map/${slug(fromPlace)}/${slug(toPlace)}`;
 }
 
-export function verifyLink(mode, origin, dest, date = null) {
-  if (FLIGHT_MODES.has(mode)) return googleFlightsLink(origin.iata, dest.iata, date);
+export function verifyLink(mode, origin, dest, date = null, returnDate = null) {
+  if (FLIGHT_MODES.has(mode)) return googleFlightsLink(origin.iata, dest.iata, date, returnDate);
   const fromPlace = origin.city || origin.name || origin.iata;
   const toPlace = dest.city || dest.name || dest.iata;
   return rome2rioLink(fromPlace, toPlace);
@@ -232,6 +240,9 @@ export function buildTimeline(legs, {
       is_live: false,
       carrier: null,
       flight_number: null,
+      // mirrors itinerary.build_timeline(): the option's own fare narrative already assumed a
+      // connection to price this leg - say so instead of implying nonstop from a single arc.
+      label: leg.likely_connection ? note("notes.legLikelyConnecting") : null,
     });
     clockMin = arriveMin;
   });
@@ -267,6 +278,9 @@ function liveSegmentsToRows(leg, segments, date, addCheckin, airportBufferH) {
       is_live: true,
       carrier: seg.carrier ?? null,
       flight_number: seg.flight_number ?? null,
+      // a live leg's real segment count already shows a genuine connection; "likely
+      // connecting" is for the ESTIMATE path only.
+      label: null,
     });
     lastArriveMin = arrDay * 1440 + hhmmToMin(hhmm(arrDt));
   });

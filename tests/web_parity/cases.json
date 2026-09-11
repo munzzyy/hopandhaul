@@ -1725,5 +1725,51 @@
       "origin_iata": "JFK",
       "travelers": 5
     }
+  },
+  {
+    "name": "fix8_last_mile_leg_interlaken",
+    "type": "plan",
+    "params": {
+      "dest_lat": 46.6855,
+      "dest_lng": 7.8585,
+      "origin_iata": "LHR"
+    }
+  },
+  {
+    "name": "fix9_no_final_leg_control_aspen_airport",
+    "type": "plan",
+    "params": {
+      "dest_lat": 39.223,
+      "dest_lng": -106.869,
+      "origin_iata": "JFK"
+    }
+  },
+  {
+    "name": "fix10_final_leg_ferry_waiheke",
+    "type": "plan",
+    "params": {
+      "dest_lat": -36.795,
+      "dest_lng": 175.048,
+      "origin_iata": "LAX"
+    }
+  },
+  {
+    "name": "fix11_jtr_nyc_origin_side_split",
+    "type": "plan",
+    "params": {
+      "dest_lat": 40.6413,
+      "dest_lng": -73.7781,
+      "origin_iata": "JTR",
+      "threshold": 5
+    }
+  },
+  {
+    "name": "fix12_origin_split_control_big_hub",
+    "type": "plan",
+    "params": {
+      "dest_lat": 39.7392,
+      "dest_lng": -104.9903,
+      "origin_iata": "ORD"
+    }
   }
 ]

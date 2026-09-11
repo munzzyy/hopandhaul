@@ -179,6 +179,19 @@ def price_leg(origin: dict, dest: dict, *, travelers: int = 1,
             f"{name} | fly {fly_cost} {gf['hours']} ; "
             f"{g['ground_mode']} {ground_cost} {g['ground_hours']}"))
 
+    # origin-side splits: the same call, roles swapped - "gateways near ORIGIN, excluding dest
+    # from candidacy" (see server.py's plan() for the fuller explanation). Without this, a leg
+    # departing a remote/expensive airport (a Santorini stop's return-home hop) was priced
+    # direct-only even when grounding to a real hub first and flying from there was cheaper.
+    for g in geo.discover_gateways(origin, origin=dest, max_ground_h=max_ground_h):
+        gf = geo.estimate_flight(g, dest)
+        fly_cost = round(gf["price"] * max(1, travelers), 2)
+        ground_cost = trip.scale_leg_cost(g["ground_mode"], g["ground_cost"], travelers)
+        name = f"{g['ground_mode']} to {g['iata']} + fly"
+        options.append(trip.parse_option(
+            f"{name} | {g['ground_mode']} {ground_cost} {g['ground_hours']} ; "
+            f"fly {fly_cost} {gf['hours']}"))
+
     res = trip.evaluate(options, threshold=threshold, vot=vot,
                         transfer_buffer=transfer_buffer, travelers=travelers)
     rec = next(o for o in res["options"] if o["name"] == res["recommended"])

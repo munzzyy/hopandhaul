@@ -74,23 +74,41 @@ function estimateNote(date, ctx) {
 }
 
 /** itinerary.js leg spec for a flight leg - mirrors server.py's _flight_leg_spec(), estimate
- * branch only (the Pages build never has a live provider). */
-function flightLegSpec(origin, dest, f, cost, date) {
+ * branch only (the Pages build never has a live provider). `ret` is the return date, when this
+ * fare covers a real round trip - only ever changes the verify link. */
+function flightLegSpec(origin, dest, f, cost, date, ret = null) {
   return {
     mode: "fly", cost: pyRound(cost, 2), hours: f.hours, from: origin, to: dest,
     price_basis: itinerary.flightProvenanceEstimate(f.estimate_detail, date),
-    verify_url: itinerary.verifyLink("fly", origin, dest, date),
+    verify_url: itinerary.verifyLink("fly", origin, dest, date, ret),
     is_live: false, segments: null,
+    likely_connection: Boolean(f.estimate_detail && f.estimate_detail.likely_connection),
   };
 }
 
 /** itinerary.js leg spec for a ground leg - mirrors server.py's _ground_leg_spec(); ground legs
- * are always an estimate (see README: no free, open multimodal fares API worth calling here). */
-function groundLegSpec(g, dest, cost, roadKm) {
+ * are always an estimate (see README: no free, open multimodal fares API worth calling here).
+ * `frm` overrides the leg's own start point when it isn't `g` itself (an origin-side split's
+ * ground leg runs origin -> g, not g -> dest). */
+function groundLegSpec(g, dest, cost, roadKm, frm = null) {
+  const originPt = frm ?? g;
   return {
-    mode: g.ground_mode, cost: pyRound(cost, 2), hours: g.ground_hours, from: g, to: dest,
+    mode: g.ground_mode, cost: pyRound(cost, 2), hours: g.ground_hours, from: originPt, to: dest,
     price_basis: itinerary.groundProvenance(g, roadKm),
-    verify_url: itinerary.verifyLink(g.ground_mode, g, dest),
+    verify_url: itinerary.verifyLink(g.ground_mode, originPt, dest),
+    is_live: false, segments: null,
+  };
+}
+
+/** itinerary.js leg spec for the last-mile leg from the resolved destination AIRPORT onward to
+ * the actual clicked/searched point - mirrors server.py's _final_leg_spec(). */
+function finalLegSpec(dest, place, final, cost) {
+  const gwLike = { ground_mode: final.mode, ferry: final.ferry ?? null, source: "auto",
+    notes: final.notes || "" };
+  return {
+    mode: final.mode, cost: pyRound(cost, 2), hours: final.hours, from: dest, to: place,
+    price_basis: itinerary.groundProvenance(gwLike, final.distance_km),
+    verify_url: itinerary.verifyLink(final.mode, dest, place),
     is_live: false, segments: null,
   };
 }
@@ -156,13 +174,16 @@ export function plan({
   const rtMult = roundtrip ? 2 : 1;
 
   const gws = geo.discoverGateways(dest, origin, { maxGroundH });
+  // Origin-side splits: the SAME call, roles swapped - mirrors server.py's plan(). A major-hub
+  // origin naturally yields nothing here (discoverGateways gates on the FIRST arg's hub tier).
+  const originGws = geo.discoverGateways(origin, dest, { maxGroundH });
 
   // Live-schedule injection (browser twin of server.py's Transitous enrichment): api.js runs
   // this plan once offline, fetches real timetables for the gateway legs it found, then runs
   // it again with the results - a real door-to-door time replaces the leg's formula duration
   // before ranking. Never set by the parity harness, so the offline contract is untouched.
   if (transitByIata) {
-    for (const g of gws) {
+    for (const g of [...gws, ...originGws]) {
       const tr = transitByIata[g.iata];
       if (tr) {
         g.transit = tr;
@@ -171,9 +192,13 @@ export function plan({
     }
   }
 
-  const flightTargets = [dest, ...gws];
+  // flight leg pairs: direct, each dest-side gateway (origin -> g), each origin-side gateway
+  // (g -> dest) - the last group flies the OPPOSITE direction from the other two.
+  const flightPairs = [
+    [origin, dest], ...gws.map((g) => [origin, g]), ...originGws.map((g) => [g, dest]),
+  ];
   const ctx = {};
-  const priced = flightTargets.map((t) => priceFlightEstimate(origin, t, date, ret, travelers, ctx));
+  const priced = flightPairs.map(([frm, to]) => priceFlightEstimate(frm, to, date, ret, travelers, ctx));
 
   const options = [];
   const geoByName = {};
@@ -185,17 +210,46 @@ export function plan({
     return f.price;
   }
 
+  // The last-mile leg: geo.finalLeg() prices the honest last hop from the resolved destination
+  // AIRPORT onward to the actual clicked/searched point. Computed once and appended to EVERY
+  // option below (including the direct-flight baseline) - mirrors server.py's plan().
+  const final = geo.finalLeg(dest, destLat, destLng);
+  const finalPlace = {
+    iata: "", name: `${destLat.toFixed(4)}, ${destLng.toFixed(4)}`, city: null,
+    lat: destLat, lng: destLng, hub: 3,
+  };
+  let finalSuffix = "";
+  let finalGeoEntry = null;
+  let finalEmissionsEntry = null;
+  let finalLegSpecRow = null;
+  if (final && final.possible) {
+    const finalCost = trip.scaleLegCost(final.mode, final.cost, travelers) * rtMult;
+    finalSuffix = ` ; ${final.mode} ${finalCost} ${final.hours}`;
+    finalGeoEntry = { type: "ground", mode: final.mode, from: pt(dest), to: pt(finalPlace) };
+    const finalDistKm = (final.ferry ? final.ferry.crossing_km : final.distance_km) * rtMult;
+    finalEmissionsEntry = { mode: final.mode, road_km: finalDistKm };
+    finalLegSpecRow = finalLegSpec(dest, finalPlace, final, finalCost);
+  }
+  function appendFinal(name) {
+    if (finalGeoEntry) {
+      geoByName[name].push(finalGeoEntry);
+      emissionsLegsByName[name].push(finalEmissionsEntry);
+      legSpecsByName[name].push(finalLegSpecRow);
+    }
+  }
+
   // direct
   const df = priced[0];
   const directName = `Fly direct to ${dest.iata}`;
   const directCost = flightCost(df);
-  options.push(trip.parseOption(`${directName} | fly ${directCost} ${df.hours}`));
+  options.push(trip.parseOption(`${directName} | fly ${directCost} ${df.hours}${finalSuffix}`));
   geoByName[directName] = [{ type: "flight", from: pt(origin), to: pt(dest) }];
-  legSpecsByName[directName] = [flightLegSpec(origin, dest, df, directCost, date)];
+  legSpecsByName[directName] = [flightLegSpec(origin, dest, df, directCost, date, ret)];
   const directKm = geo.haversineKm(origin.lat, origin.lng, dest.lat, dest.lng) * rtMult;
   emissionsLegsByName[directName] = [{ mode: "fly", distance_km: directKm }];
+  appendFinal(directName);
 
-  // splits (fly to a cheaper hub, then ground it)
+  // dest-side splits (fly to a cheaper hub near the DESTINATION, then ground it)
   gws.forEach((g, i) => {
     const gf = priced[i + 1];
     const groundCost = trip.scaleLegCost(g.ground_mode, g.ground_cost, travelers) * rtMult;
@@ -209,7 +263,7 @@ export function plan({
     // a same-airport "flight" entirely (no invented fare on top of the real bus/train).
     if (g.iata === origin.iata) {
       const name = `${g.ground_mode.charAt(0).toUpperCase()}${g.ground_mode.slice(1)} only from ${origin.iata}`;
-      options.push(trip.parseOption(`${name} | ${g.ground_mode} ${groundCost} ${g.ground_hours}`));
+      options.push(trip.parseOption(`${name} | ${g.ground_mode} ${groundCost} ${g.ground_hours}${finalSuffix}`));
       geoByName[name] = [
         { type: "ground", mode: g.ground_mode, from: pt(origin), to: pt(dest) },
       ];
@@ -217,13 +271,14 @@ export function plan({
       legSpecsByName[name] = [
         groundLegSpec(g, dest, groundCost, groundKm / Math.max(rtMult, 1)),
       ];
+      appendFinal(name);
       return;
     }
     g.fly = gf;
     const flyCost = flightCost(gf);
     const name = `${g.iata} + ${g.ground_mode}`;
     options.push(trip.parseOption(
-      `${name} | fly ${flyCost} ${gf.hours} ; ${g.ground_mode} ${groundCost} ${g.ground_hours}`,
+      `${name} | fly ${flyCost} ${gf.hours} ; ${g.ground_mode} ${groundCost} ${g.ground_hours}${finalSuffix}`,
     ));
     geoByName[name] = [
       { type: "flight", from: pt(origin), to: pt(g) },
@@ -235,9 +290,40 @@ export function plan({
       { mode: g.ground_mode, road_km: groundKm },
     ];
     legSpecsByName[name] = [
-      flightLegSpec(origin, g, gf, flyCost, date),
+      flightLegSpec(origin, g, gf, flyCost, date, ret),
       groundLegSpec(g, dest, groundCost, groundKm / Math.max(rtMult, 1)),
     ];
+    appendFinal(name);
+  });
+
+  // origin-side splits (ground it from ORIGIN to a better-connected hub near origin, then fly
+  // from there to dest) - mirrors server.py's plan(). Single-sided only: never combined with a
+  // dest-side split in the same option.
+  originGws.forEach((g, i) => {
+    const gf = priced[1 + gws.length + i];
+    const groundCost = trip.scaleLegCost(g.ground_mode, g.ground_cost, travelers) * rtMult;
+    const groundKm = g.ferry
+      ? g.ferry.crossing_km * rtMult
+      : geo.haversineKm(origin.lat, origin.lng, g.lat, g.lng) * geo.ROAD_WINDING * rtMult;
+    const flyCost = flightCost(gf);
+    const name = `${g.ground_mode.charAt(0).toUpperCase()}${g.ground_mode.slice(1)} to ${g.iata} + fly`;
+    options.push(trip.parseOption(
+      `${name} | ${g.ground_mode} ${groundCost} ${g.ground_hours} ; fly ${flyCost} ${gf.hours}${finalSuffix}`,
+    ));
+    geoByName[name] = [
+      { type: "ground", mode: g.ground_mode, from: pt(origin), to: pt(g) },
+      { type: "flight", from: pt(g), to: pt(dest) },
+    ];
+    const flyKm = geo.haversineKm(g.lat, g.lng, dest.lat, dest.lng) * rtMult;
+    emissionsLegsByName[name] = [
+      { mode: g.ground_mode, road_km: groundKm },
+      { mode: "fly", distance_km: flyKm },
+    ];
+    legSpecsByName[name] = [
+      groundLegSpec(g, g, groundCost, groundKm / Math.max(rtMult, 1), origin),
+      flightLegSpec(g, dest, gf, flyCost, date, ret),
+    ];
+    appendFinal(name);
   });
 
   const res = trip.evaluate(options, { threshold, vot, transferBuffer, travelers });
@@ -272,13 +358,17 @@ export function plan({
       notes.push(note("notes.roundtripEstimated2x"));
     }
   }
-  if (gws.some((g) => g.ferry)) {
+  if ([...gws, ...originGws].some((g) => g.ferry)) {
     notes.push(note("notes.ferryRealCorridor"));
   }
-  if (gws.some((g) => g.transit)) {
+  if ([...gws, ...originGws].some((g) => g.transit)) {
     notes.push(note("notes.transitLiveSchedule"));
   }
-  if ((dest.dist_km || 0) > 120) {
+  if (final && final.possible) {
+    notes.push(note("notes.finalLeg", {
+      mode: final.mode, iata: dest.iata, km: Math.round(final.distance_km),
+    }));
+  } else if ((dest.dist_km || 0) > 120) {
     notes.push(note("notes.lastMileGap", { iata: dest.iata, km: Math.trunc(dest.dist_km) }));
   }
   notes.push(note("notes.co2eEstimate"));
@@ -295,6 +385,7 @@ export function plan({
     origin: pt(origin, true),
     dest: { ...pt(dest, true), dist_km: dest.dist_km ?? null, click: { lat: destLat, lng: destLng } },
     gateways: gws.map(gw),
+    origin_gateways: originGws.map(gw),
     direct: df,
     result: clean,
     weather: null, // no OpenWeather key on Pages - the UI already treats a null weather block as "no data"
