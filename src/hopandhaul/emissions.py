@@ -127,6 +127,8 @@ def co2e_for_option(legs: list[dict], travelers: int = 1, with_rf: bool = False)
 
 # --------------------------------------------------------------------------- self-test
 def selftest():
+    from hopandhaul import trip as _trip
+    _trip._force_utf8()  # Windows consoles default to cp1252; engine output prints arrows
     fails = []
 
     def check(name, cond):

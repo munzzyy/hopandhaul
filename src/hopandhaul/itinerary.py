@@ -503,6 +503,8 @@ def _live_segments_to_rows(leg: dict, segments: list[dict], date: str | None,
 
 # --------------------------------------------------------------------------- self-test
 def selftest() -> int:
+    from hopandhaul import trip as _trip
+    _trip._force_utf8()  # Windows consoles default to cp1252; engine output prints arrows
     fails = []
 
     def check(name, cond):

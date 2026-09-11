@@ -124,6 +124,8 @@ def main(argv=None):
 
 # --------------------------------------------------------------------------- self-test (offline)
 def selftest() -> int:
+    from hopandhaul import trip as _trip
+    _trip._force_utf8()  # Windows consoles default to cp1252; engine output prints arrows
     fails = []
 
     def check(name, cond):

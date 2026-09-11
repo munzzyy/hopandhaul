@@ -1164,6 +1164,8 @@ def final_leg(dest_airport: dict, lat: float, lng: float) -> dict | None:
 
 # --------------------------------------------------------------------------- self-test
 def selftest():
+    from hopandhaul import trip as _trip
+    _trip._force_utf8()  # Windows consoles default to cp1252; engine output prints arrows
     fails = []
 
     def check(name, cond):
