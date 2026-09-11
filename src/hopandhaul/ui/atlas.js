@@ -57,13 +57,27 @@ export const Atlas = L.GridLayer.extend({
   },
 
   /** Every path in a layer, projected once per tier and memoized - re-run only when the
-   * geometry first arrives, never per tile or per zoom. */
+   * geometry first arrives, never per tile or per zoom. Each path carries its projected bbox
+   * so createTile can cull on rectangle overlap. Culling on "has a vertex near this tile"
+   * instead is wrong twice over: a tile can sit entirely inside a big polygon (interior US,
+   * Siberia, the Sahara) with no coastline vertex anywhere near it, and a long simplified
+   * segment can cross a tile with both endpoints far away - both must still be drawn. */
   _tier(z) {
     const tier = z < FINE_MIN_ZOOM ? "coarse" : "fine";
     if (!this._raw) return null;
     if (!this._projected[tier]) {
       const src = this._raw[tier];
-      const proj = (layer) => (src[layer] || []).map((path) => path.map(([lng, lat]) => project(lng, lat)));
+      const proj = (layer) => (src[layer] || []).map((path) => {
+        const pts = path.map(([lng, lat]) => project(lng, lat));
+        let minX = 1, minY = 1, maxX = 0, maxY = 0;
+        for (const [x, y] of pts) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+        return { pts, minX, minY, maxX, maxY };
+      });
       this._projected[tier] = { land: proj("land"), lakes: proj("lakes"), borders: proj("borders") };
     }
     return this._projected[tier];
@@ -81,7 +95,19 @@ export const Atlas = L.GridLayer.extend({
     const originY = coords.y * this.options.tileSize;
     const bleed = 4; // px of slop past the tile edge so a stroke/fill never visibly seams
 
-    const toPx = (p) => [p[0] * scale - originX, p[1] * scale - originY];
+    // Coordinates are clamped: past ~2^25 canvas path math loses precision, and at high zoom
+    // a continent ring's far side is hundreds of millions of tile-pixels away. Clamping a far
+    // vertex to a box this much bigger than the tile can't move any drawn edge visibly.
+    const CLAMP = 1e6;
+    const toPx = (p) => [
+      Math.max(-CLAMP, Math.min(CLAMP, p[0] * scale - originX)),
+      Math.max(-CLAMP, Math.min(CLAMP, p[1] * scale - originY)),
+    ];
+    // Tile rect in the normalized [0,1) world the cached bboxes live in.
+    const view = {
+      minX: (originX - bleed) / scale, maxX: (originX + this.options.tileSize + bleed) / scale,
+      minY: (originY - bleed) / scale, maxY: (originY + this.options.tileSize + bleed) / scale,
+    };
 
     const water = cssVar("--map-water", "#8fb8c9");
     const land = cssVar("--map-land", "#d8d2bf");
@@ -94,49 +120,51 @@ export const Atlas = L.GridLayer.extend({
 
     if (graticule) drawGraticule(ctx, scale, originX, originY, tile.width, tile.height, graticule);
 
-    fillPaths(ctx, data.land, toPx, bleed, tile.width, tile.height, land, coast);
-    fillPaths(ctx, data.lakes, toPx, bleed, tile.width, tile.height, water, coast, 0.6);
-    strokePaths(ctx, data.borders, toPx, bleed, tile.width, tile.height, border);
+    fillPaths(ctx, data.land, toPx, view, land, coast);
+    fillPaths(ctx, data.lakes, toPx, view, water, coast, 0.6);
+    strokePaths(ctx, data.borders, toPx, view, border);
 
     return tile;
   },
 });
 
-/** Cheap tile-local bbox test so a path with zero points anywhere near this tile (the vast
- * majority, at any real zoom) never even reaches the canvas API. */
-function pathNearTile(pxPath, w, h, bleed) {
-  for (const [x, y] of pxPath) {
-    if (x >= -bleed && x <= w + bleed && y >= -bleed && y <= h + bleed) return true;
-  }
-  return false;
+/** Bbox-overlap cull. Overlap, not vertex-in-tile: a polygon that fully CONTAINS the tile
+ * still overlaps, and drawing it fills the whole tile - which is exactly right for a tile
+ * deep inside a continent. Only a path whose bbox is disjoint from the tile can be skipped. */
+function pathTouches(p, view) {
+  return p.maxX >= view.minX && p.minX <= view.maxX && p.maxY >= view.minY && p.minY <= view.maxY;
 }
 
-function fillPaths(ctx, paths, toPx, bleed, w, h, fill, stroke, strokeWidth = 1) {
+function fillPaths(ctx, paths, toPx, view, fill, stroke, strokeWidth = 1) {
   ctx.fillStyle = fill;
   ctx.strokeStyle = stroke;
   ctx.lineWidth = strokeWidth;
   ctx.lineJoin = "round";
   for (const path of paths) {
-    const px = path.map(toPx);
-    if (!pathNearTile(px, w, h, bleed)) continue;
+    if (!pathTouches(path, view)) continue;
     ctx.beginPath();
-    px.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+    path.pts.forEach((p, i) => {
+      const [x, y] = toPx(p);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
     ctx.closePath();
     ctx.fill();
     if (strokeWidth > 0) ctx.stroke();
   }
 }
 
-function strokePaths(ctx, paths, toPx, bleed, w, h, color) {
+function strokePaths(ctx, paths, toPx, view, color) {
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 3]);
   ctx.lineJoin = "round";
   for (const path of paths) {
-    const px = path.map(toPx);
-    if (!pathNearTile(px, w, h, bleed)) continue;
+    if (!pathTouches(path, view)) continue;
     ctx.beginPath();
-    px.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+    path.pts.forEach((p, i) => {
+      const [x, y] = toPx(p);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
     ctx.stroke();
   }
   ctx.setLineDash([]);
