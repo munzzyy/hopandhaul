@@ -11,7 +11,7 @@ train ride from there is worth it.**
 > **Try it live:** [munzzyy.github.io/hopandhaul](https://munzzyy.github.io/hopandhaul/).
 > No install, no keys, runs entirely in your browser.
 
-![Click a destination and the recommendation card answers with the math: cost, time, CO2 per option, the $200 rule applied](docs/media/app-dark.png)
+![Click a destination and the recommendation card answers with the math: cost, time, CO2 per option, the $200 rule applied, on a self-drawn offline map](docs/media/app-dark.png)
 
 Click anywhere on the map and a recommendation card slides in: cost, time, and a CO2
 estimate for every option side by side. A copy-link button turns the plan into a URL you
@@ -101,21 +101,21 @@ hopandhaul multicity --home JFK --visit "Aspen,Boston,Chicago" --threshold 50
 ```
 
 ```
-MULTI-CITY TOUR: JFK -> ASE -> ORD -> BOS -> JFK
+MULTI-CITY TOUR: JFK -> BOS -> ORD -> ASE -> JFK
 round trip, 4 stops, solved via held-karp (exact)
 
 ITINERARY:
-  1. JFK -> ASE     $215    9h54  multimodal (fly $140 + bus $75)
-  2. ASE -> ORD     $170    3h06  direct     (fly $170)
-  3. ORD -> BOS     $105    3h06  direct     (fly $105)
-  4. BOS -> JFK      $70    1h30  direct     (fly $70)
+  1. JFK -> BOS      $70    1h30  direct     (fly $70)
+  2. BOS -> ORD     $105    3h06  direct     (fly $105)
+  3. ORD -> ASE     $139    8h36  multimodal (fly $105 + bus $34)
+  4. ASE -> JFK     $174    9h54  multimodal (bus $34 + fly $140)
 
-TOTAL: $560 across 4 legs
+TOTAL: $488 across 4 legs
 ```
 
-That first leg is the point: at a $50 threshold, flying into Denver and taking a bus the
-rest of the way to Aspen beats a direct flight, so the tour routes through DEN instead of
-pricing every leg as a straight flight. `--open` ends the tour at the last stop instead of
+Those Aspen legs are the point: at a $50 threshold, flying into Denver and taking the posted
+$34 Bustang fare the rest of the way beats a direct flight, so the tour routes through DEN
+instead of pricing every leg as a straight flight. `--open` ends the tour at the last stop instead of
 looping back home, and `--travelers N` scales group costs the same way the rest of the
 engine does. Up to about 9 cities it solves exactly (Held-Karp); past that it switches to a
 nearest-neighbor-plus-2-opt heuristic and says so in the output.
@@ -186,9 +186,14 @@ More of this tool is real data than you'd guess for something with zero keys:
   on those legs are still estimates, because schedules are open data and ticket prices mostly aren't.
 - **US fares are anchored to what passengers actually paid.** The bundled
   [BTS Consumer Airfare Report](https://data.transportation.gov/d/yj5y-b2ir) extract (public
-  domain) carries real average fares for ~4,100 US city-pair markets; the model is clamped
-  into each route's real band, and the itinerary shows the real market numbers next to the
-  estimate.
+  domain, currently 2025Q2-2026Q1) carries real average fares for ~4,100 US city-pair markets;
+  the model is clamped into each route's real band, and the itinerary shows the real market
+  numbers next to the estimate.
+- **The base map is self-drawn, not fetched.** Land, lakes, and borders are rasterized from
+  bundled Natural Earth 1:50m geometry, themed to match whichever of the 8 UI themes is active,
+  with zero tile requests and no watermark. An opt-in "detailed map" layer streams real
+  OpenStreetMap raster tiles once you turn it on, and falls back to the drawn map automatically
+  if that connection drops.
 - **Live airfares (Duffel)**: actual priced itineraries when you set `DUFFEL_API_KEY`: real
   carrier, flight number, and clock times, labeled "live" instead of "example." No key falls
   back to the labeled estimate automatically. (The old Amadeus fallback is gone: Amadeus shut
@@ -197,6 +202,10 @@ More of this tool is real data than you'd guess for something with zero keys:
   competition, airport size, booking date) calibrated against real fares. Every estimate says
   so: `"pricing_source": "estimate"` in the API, plain English in the UI, per-leg provenance
   in the itinerary. It's a model, not a promise; verify before booking.
+- **The last mile is priced too, not assumed away.** An airport is a stand-in for the place you
+  actually clicked; when the two are more than 12km apart, every option (the direct flight
+  included) prices a real final ground leg from the airport onward to that point. Where no
+  honest way to cross the gap exists, the tool says so instead of inventing one.
 - **Weather ([Open-Meteo](https://open-meteo.com))** and **place search
   ([Photon](https://photon.komoot.io))** are real, live, and keyless. A Geoapify key upgrades
   search to full address-level geocoding if you want it.
@@ -218,11 +227,21 @@ More of this tool is real data than you'd guess for something with zero keys:
   fly, live-priced when a Duffel key is set, labeled per date so you know which
 - Deterministic split-vs-direct engine with the $200 rule (configurable threshold and value
   of time)
-- Group-aware costs (per-person fares scale by travelers; a rental car doesn't)
+- Group-aware costs (per-person fares scale by travelers; a rental car scales per-vehicle
+  instead, `ceil(travelers / 4)` cars, priced and said so)
 - Round-trip aware (real return pricing when the provider supports it, a stated estimate
   otherwise)
-- Gateway discovery: curated hub suggestions plus geometric fallback search, worldwide
-- Click-anywhere map UI (Leaflet self-hosted; map tiles stream from CARTO's servers)
+- Gateway discovery: curated hub suggestions plus geometric fallback search, worldwide, on
+  both ends of the trip (a remote or expensive origin gets split options too, not just the
+  destination)
+- Every option prices the actual point you clicked, not just the airport: a final ground leg
+  covers the gap when your destination is meaningfully far from its airport
+- Click-anywhere map UI (Leaflet self-hosted; the base map is drawn from bundled Natural Earth
+  geometry, zero tile servers, works fully offline; an opt-in "detailed map" layer streams real
+  OpenStreetMap tiles only once you turn it on)
+- An Online/Offline status chip next to the pricing badge (Auto/Online/Offline) tells you
+  plainly what the app is allowed to reach; offline mode skips every external request and
+  sticks to bundled data
 - UI in 46 languages, four of them fully right-to-left, behind a hand-rolled i18n runtime
   instead of a framework. Pick yours from the globe button
 - Eight themes plus Auto, picked from the header: Departure Board, Boarding Pass, Night
@@ -248,11 +267,12 @@ instead of breaking.
 Native speaker and you spot something off? A translation fix in
 `src/hopandhaul/ui/i18n/<code>.json` is about the friendliest PR there is.
 
-The language switches; the money doesn't, yet. The web UI still quotes every price in USD
-no matter which of the 46 languages it's showing. The CLI commands (`go`, `duffel`,
-`multicity`, `dates`) already take `--currency EUR` (or GBP, JPY, INR, and most other
-world currencies) to print the report in that currency instead - the $200 rule and every
-internal comparison stay in USD, only the final printed number changes:
+The web UI has its own display-currency selector now (USD by default): live daily ECB rates
+from [frankfurter.dev](https://frankfurter.dev) when the app is online, a bundled approximate
+table offline, labeled which one is in use. The CLI commands (`go`, `duffel`, `multicity`,
+`dates`) take the same idea as `--currency EUR` (or GBP, JPY, INR, and most other world
+currencies) to print the report in that currency instead. Either way, the $200 rule and every
+internal comparison stay in USD; only the final printed number changes:
 
 ```
 hopandhaul go JFK "Tallinn" --date 2027-06-15 --currency EUR
@@ -262,8 +282,9 @@ hopandhaul go JFK "Tallinn" --date 2027-06-15 --currency EUR
 
 - `trip.py`: the $200-rule math. Given a set of priced options, decides what to recommend and
   why.
-- `geo.py`: the estimation model. Nearest airport, gateway discovery, and the distance-based
-  fare/ground formulas.
+- `geo.py`: the estimation model. Nearest airport, gateway discovery run symmetrically on both
+  origin and destination (so a remote/expensive origin gets split options too), the final-leg
+  ground calculation for the actual clicked point, and the distance-based fare/ground formulas.
 - `itinerary.py`: turns a priced option into a leg-by-leg timeline with real airport names, an
   example (or, with a live fare, real) clock schedule, per-leg price provenance, and a verify
   link. No invented flight numbers, no fake departure-time precision, no pretending a
@@ -280,9 +301,26 @@ hopandhaul go JFK "Tallinn" --date 2027-06-15 --currency EUR
   small city counts; nearest-neighbor + 2-opt above that) over a cost matrix built by pricing
   every leg through `geo.py`/`trip.py`, the same way `go.py`/`server.py` price one.
 - `server.py`: the stdlib `http.server` app. Serves the UI and the JSON API, nothing else.
+- `ui/atlas.js`: the self-drawn base map, a Leaflet `GridLayer` that paints land, lakes, and
+  borders on a canvas tile from bundled Natural Earth geometry instead of a raster tile
+  server, themed per UI theme. `ui/map.js` layers an opt-in OSM detail tile layer over it,
+  requested only once you turn it on, with an automatic fall back to the drawn map if that
+  connection fails.
+- `ui/connectivity.js` / `ui/netchip.js`: the explicit Auto/Online/Offline mode and its status
+  chip. Offline (forced, or auto-detected via the browser's own online/offline state) gates
+  every external fetch in `ui/api.js`/`ui/transit.js`, so live schedules, extended place
+  search, weather, live FX, and the OSM detail layer honestly announce they need a connection
+  instead of silently retrying.
+- `ui/fx.js`: the web UI's display-currency conversion, mirroring `duffel.py`'s FX table as the
+  offline fallback and upgrading to a live daily ECB rate from frankfurter.dev when online. The
+  $200 rule and all internal math stay USD; this only changes what gets printed.
+- `ui/sw.js`: the PWA service worker. Boots a shared deep link while offline, keeps downloaded
+  language catalogs cached across app updates, and gets its cache name stamped with the commit
+  SHA on every Pages deploy.
 - `data/`: the bundled real-world datasets. 4,175 airports (OurAirports), 85 ferry corridors
-  (researched, sourced per entry), a 0.25° land/water grid (Natural Earth), and real US
-  market fares (BTS). `tools/` has the scripts that regenerate them.
+  (researched, sourced per entry), a 0.25° land/water grid and the basemap geometry (both
+  Natural Earth), and real US market fares (BTS). `tools/` has the scripts that regenerate
+  them.
 
 Every one of these is a plain, readable module you can open and check the reasoning of, not a
 black box. See `docs/api.md` for the exact HTTP contract.
@@ -329,8 +367,8 @@ The bundled datasets and keyless services this tool leans on, with licenses:
 
 - **[OurAirports](https://ourairports.com/data/)**: the 4,175-airport database (public
   domain).
-- **[Natural Earth](https://www.naturalearthdata.com/)**: the land/water grid is rasterized
-  from their 1:50m land polygons (public domain).
+- **[Natural Earth](https://www.naturalearthdata.com/)**: the land/water grid and the
+  self-drawn base map are both rasterized from their 1:50m land polygons (public domain).
 - **[US DOT/BTS Consumer Airfare Report](https://data.transportation.gov/d/yj5y-b2ir)**:
   real US city-pair market fares (US government work, public domain).
 - **Ferry corridors**: researched by hand from operator and aggregator pages; every entry in
@@ -340,10 +378,11 @@ The bundled datasets and keyless services this tool leans on, with licenses:
 - **[Photon](https://photon.komoot.io)** by komoot: keyless geocoding over OpenStreetMap
   data. Map data on both: © OpenStreetMap contributors,
   [ODbL](https://www.openstreetmap.org/copyright).
+- **[OpenStreetMap](https://www.openstreetmap.org/copyright)**: the opt-in "detailed map" raster
+  tile layer you can switch on over the self-drawn base, © OpenStreetMap contributors, ODbL.
 - **[Open-Meteo](https://open-meteo.com)**: weather, CC-BY 4.0, free for non-commercial use.
-- **[frankfurter.dev](https://frankfurter.dev)**: daily ECB exchange rates for converting
-  non-USD live fares; the bundled approximate table is the offline fallback.
-- **[CARTO](https://carto.com/attributions)** basemap tiles © OpenStreetMap contributors.
+- **[frankfurter.dev](https://frankfurter.dev)**: daily ECB exchange rates for the display
+  currency selector (both web and CLI); the bundled approximate table is the offline fallback.
 
 ## Contributing / License / Security
 
