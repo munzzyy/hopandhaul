@@ -81,8 +81,12 @@ export function modeI18nParam(mode) {
  * returnDate is ignored unless date is also given. */
 export function googleFlightsLink(originIata, destIata, date = null, returnDate = null) {
   let q = `Flights from ${originIata} to ${destIata}`;
+  // "one way" matters: without it Google Flights defaults to ROUND TRIP and invents a return
+  // date, so a reader checking a one-way estimate lands on a round-trip fare. Verified live:
+  // both phrasings prefill the exact trip type and dates. Mirrors itinerary.py.
   if (date && returnDate) q += ` on ${date} through ${returnDate}`;
-  else if (date) q += ` on ${date}`;
+  else if (date) q += ` on ${date} one way`;
+  else if (!returnDate) q += " one way";
   return "https://www.google.com/travel/flights?" + new URLSearchParams({ q }).toString();
 }
 
@@ -94,7 +98,9 @@ export function googleFlightsLink(originIata, destIata, date = null, returnDate 
 // on exactly the punctuation real airport city names contain. This reimplements Python's exact
 // safe set instead, so rome2rio_link() output matches _slug() byte for byte (see
 // tests/web_parity/ - this rides inside build_timeline()'s verify_url output).
-const PY_ALWAYS_SAFE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-~";
+// "," included to match itinerary.py's quote(..., safe="-,") - a "lat,lng" endpoint must
+// survive as a literal comma for rome2rio to parse it as coordinates.
+const PY_ALWAYS_SAFE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-~,";
 
 function pyQuote(text) {
   const bytes = new TextEncoder().encode(text);
@@ -107,7 +113,10 @@ function pyQuote(text) {
 }
 
 function slug(text) {
-  return pyQuote(text.trim().replace(/ /g, "-"));
+  // ", " collapses to "," FIRST - hyphenating that space would turn a "lat, lng" or
+  // "City, ST" string into "lat,-lng", which negates a longitude. Mirrors _slug in
+  // itinerary.py, including keeping "," unescaped so both engines emit identical URLs.
+  return pyQuote(text.trim().replace(/, /g, ",").replace(/ /g, "-"));
 }
 
 /** Deep link to check a ground leg's price/time against reality.
@@ -116,10 +125,25 @@ export function rome2rioLink(fromPlace, toPlace) {
   return `https://www.rome2rio.com/map/${slug(fromPlace)}/${slug(toPlace)}`;
 }
 
+/** A Rome2Rio endpoint for a leg's place dict - mirrors itinerary.py's _r2r_place. A
+ * synthesized point (the last-mile destination) has coordinates but no city and no IATA:
+ * link it as "lat,lng" with NO space, because its display label through the slug's
+ * space-to-hyphen rule would come out "46.68,-7.85" and negate the longitude. */
+function r2rPlace(p) {
+  if (!p.city && !p.iata && p.lat != null && p.lng != null) return `${p.lat},${p.lng}`;
+  return p.city || p.name || p.iata;
+}
+
 export function verifyLink(mode, origin, dest, date = null, returnDate = null) {
   if (FLIGHT_MODES.has(mode)) return googleFlightsLink(origin.iata, dest.iata, date, returnDate);
-  const fromPlace = origin.city || origin.name || origin.iata;
-  const toPlace = dest.city || dest.name || dest.iata;
+  let fromPlace = r2rPlace(origin);
+  let toPlace = r2rPlace(dest);
+  if (fromPlace === toPlace) {
+    // Two airports in one city (LHR to LTN, both "London") made a useless London-to-London
+    // link - fall back to the airport names, which Rome2Rio resolves fine.
+    fromPlace = origin.name || fromPlace;
+    toPlace = dest.name || toPlace;
+  }
   return rome2rioLink(fromPlace, toPlace);
 }
 

@@ -179,21 +179,38 @@ def google_flights_link(origin_iata: str, dest_iata: str, date: str | None = Non
     if date and return_date:
         q += f" on {date} through {return_date}"
     elif date:
-        q += f" on {date}"
+        # "one way" matters: without it Google Flights defaults to ROUND TRIP and invents a
+        # return date, so a reader checking a one-way estimate lands on a round-trip fare.
+        # Verified live: both phrasings prefill the exact trip type and dates.
+        q += f" on {date} one way"
+    elif not return_date:
+        q += " one way"
     return "https://www.google.com/travel/flights?" + urllib.parse.urlencode({"q": q})
 
 
 def _slug(text: str) -> str:
     """A readable, URL-safe path segment for rome2rio's /map/{from}/{to}: spaces -> '-', then
     percent-encode anything left (accents, punctuation, commas) - never hand-splice raw text
-    into a URL path."""
-    return urllib.parse.quote(text.strip().replace(" ", "-"), safe="-")
+    into a URL path. ", " collapses to "," FIRST: hyphenating that space would turn a
+    "lat, lng" or "City, ST" string into "lat,-lng", which negates a longitude."""
+    return urllib.parse.quote(text.strip().replace(", ", ",").replace(" ", "-"), safe="-,")
 
 
 def rome2rio_link(from_place: str, to_place: str) -> str:
     """Deep link to check a ground leg's price/time against reality.
     Format: https://www.rome2rio.com/map/{from}/{to}"""
     return f"https://www.rome2rio.com/map/{_slug(from_place)}/{_slug(to_place)}"
+
+
+def _r2r_place(p: dict) -> str:
+    """A Rome2Rio endpoint for a leg's place dict. A synthesized point (the last-mile
+    destination) has coordinates but no city and no IATA - link it as "lat,lng" with NO
+    space: its display label ("46.68, 7.85") through the slug's space-to-hyphen rule would
+    come out "46.68,-7.85", silently negating the longitude and sending the reader to the
+    wrong hemisphere."""
+    if not p.get("city") and not p.get("iata") and p.get("lat") is not None and p.get("lng") is not None:
+        return f"{p['lat']},{p['lng']}"
+    return p.get("city") or p.get("name") or p["iata"]
 
 
 def verify_link(mode: str, origin: dict, dest: dict, date: str | None = None,
@@ -203,8 +220,13 @@ def verify_link(mode: str, origin: dict, dest: dict, date: str | None = None,
     a flight leg - a ground leg has no round-trip query shape to build."""
     if mode in FLIGHT_MODES:
         return google_flights_link(origin["iata"], dest["iata"], date, return_date)
-    from_place = origin.get("city") or origin.get("name") or origin["iata"]
-    to_place = dest.get("city") or dest.get("name") or dest["iata"]
+    from_place = _r2r_place(origin)
+    to_place = _r2r_place(dest)
+    if from_place == to_place:
+        # Two airports in one city (LHR to LTN, both "London") made a useless London-to-London
+        # link - fall back to the airport names, which Rome2Rio resolves fine.
+        from_place = origin.get("name") or from_place
+        to_place = dest.get("name") or to_place
     return rome2rio_link(from_place, to_place)
 
 
@@ -544,10 +566,34 @@ def selftest() -> int:
           "through" in verify_link("fly", jfk, den, _d(70), _d(77)))
     check("verify_link ignores return_date for a ground leg (no round-trip query shape)",
           "through" not in verify_link("train", den, ase, _d(70), _d(77)))
+    # Without "one way" Google Flights defaults to round trip and invents a return date,
+    # so the reader compares a one-way estimate against a round-trip fare.
+    check("a dated one-way flight link says one way",
+          "one+way" in verify_link("fly", jfk, den, _d(70)))
+    check("an undated one-way flight link says one way",
+          "one+way" in verify_link("fly", jfk, den))
+    check("a round-trip flight link does not say one way",
+          "one+way" not in verify_link("fly", jfk, den, _d(70), _d(77)))
 
     r2r = rome2rio_link("New York", "Denver, CO")
     check("rome2rio link has the right host + path shape",
-          r2r == "https://www.rome2rio.com/map/New-York/Denver%2C-CO")
+          r2r == "https://www.rome2rio.com/map/New-York/Denver,CO")
+    # The bug this shape guards against: hyphenating the space in ", " turned a coordinate
+    # pair into "46.68,-7.85" - longitude negated, wrong hemisphere.
+    coord = rome2rio_link("Bern", "46.6855, 7.8585")
+    check("a coordinate endpoint keeps its longitude sign",
+          coord == "https://www.rome2rio.com/map/Bern/46.6855,7.8585")
+    fl = verify_link("drive", {"iata": "BRN", "name": "Bern Airport", "city": "Bern",
+                               "lat": 46.91, "lng": 7.5},
+                     {"iata": "", "name": "46.6855, 7.8585", "city": None,
+                      "lat": 46.6855, "lng": 7.8585})
+    check("a final-leg place links by lat,lng, not its spaced display label",
+          fl.endswith("/Bern/46.6855,7.8585"))
+    same_city = verify_link("train",
+                            {"iata": "LHR", "name": "London Heathrow", "city": "London"},
+                            {"iata": "LTN", "name": "London Luton", "city": "London"})
+    check("same-city airport pair links by airport names, not city-to-itself",
+          same_city.endswith("/London-Heathrow/London-Luton"))
     weird = rome2rio_link("São Paulo", "Ciudad de México")
     check("rome2rio link percent-encodes non-ASCII place names, no raw unicode leaks into the URL",
           all(ord(c) < 128 for c in weird))
