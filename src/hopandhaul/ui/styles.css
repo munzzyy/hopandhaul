@@ -98,9 +98,9 @@
   --map-bg:    #000000;
   --map-ref:   #4d5761;
   --map-water: #000000;
-  --map-land:  #1c1f26;
-  --map-coast: #3d434e;
-  --map-border:#2b2f38;
+  --map-land:  #232a37;
+  --map-coast: #4a5364;
+  --map-border:#343c4b;
   --focus:     0 0 0 3px rgba(94, 194, 255, .55);
   --shadow-1:  0 1px 3px  rgba(0, 0, 0, .55);
   --shadow-2:  0 6px 18px rgba(0, 0, 0, .60);
@@ -129,9 +129,9 @@
   --map-bg:    #0a0704;
   --map-ref:   #6b4e26;
   --map-water: #0a0704;
-  --map-land:  #1c140b;
-  --map-coast: #4a3418;
-  --map-border:#3a2810;
+  --map-land:  #2a1e0f;
+  --map-coast: #5c4120;
+  --map-border:#46311a;
   --focus:     0 0 0 3px rgba(255, 176, 0, .55);
   --shadow-1:  0 1px 3px  rgba(0, 0, 0, .55);
   --shadow-2:  0 6px 18px rgba(0, 0, 0, .60);
@@ -441,7 +441,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 }
 .net-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); flex: none; }
 .net-chip--offline .net-dot { background: var(--warn); }
-.net-item-desc { white-space: normal; }
+/* Two classes on purpose: .theme-item-desc's ellipsis rule sits later in this file, and at
+   equal specificity it would win, re-truncating these longer connection-mode descriptions. */
+.theme-item-desc.net-item-desc { white-space: normal; overflow: visible; text-overflow: clip; }
 @media (pointer: coarse) {
   .net-chip { min-height: 44px; padding-inline: 12px; }
 }

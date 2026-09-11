@@ -1142,11 +1142,13 @@ class Handler(BaseHTTPRequestHandler):
             "Content-Security-Policy",
             "default-src 'none'; script-src 'self' 'unsafe-inline'; "
             "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: https://a.basemaps.cartocdn.com "
-            "https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com "
-            "https://d.basemaps.cartocdn.com; "
+            "img-src 'self' data: https://tile.openstreetmap.org; "
             "font-src 'self'; manifest-src 'self'; "
-            "connect-src 'self'; frame-ancestors 'none'")
+            # Browsers enforce the INTERSECTION of this header and index.html's meta CSP, so
+            # the external hosts the client calls directly even in server mode (live FX, the
+            # opt-in OSM detail tiles, Photon/Transitous fallbacks) must appear in both.
+            "connect-src 'self' https://api.transitous.org https://photon.komoot.io "
+            "https://api.frankfurter.dev; frame-ancestors 'none'")
         self.end_headers()
         self.wfile.write(data)
 
