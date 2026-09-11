@@ -18,6 +18,24 @@ function reveal(el) {
   el.classList.add("show");
 }
 
+/** One caution-list note - the engine's own real shape today is still a plain English string
+ * (see plan.js), but the documented contract is a structured {key, params} object routed
+ * through t(); support both so this renders correctly under either, and so nothing breaks
+ * again the day the engine switches over. An object whose key isn't in any catalog (typo, or a
+ * translator-only key that hasn't landed in en.json yet) is skipped rather than shown as a raw
+ * key string, with a console.warn so it's visible in development. */
+function renderNote(n) {
+  if (n == null) return null;
+  if (typeof n === "string") return n;
+  if (typeof n !== "object" || !n.key) return null;
+  const translated = t(n.key, n.params);
+  if (translated === n.key) {
+    console.warn(`[hopandhaul] unknown note key: ${n.key}`);
+    return null;
+  }
+  return translated;
+}
+
 function weatherChip(w) {
   if (!w) return "";
   const u = esc(w.units || "°");
@@ -212,13 +230,17 @@ function optionRow(o, recName, greenestName) {
 // source of truth - reread here rather than tracked in a second module-level flag, so a fresh
 // renderPlan() (a new plan, or a language-switch re-render of the same one) always reflects
 // whatever the visitor last chose instead of silently resetting it.
+function sheetExpandLabel(count) {
+  return count === 1 ? t("results.sheetExpandOne") : t("results.sheetExpand", { count });
+}
+
 function sheetToggleButton(optionCount) {
   const expanded = panel().classList.contains("results-expanded");
   return "\n"
     + "    <button type=\"button\" id=\"sheet-toggle\" class=\"btn btn--ghost btn--sm sheet-toggle\" "
     + "aria-expanded=\"" + expanded + "\" aria-controls=\"opt-list\">\n"
     + "      <svg class=\"icon\" aria-hidden=\"true\"><use href=\"#i-arrow\"/></svg> "
-    + esc(expanded ? t("results.sheetCollapse") : t("results.sheetExpand", { count: optionCount })) + "\n"
+    + esc(expanded ? t("results.sheetCollapse") : sheetExpandLabel(optionCount)) + "\n"
     + "    </button>";
 }
 
@@ -233,7 +255,7 @@ export function toggleSheet() {
   btn.setAttribute("aria-expanded", String(expanded));
   const count = document.querySelectorAll("#opt-list > .opt").length;
   btn.innerHTML = "<svg class=\"icon\" aria-hidden=\"true\"><use href=\"#i-arrow\"/></svg> "
-    + esc(expanded ? t("results.sheetCollapse") : t("results.sheetExpand", { count }));
+    + esc(expanded ? t("results.sheetCollapse") : sheetExpandLabel(count));
 }
 
 // ------------------------------------------------------------------- cheapest-day strip
@@ -404,13 +426,30 @@ export function renderDateStrip(payload, activeDate) {
     + (note ? "      <p class=\"date-strip-note\">" + esc(note) + "</p>\n" : "")
     + "    ");
   centreOnWinner();
+  // innerHTML replace above tore down any previous scroller, so this always attaches fresh -
+  // no listener to leak across renders.
+  stripEl()?.querySelector(".date-strip-list")?.addEventListener("scroll", updateDateStripFades);
   return { summary: note };
 }
 
-/** Centre the cheapest chip in the strip's own scroller (falling back to the picked one when
- * nothing won). A panel this narrow only fits four of seven chips, and the winner sits at an
- * arbitrary offset in the window, so leaving the scroller at its start regularly hides the one
- * chip the whole strip exists to point at.
+/** Toggle the strip's own edge-fade affordance (see .date-strip::before/::after in styles.css)
+ * based on whether there's actually more to scroll to on each side - a fade that's always on
+ * would lie about a strip that already shows everything, and one that's never on doesn't make a
+ * horizontally-scrollable row of chips obviously scrollable at all. */
+function updateDateStripFades() {
+  const el = stripEl();
+  const list = el?.querySelector(".date-strip-list");
+  if (!el || !list) return;
+  const max = list.scrollWidth - list.clientWidth;
+  const x = list.scrollLeft;
+  el.classList.toggle("date-strip--fade-start", x > 2);
+  el.classList.toggle("date-strip--fade-end", x < max - 2);
+}
+
+/** Position the strip's scroller so both the cheapest chip AND the one the visitor actually
+ * picked are visible, biased toward showing the picked date in full rather than letting it clip
+ * at the edge - a picked date that isn't the winner used to get shoved half off-screen by a
+ * scroll that only ever centered the winner, rendering as a bare clipped number.
  *
  * Deliberately not scrollIntoView(): that walks up and scrolls every ancestor scroller too, and
  * the sweep lands a moment after the plan did, so it would yank #results out from under anyone
@@ -420,11 +459,26 @@ export function renderDateStrip(payload, activeDate) {
 function centreOnWinner() {
   const el = stripEl();
   const list = el?.querySelector(".date-strip-list");
-  const target = el?.querySelector(".date-chip--best") || el?.querySelector(".date-chip--active");
-  if (!list || !target) return;
+  if (!list) return;
+  const best = el.querySelector(".date-chip--best");
+  const active = el.querySelector(".date-chip--active");
+  const targets = [active, best].filter(Boolean);
+  if (!targets.length) { updateDateStripFades(); return; }
+
   const lr = list.getBoundingClientRect();
-  const tr = target.getBoundingClientRect();
-  list.scrollLeft += (tr.left + tr.width / 2) - (lr.left + lr.width / 2);
+  if (targets.length === 1 || targets[0] === targets[1]) {
+    const tr = targets[0].getBoundingClientRect();
+    list.scrollLeft += (tr.left + tr.width / 2) - (lr.left + lr.width / 2);
+  } else {
+    // Center the midpoint between the two picks. When both fit in the visible width this shows
+    // both in full; when they don't, it still splits the difference instead of hard-locking onto
+    // one and clipping the other outright.
+    const ar = targets[0].getBoundingClientRect();
+    const br = targets[1].getBoundingClientRect();
+    const mid = ((ar.left + ar.width / 2) + (br.left + br.width / 2)) / 2;
+    list.scrollLeft += mid - (lr.left + lr.width / 2);
+  }
+  updateDateStripFades();
 }
 
 /** Full render of a successful plan response. `placeLabel` is the free-text search label,
@@ -448,7 +502,7 @@ export function renderPlan(data, placeLabel, focusPanel = false) {
   const cautionLines = [
     t("caution.split"),
     data.pricing_source === "estimate" ? t("caution.pricesEst") : t("caution.prices"),
-    ...(data.notes || []),
+    ...(data.notes || []).map(renderNote).filter((n) => n != null),
   ];
 
   // cheapest vs greenest, shown as a plain sentence rather than picking one for the user - 
