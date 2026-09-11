@@ -114,3 +114,13 @@ export function loadMapDetail() {
 export function saveMapDetail(on) {
   writePref(MAP_DETAIL_KEY, on ? "1" : "0");
 }
+
+const CURRENCY_KEY = "hopandhaul:currency";
+
+export function loadCurrencyPref() {
+  return readPref(CURRENCY_KEY);
+}
+
+export function saveCurrencyPref(code) {
+  writePref(CURRENCY_KEY, code);
+}

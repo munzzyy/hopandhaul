@@ -1,5 +1,7 @@
-// Pure formatting/escaping helpers. No DOM access, no state - safe to import anywhere.
-import { t } from "./i18n.js";
+// Pure formatting/escaping helpers. No DOM access; the one piece of module state is the
+// display currency (see setDisplayCurrency) - everything else stays a pure function of its args.
+import { t, currentLangCode } from "./i18n.js";
+import { convertFromUsd } from "./fx.js";
 
 /** Escape a string for safe insertion into HTML markup (attribute or text position). */
 export function esc(s) {
@@ -8,13 +10,37 @@ export function esc(s) {
   }[c]));
 }
 
-/** $1,234 for whole dollars, $1234.56 when there are real cents. */
+// The engine's math and the visitor's typed $threshold are always USD - this only changes what
+// fmtMoney() PRINTS. One module-level setting rather than threading a currency argument through
+// every call site across results.js/map.js, matching how currentLangCode() works in i18n.js.
+let _currency = "USD";
+
+export function setDisplayCurrency(code) {
+  _currency = String(code || "USD").toUpperCase();
+}
+
+export function currentCurrency() {
+  return _currency;
+}
+
+/** $1,234 for a whole amount, $1,234.56 when there are real cents - now currency-aware: every
+ * price is stored in USD by the engine and converted for display only (see fx.js). */
 export function fmtMoney(x) {
   if (x == null || Number.isNaN(x)) return "—";
-  const n = Number(x);
-  return Math.abs(n - Math.round(n)) < 0.01
-    ? "$" + Math.round(n).toLocaleString()
-    : "$" + n.toFixed(2);
+  const usd = Number(x);
+  const { amount } = convertFromUsd(usd, _currency);
+  const whole = Math.abs(amount - Math.round(amount)) < 0.005;
+  try {
+    return new Intl.NumberFormat(currentLangCode(), {
+      style: "currency",
+      currency: _currency,
+      minimumFractionDigits: whole ? 0 : undefined,
+      maximumFractionDigits: whole ? 0 : undefined,
+    }).format(amount);
+  } catch {
+    // an unsupported/unknown ISO code (shouldn't happen - the picker only offers real ones)
+    return "$" + Math.round(amount).toLocaleString();
+  }
 }
 
 /** ~150 kg, ~2.3 t - CO2e is always an ESTIMATE, so this stays rounded/approximate on purpose;
@@ -68,7 +94,12 @@ const STATUS_KEY = {
   baseline: { key: "status.direct", tone: "base" },
   dominant: { key: "status.cheaperFaster", tone: "ok" },
   split_qualifies: { key: "status.savesRule", tone: "ok" },
-  alt_qualifies: { key: "status.savesRule", tone: "ok" },
+  // Elected because it clears the ≥$threshold rule outright (split_qualifies) vs. because it's
+  // worth it at the visitor's own value of time (vot_qualifies) vs. a ground-only option that
+  // cleared the threshold on its own with no flight leg at all (alt_qualifies) - three different
+  // reasons an option won, so three different honest labels rather than one shared "saves" tag.
+  vot_qualifies: { key: "status.votQualifies", tone: "ok" },
+  alt_qualifies: { key: "status.altQualifies", tone: "ok" },
   cheaper_below_threshold: { key: "status.underThreshold", tone: "warn" },
   pricier_faster: { key: "status.fasterCostsMore", tone: "warn" },
   worse: { key: "status.worse", tone: "bad" },

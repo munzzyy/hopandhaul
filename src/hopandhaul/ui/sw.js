@@ -12,7 +12,12 @@
 // generic fetch handler below on first successful load, so whichever language a visitor
 // actually chooses works offline from then on, and they're dropped on every version bump
 // along with the rest of the runtime cache.
-const CACHE_VERSION = "hopandhaul-shell-v10";
+const CACHE_VERSION = "hopandhaul-shell-v11"; // local dev value - pages.yml stamps this with the deploy SHA on publish
+// Separate, version-independent cache for runtime-fetched i18n/*.json catalogs (only en.json is
+// precached above). Kept OUT of the activate-time cleanup below on purpose: without this, every
+// CACHE_VERSION bump would drop every non-English catalog a visitor had cached, stranding them
+// back on English offline until they happen to reload online again.
+const LANG_CACHE = "hopandhaul-lang-v1";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -21,6 +26,9 @@ const SHELL_FILES = [
   "./state.js",
   "./api.js",
   "./atlas.js",
+  "./connectivity.js",
+  "./netchip.js",
+  "./fx.js",
   "./map.js",
   "./geo-labels.js",
   "./results.js",
@@ -79,7 +87,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
       .then((keys) => Promise.all(
-        keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)),
+        keys.filter((k) => k !== CACHE_VERSION && k !== LANG_CACHE).map((k) => caches.delete(k)),
       ))
       .then(() => self.clients.claim()),
   );
@@ -91,6 +99,39 @@ self.addEventListener("fetch", (event) => {
 
   // API calls need live data - never serve a stale plan from cache.
   if (url.pathname.startsWith("/api/")) return;
+
+  // Deep links are dead offline otherwise: the fetch handler below exact-matches URLs, and only
+  // "./" itself is precached, so anything shared as a full path (e.g. index.html?lat=...&lng=...)
+  // never hits a cache entry and the browser shows its own network-error page instead of the app.
+  // A navigation request is asking for a *document*, not a specific cached URL - always answer
+  // it with the cached app shell so app.js can boot and rehydrate the plan from location.search
+  // itself, same as it already does on a normal online load.
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      caches.match("./index.html").then((shell) => shell || fetch(event.request)),
+    );
+    return;
+  }
+
+  // Runtime-fetched language catalogs live in their own cache, outside the version cleanup above
+  // - en.json itself is still precached into CACHE_VERSION at install (see SHELL_FILES), so this
+  // checks LANG_CACHE first and falls back to the shell cache rather than treating en.json as a
+  // miss here on first run.
+  if (url.pathname.startsWith("/i18n/") && url.pathname.endsWith(".json")) {
+    event.respondWith(
+      caches.open(LANG_CACHE).then(async (langCache) => {
+        const cached = (await langCache.match(event.request)) || (await caches.match(event.request));
+        const network = fetch(event.request)
+          .then((res) => {
+            if (res.ok) langCache.put(event.request, res.clone());
+            return res;
+          })
+          .catch(() => cached);
+        return cached || network;
+      }),
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {

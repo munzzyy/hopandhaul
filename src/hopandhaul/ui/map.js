@@ -4,6 +4,7 @@ import { t, currentLangCode } from "./i18n.js";
 import { CONTINENTS, COUNTRIES, continentName } from "./geo-labels.js";
 import { createAtlas } from "./atlas.js";
 import { loadMapDetail, saveMapDetail } from "./state.js";
+import { isOffline, onNetChange } from "./connectivity.js";
 
 let map = null;
 let atlasLayer = null;   // self-drawn base (atlas.js) - the default, zero-key, offline-capable
@@ -70,12 +71,16 @@ const DetailControl = L.Control.extend({
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.disableScrollPropagation(container);
     L.DomEvent.on(btn, "click", () => setDetailedMap(!detailOn));
+    onNetChange(refreshDetailBtnLabel);
     return container;
   },
 });
 
 function refreshDetailBtnLabel() {
-  if (detailBtn) detailBtn.setAttribute("aria-label", t("map.detailToggleAria"));
+  if (!detailBtn) return;
+  const off = isOffline();
+  detailBtn.setAttribute("aria-label", t(off ? "map.detailNeedsNet" : "map.detailToggleAria"));
+  detailBtn.disabled = off && !detailOn; // if it's already on, tileerror handles the fallback
 }
 
 export function initMap() {

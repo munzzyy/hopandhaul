@@ -34,3 +34,4 @@ src/hopandhaul/ui/data/
 
 # Node, for the web-parity check script only (no runtime/browser dependency)
 node_modules/
+.claude/

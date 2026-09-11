@@ -1,23 +1,32 @@
-// Destination search: debounced Geoapify autocomplete wired up as a real ARIA combobox
-// (role="combobox" + a listbox popup) instead of a div soup with no semantics.
+// Search: two ARIA comboboxes (role="combobox" + a listbox popup, not a div soup with no
+// semantics) sharing one keyboard/highlight engine - the destination field (debounced, backed
+// by fetchGeocode: local airport DB + Photon when online) and the origin field (backed by the
+// same local airport DB directly - an origin has to resolve to a real IATA code, so there is no
+// "extended" geocoder tier for it the way there is for a free-text destination).
 import { esc } from "./format.js";
 import { fetchGeocode } from "./api.js";
+import { searchAirports } from "./engine/search.js";
 import { t } from "./i18n.js";
 
 /**
- * @param {{onChoose:(r:{lat:number,lng:number,label:string})=>void}} handlers
+ * @param {{
+ *   inputId: string, listId: string,
+ *   run: (q:string) => Promise<{ok:boolean, results?:object[], extendedSkipped?:boolean}>,
+ *   onChoose: (r:object) => void,
+ *   minLength?: number,
+ * }} opts
  * @returns {{disable:(msg:string)=>void}}
  */
-export function initSearch({ onChoose }) {
-  const input = document.getElementById("place");
-  const list = document.getElementById("aclist");
+function initCombobox({ inputId, listId, run, onChoose, minLength = 3 }) {
+  const input = document.getElementById(inputId);
+  const list = document.getElementById(listId);
   let items = [];
   let activeIndex = -1;
   let timer = null;
   let requestId = 0;
 
   function optionId(i) {
-    return `ac-opt-${i}`;
+    return `${listId}-opt-${i}`;
   }
 
   function close() {
@@ -29,13 +38,18 @@ export function initSearch({ onChoose }) {
     input.removeAttribute("aria-activedescendant");
   }
 
-  function paint(results) {
+  function paintEmpty(extendedSkipped) {
+    const msg = extendedSkipped ? t("search.offlineNoMatches") : t("search.noMatches");
+    list.innerHTML = `<li class="aitem aitem--empty" role="option" aria-disabled="true">${esc(msg)}</li>`;
+    list.hidden = false;
+  }
+
+  function paint(results, extendedSkipped) {
     items = results;
     activeIndex = -1;
     input.setAttribute("aria-expanded", "true");
     if (!results.length) {
-      list.innerHTML = `<li class="aitem aitem--empty" role="option" aria-disabled="true">${esc(t("search.noMatches"))}</li>`;
-      list.hidden = false;
+      paintEmpty(extendedSkipped);
       return;
     }
     list.innerHTML = results.map((r, i) => (
@@ -65,9 +79,9 @@ export function initSearch({ onChoose }) {
   async function runSearch(q) {
     const myId = ++requestId;
     try {
-      const d = await fetchGeocode(q);
+      const d = await run(q);
       if (myId !== requestId) return; // a newer query already superseded this one
-      if (d.ok) paint(d.results || []);
+      if (d.ok) paint(d.results || [], d.extendedSkipped === true);
       else close();
     } catch {
       if (myId === requestId) close();
@@ -85,7 +99,7 @@ export function initSearch({ onChoose }) {
   input.addEventListener("input", () => {
     const q = input.value.trim();
     clearTimeout(timer);
-    if (q.length < 3) { close(); return; }
+    if (q.length < minLength) { close(); return; }
     timer = setTimeout(() => runSearch(q), 250);
   });
 
@@ -120,14 +134,14 @@ export function initSearch({ onChoose }) {
   });
 
   document.addEventListener("click", (e) => {
-    if (!e.target.closest(".search")) close();
+    if (!input.contains(e.target) && !list.contains(e.target)) close();
   });
 
   // Keyboard users tabbing away from the search should close the popup too, not just
   // mouse-click-away - relatedTarget is null for some browsers on blur-to-nowhere, hence
   // the optional chaining rather than assuming it's always an Element.
   input.addEventListener("focusout", (e) => {
-    if (!e.relatedTarget?.closest(".search")) close();
+    if (!e.relatedTarget || (!input.contains(e.relatedTarget) && !list.contains(e.relatedTarget))) close();
   });
 
   return {
@@ -136,4 +150,28 @@ export function initSearch({ onChoose }) {
       input.disabled = true;
     },
   };
+}
+
+/** Destination search box - debounced, network-capable (see fetchGeocode). */
+export function initSearch({ onChoose }) {
+  return initCombobox({
+    inputId: "place",
+    listId: "aclist",
+    run: (q) => fetchGeocode(q),
+    onChoose,
+  });
+}
+
+/** Origin airport combobox - local DB only, no debounce needed (it's a synchronous in-memory
+ * search), and a shorter minLength since IATA codes are 3 characters. Selecting a row fills the
+ * IATA code the same way typing one directly always has - onChoose gets the raw match, which
+ * always carries `.iata` for an airport result. */
+export function initOriginSearch({ onChoose }) {
+  return initCombobox({
+    inputId: "origin",
+    listId: "origin-aclist",
+    minLength: 2,
+    run: async (q) => ({ ok: true, results: searchAirports(q, 6) }),
+    onChoose,
+  });
 }
