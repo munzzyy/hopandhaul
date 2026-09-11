@@ -42,6 +42,8 @@ Pure stdlib. Run `python -m hopandhaul.emissions --selftest`.
 """
 from __future__ import annotations
 
+from .trip import vehicles_needed
+
 # ---- factors (grams CO2e per passenger-km, well-to-wake) ------------------------------------
 # Flight: split by distance band. The RF (radiative forcing) multiplier is kept separate so
 # callers can show "CO2" and "CO2 with non-CO2 warming effects" as two different honest numbers
@@ -92,10 +94,9 @@ def co2e_for_leg(mode: str, distance_km: float, travelers: int = 1, with_rf: boo
     distance_km: straight-line/great-circle distance for a flight, or the ESTIMATE ground
     distance (road_km, already winding-adjusted) for a ground leg - see co2e_for_option for
     how this wires into the plan() response.
-    travelers: passenger count; a per-vehicle mode (drive/car/rental) does NOT scale with it - 
-    one car's emissions don't multiply because four people are in it, they divide per person
-    for reporting, same as trip.py's cost math but inverted (cost is per-vehicle regardless;
-    here we still want the per-vehicle TOTAL, since that's the physical trip actually taken).
+    travelers: passenger count; a per-vehicle mode (drive/car/rental) scales by the number of
+    VEHICLES the group actually needs (trip.vehicles_needed - one car doesn't carry 9 people),
+    not by raw traveler count, same as trip.py's cost math for those modes.
     """
     if distance_km <= 0 or travelers < 1:
         return 0.0
@@ -105,9 +106,9 @@ def co2e_for_leg(mode: str, distance_km: float, travelers: int = 1, with_rf: boo
         return round(g_per_pkm * distance_km * travelers / 1000.0, 2)
     g_per_pkm, per_vehicle = _GROUND_FACTORS.get(mode, _GROUND_FACTORS["ground"])
     if per_vehicle:
-        # one vehicle makes the whole trip regardless of how many people are in it - total
-        # emissions are the same whether it's 1 traveler or 4, so no ×travelers here.
-        return round(g_per_pkm * distance_km / 1000.0, 2)
+        # emissions scale with the number of CARS on the road, not the number of people in
+        # them - a group of 9 needing 3 cars triples the emissions a solo driver produces.
+        return round(g_per_pkm * distance_km * vehicles_needed(travelers) / 1000.0, 2)
     return round(g_per_pkm * distance_km * travelers / 1000.0, 2)
 
 
@@ -163,6 +164,14 @@ def selftest():
     check(f"drive leg emissions don't scale with travelers ({d100_solo} == {d100_grp})",
           abs(d100_solo - d100_grp) < 0.01)
     check(f"100km drive ~17.0 kg CO2e (got {d100_solo})", abs(d100_solo - 17.0) < 0.1)
+
+    # a group big enough to need a SECOND car does emit ~2x - one car doesn't carry 9 people
+    d100_g5 = co2e_for_leg("drive", 100, travelers=5)
+    d100_g9 = co2e_for_leg("drive", 100, travelers=9)
+    check(f"5 travelers need 2 vehicles -> ~2x emissions ({d100_g5} vs {d100_solo})",
+          abs(d100_g5 - d100_solo * 2) < 0.01)
+    check(f"9 travelers need 3 vehicles -> ~3x emissions ({d100_g9} vs {d100_solo})",
+          abs(d100_g9 - d100_solo * 3) < 0.01)
 
     # bus/coach is cheaper per-km than driving solo - one of the honest "greener" signals
     b100 = co2e_for_leg("bus", 100, travelers=1)

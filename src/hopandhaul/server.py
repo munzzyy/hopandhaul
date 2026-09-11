@@ -436,21 +436,20 @@ def _estimate_note(date, ctx, live_possible):
     `live_possible` guards the last line. "Add a date for live fares" is only true where a fare
     provider is actually reachable. On the GitHub Pages build it never is: there is no Duffel
     code path in ui/engine/ and the page CSP won't let one exist, so telling a visitor there
-    that a date buys them live fares is advice that cannot come true no matter what they do."""
-    head = "Fares are distance-based ESTIMATES."
+    that a date buys them live fares is advice that cannot come true no matter what they do.
+
+    Returns a structured note (see itinerary.note()), not a hardcoded English string - the
+    four cases are still distinct keys, not one key with a `case` param, so a translator can
+    word each honestly instead of inheriting one English sentence's grammar."""
     if ctx.get("past_date"):
-        return (f"{head} That departure date has already passed, so no booking-window or "
-                "season adjustment was applied. Pick a future date. Verify before booking.")
+        return itinerary.note("notes.estimatePastDate")
     if ctx.get("date_applied"):
-        return (f"{head} Adjusted for your booking window and the season. "
-                "Verify before booking.")
+        return itinerary.note("notes.estimateDateApplied")
     if date:
-        return (f"{head} This date sits in a neutral booking window, so it did not move the "
-                "fare. Verify before booking.")
+        return itinerary.note("notes.estimateNeutralWindow")
     if live_possible:
-        return f"{head} Add a date for live fares. Verify before booking."
-    return (f"{head} No live fare provider is configured, so every flight fare here is "
-            "modelled. Verify before booking.")
+        return itinerary.note("notes.estimateAddDateForLive")
+    return itinerary.note("notes.estimateNoProvider")
 
 
 def _note_date_basis(ctx, est):
@@ -517,11 +516,19 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     origin = geo.by_iata(origin_iata)
     if not origin:
         return {"ok": False, "error": f"unknown origin airport '{origin_iata}'", "code": "unknown_origin"}
+    if geo.is_suspended(origin):
+        return {"ok": False,
+                "error": itinerary.render_note(
+                    itinerary.note("notes.originSuspended", iata=origin["iata"])),
+                "code": "origin_suspended"}
     # prefer_hub=True so a click near a city snaps to the field with real airline service
     # instead of the literal closest point on the map (a seaplane base, a business-aviation
     # field) - matches what /api/nearest already does.
-    dest = geo.nearest_airport(dest_lat, dest_lng, prefer_hub=True)
+    dest, suspended_note = geo.nearest_served_or_note(dest_lat, dest_lng, prefer_hub=True)
     if not dest:
+        if suspended_note:
+            return {"ok": False, "error": itinerary.render_note(itinerary.note("notes.airportSuspended")),
+                    "code": "airport_suspended"}
         return {"ok": False, "error": "no airport found near that point", "code": "no_airport_near_point"}
     # clicking on (or right next to) your own origin airport has no flight to plan - without
     # this guard the engine happily prices a same-airport "direct flight" off the NA short-hop
@@ -654,8 +661,34 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     # splits (fly to a cheaper hub, then ground it) - ground legs are one-way per-person
     # estimates: scale per-person modes ×travelers (vehicles stay flat) and ×2 on a round-trip.
     for g, (gf, _local) in zip(gws, priced[1:], strict=False):
-        g["fly"] = gf
         ground_cost = trip.scale_leg_cost(g["ground_mode"], g["ground_cost"], travelers) * rt_mult
+        # ground distance: same road-winding factor geo.py's own estimator uses, so a curated
+        # gateway (which only ships a ground_time_h/ground_cost_usd, no distance) gets an
+        # emissions figure consistent with an auto-discovered one built from estimate_ground.
+        # A real-corridor ferry leg uses the actual port-to-port crossing distance instead -
+        # boats sail the strait, they don't follow a winding road.
+        if g.get("ferry"):
+            ground_km = g["ferry"]["crossing_km"] * rt_mult
+        else:
+            ground_km = (geo.haversine_km(g["lat"], g["lng"], dest["lat"], dest["lng"])
+                         * geo.ROAD_WINDING * rt_mult)
+        # the gateway curated for this destination IS the user's own origin airport (e.g. a
+        # Denver user clicking Aspen, whose curated gateway is DEN itself) - there is no
+        # flight to take, just the ground leg from home. Pricing a same-airport "flight" here
+        # used to fabricate a $0-distance fare on top of the real bus/train.
+        if g["iata"] == origin["iata"]:
+            name = f"{g['ground_mode'].capitalize()} only from {origin['iata']}"
+            options.append(trip.parse_option(
+                f"{name} | {g['ground_mode']} {ground_cost} {g['ground_hours']}"))
+            geo_by_name[name] = [
+                {"type": "ground", "mode": g["ground_mode"], "from": _pt(origin), "to": _pt(dest)},
+            ]
+            emissions_legs_by_name[name] = [{"mode": g["ground_mode"], "road_km": ground_km}]
+            leg_specs_by_name[name] = [
+                _ground_leg_spec(g, dest, ground_cost, ground_km / max(rt_mult, 1)),
+            ]
+            continue
+        g["fly"] = gf
         fly_cost = _flight_cost(gf)
         name = f"{g['iata']} + {g['ground_mode']}"
         options.append(trip.parse_option(
@@ -666,16 +699,6 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             {"type": "ground", "mode": g["ground_mode"], "from": _pt(g), "to": _pt(dest)},
         ]
         fly_km = geo.haversine_km(origin["lat"], origin["lng"], g["lat"], g["lng"]) * rt_mult
-        # ground distance: same road-winding factor geo.py's own estimator uses, so a curated
-        # gateway (which only ships a ground_time_h/ground_cost_usd, no distance) gets an
-        # emissions figure consistent with an auto-discovered one built from estimate_ground.
-        # A real-corridor ferry leg uses the actual port-to-port crossing distance instead - 
-        # boats sail the strait, they don't follow a winding road.
-        if g.get("ferry"):
-            ground_km = g["ferry"]["crossing_km"] * rt_mult
-        else:
-            ground_km = (geo.haversine_km(g["lat"], g["lng"], dest["lat"], dest["lng"])
-                         * geo.ROAD_WINDING * rt_mult)
         emissions_legs_by_name[name] = [
             {"mode": "fly", "distance_km": fly_km},
             {"mode": g["ground_mode"], "road_km": ground_km},
@@ -715,46 +738,34 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     # a real live fare and the rest quietly fell back to the model, which is exactly when a
     # reader most needs telling - and it was the one case that printed nothing at all.
     if ctx["est_used"]:
-        notes.append(_estimate_note(date, ctx, live_possible)
-                     if not ctx["live_used"] else
-                     "Some legs are real live fares and the rest are distance-based ESTIMATES. "
-                     "Each leg's itinerary says which it is. Verify before booking.")
+        notes.append(_estimate_note(date, ctx, live_possible) if not ctx["live_used"]
+                     else itinerary.note("notes.mixedLiveEstimate"))
     if ctx.get("live_error"):
-        notes.append("Some live flight lookups failed and fell back to estimates.")
+        notes.append(itinerary.note("notes.liveLookupFailed"))
     if ctx.get("fx_static"):
-        notes.append("Some fares used a static FX table (not live rates) to convert to USD; "
-                     "verify at booking.")
+        notes.append(itinerary.note("notes.fxStatic"))
     elif ctx.get("fx_used"):
-        notes.append("Some fares were converted to USD using today's live exchange rate.")
+        notes.append(itinerary.note("notes.fxLive"))
     if ctx.get("fx_unknown"):
-        notes.append(f"A fare priced in {ctx['fx_unknown']} had no USD rate and is shown as-is.")
+        notes.append(itinerary.note("notes.fxUnknown", currency=ctx["fx_unknown"]))
     if travelers > 1:
-        notes.append(f"Costs are GROUP TOTALS for {travelers} travelers: per-person fares "
-                     f"×{travelers}; drive/rental legs are per vehicle.")
+        notes.append(itinerary.note("notes.groupTotals", travelers=travelers,
+                                    vehicles=trip.vehicles_needed(travelers)))
     if roundtrip:
         if ret and ctx["live_used"]:
-            notes.append(f"Round-trip priced as REAL return itineraries (back {ret}); "
-                         "times shown are the outbound leg.")
+            notes.append(itinerary.note("notes.roundtripReal", return_date=ret))
         elif ret:
-            notes.append(f"Round-trip: outbound + return ({ret}) estimated separately; "
-                         "times are the outbound leg.")
+            notes.append(itinerary.note("notes.roundtripEstimatedSeparate", return_date=ret))
         else:
-            notes.append("Round-trip: fares shown are ~2× one-way; add a return date for real "
-                         "RT pricing. Times are for the outbound leg.")
+            notes.append(itinerary.note("notes.roundtripEstimated2x"))
     if any(g.get("ferry") for g in gws):
-        notes.append("Ferry legs are REAL corridors (bundled research, operators + typical "
-                     "fares + sailings/day as of the data's date). Schedules vary by day and "
-                     "season, so check the operator before relying on a connection.")
+        notes.append(itinerary.note("notes.ferryRealCorridor"))
     if any(g.get("transit") for g in gws):
-        notes.append("Ground legs marked 'live schedule' use real timetables via Transitous "
-                     "(transitous.org, community GTFS/OSM data): real operators, departures "
-                     "and door-to-door times. Fares on those legs are still estimates.")
+        notes.append(itinerary.note("notes.transitLiveSchedule"))
     if dest.get("dist_km", 0) > 120:
-        notes.append(f"Nearest airport {dest['iata']} is ~{int(dest['dist_km'])} km from the "
-                     f"clicked point, so the last mile to your exact spot isn't included.")
-    notes.append("co2e_kg per option is a rough ESTIMATE from flight/ground distance, not a "
-                 "certified footprint; see docs/api.md for the factor basis. The lowest-carbon "
-                 "option is flagged as 'greenest' but never auto-recommended over the cheapest.")
+        notes.append(itinerary.note("notes.lastMileGap", iata=dest["iata"],
+                                    km=int(dest["dist_km"])))
+    notes.append(itinerary.note("notes.co2eEstimate"))
 
     # destination weather - best-effort, never blocks a plan (weather is at the clicked point)
     wx = None
@@ -1286,7 +1297,7 @@ def selftest():
         check(f"DEN split ({den_opt['co2e_kg']} kg) emits less than flying direct "
               f"({direct_opt['co2e_kg']} kg)", den_opt["co2e_kg"] < direct_opt["co2e_kg"])
     check("emissions note present, labels co2e_kg an estimate",
-          any("co2e_kg" in n and "ESTIMATE" in n for n in out["notes"]))
+          any(n["key"] == "notes.co2eEstimate" for n in out["notes"]))
 
     # click on a major hub (Denver) - should be fine flying direct, no split needed.
     out2 = plan(39.74, -104.99, origin_iata="JFK", fetch_weather=False, allow_live=False, allow_transit=False)
@@ -1331,7 +1342,10 @@ def selftest():
         g_drv = next(o for o in grp["result"]["options"] if o["name"] == s_drv["name"])
         check("group of 4: drive-split scales less than ×4 (vehicle shared)",
               g_drv["cost"] < 4 * s_drv["cost"] - 1)
-    check("group note present", any("GROUP TOTALS" in n for n in grp["notes"]))
+    grp_note = next((n for n in grp["notes"] if n["key"] == "notes.groupTotals"), None)
+    check("group note present, carries the traveler and vehicle counts",
+          grp_note is not None and grp_note["params"]["travelers"] == 4
+          and grp_note["params"]["vehicles"] == 1)
 
     # round-trip with a return date (estimate mode): flight cost ≈ out + back, ground ×2.
     ow = plan(39.19, -106.82, origin_iata="JFK", date=_d(70), fetch_weather=False,
@@ -1342,18 +1356,20 @@ def selftest():
     rt_dir = next(o for o in rt["result"]["options"] if o["name"].startswith("Fly direct"))
     check("RT direct cost > one-way and < 2.6× (separate date multipliers)",
           ow_dir["cost"] < rt_dir["cost"] < 2.6 * ow_dir["cost"])
-    check("RT note mentions the return", any("return" in n.lower() for n in rt["notes"]))
+    check("RT note mentions the return",
+          any(n["key"] in ("notes.roundtripReal", "notes.roundtripEstimatedSeparate",
+                          "notes.roundtripEstimated2x") for n in rt["notes"]))
     # honesty check on _estimate_note()/_note_date_basis(): a FUTURE date must say the fare was
     # actually adjusted for booking window/season, and a date already in the PAST must say so
     # plainly instead of quietly reusing the same neutral wording as "no date given" (that was
     # the old bug - "date-adjusted" printed even when fare_date_multiplier() had gone neutral).
     check("dated estimate note (future date) says the fare was adjusted",
-          any("adjusted for your booking window and the season" in n.lower() for n in ow["notes"]))
+          any(n["key"] == "notes.estimateDateApplied" for n in ow["notes"]))
     past_est = plan(39.19, -106.82, origin_iata="JFK", date=_d(-30), fetch_weather=False,
                     allow_live=False, allow_transit=False)
     check("dated estimate note (past date) says the date has already passed, not 'adjusted'",
-          any("already passed" in n.lower() for n in past_est["notes"])
-          and not any("adjusted for your booking window" in n.lower() for n in past_est["notes"]))
+          any(n["key"] == "notes.estimatePastDate" for n in past_est["notes"])
+          and not any(n["key"] == "notes.estimateDateApplied" for n in past_est["notes"]))
 
     # ---- reliability regression: a live-but-failing key (401/429/5xx surfaced by net.py as
     # FetchError) must degrade that flight leg to the distance ESTIMATE, not break the whole
@@ -1377,7 +1393,7 @@ def selftest():
     check("pricing degrades to estimate on a live-provider FetchError",
           out_fallback.get("pricing_source") == "estimate")
     check("a live_error note is surfaced when the live lookup failed",
-          any("fell back to estimates" in n for n in out_fallback["notes"]))
+          any(n["key"] == "notes.liveLookupFailed" for n in out_fallback["notes"]))
 
     # ---- wall-clock regression: PLAN_TIME_BUDGET_S must actually bound plan()'s runtime, not
     # just its own bookkeeping. Before this fix the `with ThreadPoolExecutor(...)` block's
@@ -1521,7 +1537,7 @@ def selftest():
         out_static_fx = plan(39.19, -106.82, origin_iata="JFK", date=_d(70),
                              fetch_weather=False, allow_live=True, allow_transit=False)
     check("a static-FX-table fare adds the static-rate note, not the generic 'approximate' one",
-          any("static" in n.lower() for n in out_static_fx["notes"]))
+          any(n["key"] == "notes.fxStatic" for n in out_static_fx["notes"]))
     static_direct = next(o for o in out_static_fx["result"]["options"]
                          if o["name"].startswith("Fly direct"))
     check("the static-rate leg's provenance names the static table, not a bare 'converted' claim",
@@ -1542,8 +1558,8 @@ def selftest():
         out_live_fx = plan(39.19, -106.82, origin_iata="JFK", date=_d(70),
                            fetch_weather=False, allow_live=True, allow_transit=False)
     check("a live-ECB-rate fare notes today's live rate, never the word 'static'",
-          any("live exchange rate" in n.lower() for n in out_live_fx["notes"])
-          and not any("static" in n.lower() for n in out_live_fx["notes"]))
+          any(n["key"] == "notes.fxLive" for n in out_live_fx["notes"])
+          and not any(n["key"] == "notes.fxStatic" for n in out_live_fx["notes"]))
 
     def _fake_live_search_unknown_fx(session, origin_iata, dest_iata, date, adults, return_date):
         return {"price": 400.0, "hours": 5.0, "stops": 0, "carrier": "Ruritania Air",
@@ -1559,7 +1575,8 @@ def selftest():
         out_unknown_fx = plan(39.19, -106.82, origin_iata="JFK", date=_d(70),
                               fetch_weather=False, allow_live=True, allow_transit=False)
     check("a fare in a currency with no FX rate at all still notes it's shown as-is",
-          any("had no USD rate" in n for n in out_unknown_fx["notes"]))
+          any(n["key"] == "notes.fxUnknown" and n["params"].get("currency") == "ZZZ"
+              for n in out_unknown_fx["notes"]))
     with _OFFER_CACHE_LOCK:            # don't leak these mocked offers into later checks
         _OFFER_CACHE.clear()
 

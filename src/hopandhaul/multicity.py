@@ -501,12 +501,19 @@ def selftest() -> int:
           res_a["excluded"] == [])
 
     # Case 8: travelers scale a leg's cost the same way trip.py's own group math does -
-    # per-person modes (fly) x N, so 4 travelers on the same route costs strictly less than
-    # a naive 4x of the solo total once any ground leg (priced per vehicle) is involved.
-    solo = price_leg(jfk, ase, threshold=50, travelers=1)
-    group = price_leg(jfk, ase, threshold=50, travelers=4)
-    check(f"group of 4 costs less than 4x solo (solo {solo['cost']}, group {group['cost']}, "
-          f"4x solo {4 * solo['cost']})", group["cost"] < 4 * solo["cost"])
+    # per-person modes (fly) x N, so travelers on the same route cost strictly less than a
+    # naive Nx of the solo total once any ground leg (priced per VEHICLE) is involved. SLC->JAC
+    # is a self-gateway route (SLC's own curated gateway is SLC - a Salt Lake user just drives),
+    # so its recommended option is a pure drive leg: flat for 1-4 travelers (one car), then
+    # scales by vehicles, not heads, once a 5th person needs a second car.
+    slc, jac = geo.by_iata("SLC"), geo.by_iata("JAC")
+    solo = price_leg(slc, jac, threshold=50, travelers=1)
+    group4 = price_leg(slc, jac, threshold=50, travelers=4)
+    group9 = price_leg(slc, jac, threshold=50, travelers=9)
+    check(f"4 travelers still fit one car: same cost as solo (solo {solo['cost']}, "
+          f"group of 4 {group4['cost']})", group4["cost"] == solo["cost"])
+    check(f"9 travelers need 3 cars: costs less than a naive 9x solo (got {group9['cost']}, "
+          f"9x solo {9 * solo['cost']})", group9["cost"] < 9 * solo["cost"])
 
     # Case 9: bad input is rejected with a clear error, not a crash or a silent wrong answer.
     try:

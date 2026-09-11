@@ -17,7 +17,7 @@
   "usa": [
     {"dest": "Aspen, CO", "dest_airport": "ASE",
       "gateways": [
-        {"hub": "Denver", "hub_airport": "DEN", "ground_mode": "bus", "ground_time_h": 4.5, "ground_cost_usd": 75, "notes": "Bustang Outrider / Epic Mountain Express; ASE fares are notoriously high & weather-cancelled"},
+        {"hub": "Denver", "hub_airport": "DEN", "ground_mode": "bus", "ground_time_h": 4.5, "ground_cost_usd": 34, "notes": "Bustang (public bus), West Line; Epic Mountain Express runs a pricier private shuttle on the same route; ASE fares are notoriously high & weather-cancelled"},
         {"hub": "Eagle/Vail", "hub_airport": "EGE", "ground_mode": "drive", "ground_time_h": 1.3, "ground_cost_usd": 60, "notes": "rental or shuttle; EGE often far cheaper than ASE"},
         {"hub": "Grand Junction", "hub_airport": "GJT", "ground_mode": "drive", "ground_time_h": 2.5, "ground_cost_usd": 70, "notes": "longer drive, sometimes cheapest air"}
       ]},

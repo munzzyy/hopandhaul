@@ -72,9 +72,11 @@ def _units_symbol(units: str) -> str:
     return {"imperial": "°F", "metric": "°C"}.get(units, "°")
 
 
-def _http_json(url: str, timeout: int = 12) -> dict:
+def _http_json(url: str, timeout: int = 8) -> dict:
+    # fail fast, like transit.py's Transitous calls: a slow weather provider must not hang a
+    # plan() request for the full 3-retry/backoff budget (up to ~60s) - 1 retry, short timeout.
     return net.fetch_json(url, headers={"User-Agent": UA, "Accept": "application/json"},
-                          timeout=timeout)
+                          timeout=timeout, max_retries=1)
 
 
 def current(lat: float, lng: float, units: str = "imperial", timeout: int = 12) -> dict | None:

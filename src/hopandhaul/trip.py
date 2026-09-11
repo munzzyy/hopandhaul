@@ -160,10 +160,22 @@ def sugar_direct(text: str) -> str:
     return f"{label} | {body.strip()}"
 
 
+PEOPLE_PER_VEHICLE = 4  # one car/taxi/rental seats this many before a second one is priced in
+
+
+def vehicles_needed(travelers: int) -> int:
+    """How many cars a drive/rental/taxi leg actually needs for the group - mirrors trip.js's
+    vehiclesNeeded(). One car doesn't carry 9 people; ceil(travelers / 4)."""
+    return max(1, math.ceil(travelers / PEOPLE_PER_VEHICLE))
+
+
 def scale_leg_cost(mode: str, cost: float, travelers: int) -> float:
-    """Group math: per-person modes (fly/train/bus/ferry...) scale ×N; per-vehicle modes don't."""
-    if travelers <= 1 or mode.lower() in PER_VEHICLE_MODES:
+    """Group math: per-person modes (fly/train/bus/ferry...) scale ×N; per-vehicle modes scale
+    by the number of VEHICLES needed (one car doesn't carry a group of 9)."""
+    if travelers <= 1:
         return cost
+    if mode.lower() in PER_VEHICLE_MODES:
+        return cost * vehicles_needed(travelers)
     return cost * travelers
 
 
@@ -228,8 +240,14 @@ def evaluate(options: list[dict], threshold: float = DEFAULT_THRESHOLD,
         o["buffer_h"] = round(buf, 4)
         o["hours_eff"] = round(o["hours"] + buf, 4)
 
-    # baseline = cheapest DIRECT (single-leg) option; fall back to cheapest overall.
-    directs = [o for o in opts if not o["is_split"]]
+    # baseline = cheapest DIRECT FLIGHT (single-leg, and that leg actually flies); fall back to
+    # cheapest overall. A single-leg GROUND-only option (the self-gateway case - see server.py's
+    # plan(), where the curated gateway IS the user's own origin airport, so there's no flight
+    # leg at all) is single-leg but is not "flying direct" in any sense a reader would recognize -
+    # letting it win baseline status inverted the whole product rule: a ground option that's
+    # merely cheap-but-slower must compete AGAINST the direct flight under the normal threshold/
+    # dominance/VOT rules, not silently become the thing everything else is measured against.
+    directs = [o for o in opts if not o["is_split"] and o["legs"][0]["mode"] in FLIGHT_MODES]
     if directs:
         baseline = min(directs, key=lambda o: (o["cost"], o["hours_eff"]))
         baseline_kind = "cheapest direct"
@@ -240,6 +258,8 @@ def evaluate(options: list[dict], threshold: float = DEFAULT_THRESHOLD,
     def adj(o: dict) -> float:
         return o["cost"] + (vot * o["hours_eff"] if vot else 0.0)
 
+    baseline_adj = round(adj(baseline), 2)
+
     # annotate each option relative to baseline
     rows = []
     for o in opts:
@@ -248,6 +268,10 @@ def evaluate(options: list[dict], threshold: float = DEFAULT_THRESHOLD,
         is_baseline = o is baseline
         dominant = (not is_baseline) and _dominates(o, baseline)
         qualifies = savings >= threshold                         # beats baseline by >= rule
+        # README's third path: when a value-of-time is given, an option whose vot-adjusted
+        # cost beats the baseline's is worth it even if it never clears the cash threshold
+        # (it can also veto a cash-qualifying split the other way - see adjusted_cost below).
+        vot_beats = bool(vot) and not is_baseline and round(adj(o), 2) < baseline_adj
         if is_baseline:
             status = "baseline"
         elif dominant:
@@ -256,6 +280,8 @@ def evaluate(options: list[dict], threshold: float = DEFAULT_THRESHOLD,
             status = "split_qualifies"   # the headline case: fly cheaper + ground, saves >= threshold
         elif qualifies:
             status = "alt_qualifies"     # a different direct that clears the threshold
+        elif vot_beats:
+            status = "vot_qualifies"     # doesn't clear the cash rule, but wins once time is valued
         elif savings > 0:
             status = "cheaper_below_threshold"
         elif extra_h < 0:
@@ -284,7 +310,8 @@ def evaluate(options: list[dict], threshold: float = DEFAULT_THRESHOLD,
 
     # eligible recommendation set: the baseline, plus anything dominant or clearing the threshold.
     # A time budget (max_hours) knocks options out of contention - unless nothing at all fits.
-    eligible = [r for r in rows if r["is_baseline"] or r["dominant"] or r["qualifies"]]
+    eligible = [r for r in rows
+                if r["is_baseline"] or r["dominant"] or r["qualifies"] or r["status"] == "vot_qualifies"]
     time_budget_binding = False
     if max_hours is not None:
         fits = [r for r in eligible if not r["over_time_budget"]]
@@ -333,6 +360,7 @@ _STATUS_TAG = {
     "dominant": "✅ cheaper AND faster",
     "split_qualifies": "✅ split saves ≥ threshold",
     "alt_qualifies": "✅ saves ≥ threshold",
+    "vot_qualifies": "✅ worth it at your value of time",
     "cheaper_below_threshold": "⚠️ cheaper but < threshold",
     "pricier_faster": "faster but pricier",
     "worse": "✗ worse",
@@ -340,7 +368,11 @@ _STATUS_TAG = {
 
 
 def _fmt_money(x: float) -> str:
-    return f"${x:,.0f}" if abs(x - round(x)) < 0.005 else f"${x:,.2f}"
+    # the sign goes BEFORE the $ ("-$5", not "$-5") - a negative --threshold used to print the
+    # dollar sign in the middle of the number.
+    sign = "-" if x < 0 else ""
+    ax = abs(x)
+    return f"{sign}${ax:,.0f}" if abs(ax - round(ax)) < 0.005 else f"{sign}${ax:,.2f}"
 
 
 def _fmt_hours(h: float) -> str:
@@ -422,6 +454,9 @@ def format_report(res: dict, origin: str | None, dest: str | None, money_fmt=Non
         elif rec["status"] in ("split_qualifies", "alt_qualifies"):
             why.append(f"It saves {money(rec['savings_vs_baseline'])} "
                        f"(≥ {money(res['threshold'])} rule)")
+        elif rec["status"] == "vot_qualifies":
+            why.append(f"It costs less once your time is valued at {money(res['vot'])}/hr, "
+                       f"even though its cash savings don't clear the {money(res['threshold'])} rule")
         L.append(f"  → RECOMMENDED: {rec['name']}. {', '.join(why)}.")
         # trade-off / break-even reasoning
         if rec["extra_hours_vs_baseline"] > 0 and rec["breakeven_vot"] is not None:
@@ -630,6 +665,20 @@ def selftest():
     rb = next(o for o in r7b["options"] if o["name"] == "EGE + rental")
     check("group rental split total = 4×240 + 80 = $1,040", _approx(rb["cost"], 1040))
 
+    # Case 7b: one car does NOT carry 9 people. drive/rental/taxi legs scale by VEHICLES
+    # (ceil(travelers/4)), not stay flat regardless of group size.
+    check("vehicles_needed(1..4) == 1", all(vehicles_needed(n) == 1 for n in (1, 2, 3, 4)))
+    check("vehicles_needed(5) == 2 (a 5th person needs a second car)", vehicles_needed(5) == 2)
+    check("vehicles_needed(9) == 3", vehicles_needed(9) == 3)
+    check("scale_leg_cost: drive ×2 vehicles for 5 travelers",
+          _approx(scale_leg_cost("drive", 55, 5), 110))
+    check("scale_leg_cost: drive ×3 vehicles for 9 travelers",
+          _approx(scale_leg_cost("drive", 55, 9), 165))
+    o7c = scale_option(parse_option("BJC + drive | fly 240 4.0 ; drive 55 2.0"), 9)
+    drive_leg = next(leg for leg in o7c["legs"] if leg["mode"] == "drive")
+    check("a 9-traveler drive leg is priced for 3 vehicles, not 1",
+          _approx(drive_leg["cost"], 165))
+
     # Case 8: time budget - a qualifying but slow split is excluded under --max-hours.
     opts8 = [parse_option("Fly direct | fly 620 5.5"),
              parse_option("Slow split | fly 210 3.0 ; train 75 6.0")]
@@ -728,7 +777,36 @@ def selftest():
     check("3-leg float-noise total sums naively to 1039.53, not compensated 1039.54",
           noisy["cost"] == 1039.53)
 
-    n_cases = 16
+    # Case 17: VOT can ELECT a split that never clears the cash threshold, per README's third
+    # path ("or the extra hours are worth it at --vot"). Direct $620/5.0h vs split $470/7.0h
+    # saves only $150 cash (< $200) but at $10/hr the vot-adjusted costs are $670 vs $540 -
+    # the split must win, tagged vot_qualifies (not silently folded into split_qualifies).
+    opts17 = [parse_option("Fly direct | fly 620 5.0"),
+              parse_option("Cheaper + slower | fly 400 4.0 ; train 70 3.0")]
+    r17 = evaluate(opts17, threshold=200, vot=10)
+    check("vot elects a split that misses the $200 cash rule",
+          r17["recommended"] == "Cheaper + slower")
+    row17 = next(o for o in r17["options"] if o["name"] == "Cheaper + slower")
+    check("that split is tagged vot_qualifies, not split_qualifies",
+          row17["status"] == "vot_qualifies")
+    check("adjusted costs match the repro: 540 vs 670",
+          _approx(row17["adjusted_cost"], 540) and _approx(r17["_baseline_row"]["adjusted_cost"], 670))
+
+    # Case 18: VOT can still VETO. Same shape as case 4 (r4hi): a split saving $250 cash but
+    # +5h loses once time is valued at $60/hr (adjusted cost 850+300=... direct wins), proving
+    # vot_qualifies never fires just because raw cash savings look good.
+    check("high VOT still keeps direct recommended (vot can veto, case 4 r4hi)",
+          r4hi["recommended"] == "Fly direct")
+    row18 = next(o for o in r4hi["options"] if o["name"] == "Cheap + bus")
+    check("the losing split under high VOT is not mis-tagged vot_qualifies",
+          row18["status"] != "vot_qualifies")
+
+    # Case 19: negative money renders "-$5", not "$-5" (the sign belongs before the symbol).
+    check("_fmt_money(-5) == '-$5'", _fmt_money(-5) == "-$5")
+    check("_fmt_money(-5.5) == '-$5.50'", _fmt_money(-5.5) == "-$5.50")
+    check("_fmt_money(5) is unaffected", _fmt_money(5) == "$5")
+
+    n_cases = 20
     print(f"\n{'ALL PASS' if not failures else str(len(failures)) + ' FAILED'} "
           f"({n_cases} cases)")
     return 1 if failures else 0

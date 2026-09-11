@@ -37,6 +37,8 @@ Run: python -m hopandhaul.itinerary --selftest
 from __future__ import annotations
 
 import datetime
+import importlib.resources
+import json
 import urllib.parse
 
 AIRPORT_ARRIVAL_BUFFER_H = 2.0     # standard "be there early" buffer before a flight's departure
@@ -44,6 +46,47 @@ DEFAULT_DEPART_LOCAL = "08:00"     # sane default start-of-day for an example sc
 # Independent copy of trip.FLIGHT_MODES - this module takes plain leg dicts from its callers
 # and shouldn't need an import-order dependency on trip.py to classify a leg as a flight.
 FLIGHT_MODES = {"fly", "flight", "plane", "air"}
+
+
+# --------------------------------------------------------------------------- structured notes
+# plan()'s output notes used to be hardcoded English strings, spliced untranslated into every
+# non-English locale's trust box (see ui/i18n/*.json's other 45 catalogs). A note is now
+# {"key": "notes.xxx", "params": {...}} - both engines emit the same shape (fixture-pinned in
+# tests/web_parity/), the browser looks the key up in its own language file, and the CLI
+# (below) renders it in English from the one EN catalog everyone ships.
+_I18N_PKG = "hopandhaul.ui.i18n"
+_EN_NOTES = None
+
+
+def _en_notes() -> dict:
+    """The 'notes.*' subset of ui/i18n/en.json, keyed without the 'notes.' prefix. Read once
+    from the packaged file (ui/** ships in the wheel - see pyproject.toml) rather than kept as
+    a second hand-maintained table that can drift from what the browser actually shows."""
+    global _EN_NOTES
+    if _EN_NOTES is None:
+        ref = importlib.resources.files(_I18N_PKG) / "en.json"
+        catalog = json.loads(ref.read_text(encoding="utf-8"))
+        _EN_NOTES = {k[len("notes."):]: v for k, v in catalog.items() if k.startswith("notes.")}
+    return _EN_NOTES
+
+
+def note(key: str, **params) -> dict:
+    """Build a structured plan() note: {key, params}. Callers push this instead of a hardcoded
+    English string - see the module docstring above."""
+    return {"key": key, "params": params}
+
+
+def render_note(n: dict) -> str:
+    """A structured note -> a plain English sentence, for the CLI (go.py/duffel.py), which
+    always prints full English regardless of locale. Reads the same en.json the browser
+    ships, so there is one source of truth for the wording, not two tables that can drift -
+    a selftest below asserts every key this module can emit actually resolves."""
+    key = n["key"]
+    short = key[len("notes."):] if key.startswith("notes.") else key
+    template = _en_notes().get(short)
+    if template is None:
+        return key   # a broken deploy (catalog missing a key) should be visible, not silent
+    return template.format(**(n.get("params") or {}))
 
 
 # --------------------------------------------------------------------------- clock math
@@ -493,6 +536,33 @@ def selftest() -> int:
           fly_row["price_basis"] == "route-band estimate")
     check("empty legs list returns an empty, honestly-labelled timeline",
           build_timeline([]) == {"legs": [], "any_live": False, "example_day": True, "depart_local": "08:00"})
+
+    # structured notes: {key, params} renders through en.json, not a hardcoded string.
+    n1 = note("notes.groupTotals", travelers=4, vehicles=1)
+    check("note() builds a structured {key, params} dict",
+          n1 == {"key": "notes.groupTotals", "params": {"travelers": 4, "vehicles": 1}})
+    check("render_note fills the template from en.json",
+          render_note(n1) == "Costs are group totals for 4 travelers. Per-person fares are "
+                             "multiplied by 4. Drive and rental legs are priced for 1 vehicle(s).")
+    check("render_note handles a key with no params",
+          "estimates" in render_note(note("notes.estimateNoProvider")).lower())
+    check("an unknown key renders as itself rather than raising (fail visibly, not crash)",
+          render_note({"key": "notes.doesNotExist", "params": {}}) == "notes.doesNotExist")
+    # every key trip.py/server.py/plan.js can actually emit must resolve in en.json - this is
+    # the "stays in sync" guarantee the task asked for, made structural (read the same file)
+    # rather than a second hand-maintained table that could drift.
+    emittable_keys = [
+        "notes.estimatePastDate", "notes.estimateDateApplied", "notes.estimateNeutralWindow",
+        "notes.estimateAddDateForLive", "notes.estimateNoProvider", "notes.mixedLiveEstimate",
+        "notes.liveLookupFailed", "notes.fxStatic", "notes.fxLive", "notes.fxUnknown",
+        "notes.groupTotals", "notes.roundtripReal", "notes.roundtripEstimatedSeparate",
+        "notes.roundtripEstimated2x", "notes.ferryRealCorridor", "notes.transitLiveSchedule",
+        "notes.lastMileGap", "notes.co2eEstimate", "notes.originSuspended",
+        "notes.airportSuspended",
+    ]
+    missing = [k for k in emittable_keys if k[len("notes."):] not in _en_notes()]
+    check(f"every note key this module can emit resolves in en.json (missing: {missing})",
+          not missing)
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (itinerary checks)")
     return 1 if fails else 0

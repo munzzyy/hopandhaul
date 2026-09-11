@@ -62,7 +62,7 @@ def _photon_clean(feat: dict) -> dict | None:
     }
 
 
-def _photon_geocode(text: str, limit: int = 5, lang: str = "en", timeout: int = 12) -> list[dict]:
+def _photon_geocode(text: str, limit: int = 5, lang: str = "en", timeout: int = 8) -> list[dict]:
     q = (text or "").strip()
     if not q:
         return []
@@ -74,8 +74,10 @@ def _photon_geocode(text: str, limit: int = 5, lang: str = "en", timeout: int = 
     if lang in ("en", "de", "fr"):     # Photon only supports a few response languages
         params["lang"] = lang
     url = PHOTON_BASE + "?" + urllib.parse.urlencode(params)
+    # fail fast, like transit.py's Transitous calls: a slow geocoder must not hang a plan()
+    # request for the full 3-retry/backoff budget (up to ~60s) - 1 retry, a short timeout.
     out = net.fetch_json(url, headers={"User-Agent": UA, "Accept": "application/json"},
-                         timeout=timeout)
+                         timeout=timeout, max_retries=1)
     rows = out.get("features") or []
     result = [c for c in (_photon_clean(f) for f in rows) if c]
     _PHOTON_CACHE.set(cache_key, result)

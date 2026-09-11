@@ -2,6 +2,7 @@
 // basis and honesty rules as the Python original (see emissions.py's module docstring for the
 // full DEFRA/EEA sourcing) - this file just needs to keep producing the identical number.
 import { pyRound } from "./pyround.js";
+import { vehiclesNeeded } from "./trip.js";
 
 const FLIGHT_SHORT_HAUL_KM = 1500.0;
 const FLIGHT_SHORT_HAUL_G_PER_PKM = 246.0;
@@ -43,7 +44,8 @@ export function co2eForLeg(mode, distanceKm, travelers = 1, withRf = false) {
   }
   const [gPerPkm, perVehicle] = GROUND_FACTORS[mode] || GROUND_FACTORS.ground;
   if (perVehicle) {
-    return pyRound((gPerPkm * distanceKm) / 1000.0, 2);
+    // emissions scale with the number of CARS on the road, not the number of people in them.
+    return pyRound((gPerPkm * distanceKm * vehiclesNeeded(travelers)) / 1000.0, 2);
   }
   return pyRound((gPerPkm * distanceKm * travelers) / 1000.0, 2);
 }

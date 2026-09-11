@@ -1070,8 +1070,14 @@
       "window": 2,
       "today": "2027-01-01",
       "legs": [
-        { "mode": "fly", "is_live": false },
-        { "mode": "bus", "is_live": false }
+        {
+          "mode": "fly",
+          "is_live": false
+        },
+        {
+          "mode": "bus",
+          "is_live": false
+        }
       ]
     }
   },
@@ -1083,9 +1089,18 @@
       "window": 2,
       "today": "2028-01-01",
       "legs": [
-        { "mode": "fly", "is_live": true },
-        { "mode": "fly", "is_live": true },
-        { "mode": "train", "is_live": false }
+        {
+          "mode": "fly",
+          "is_live": true
+        },
+        {
+          "mode": "fly",
+          "is_live": true
+        },
+        {
+          "mode": "train",
+          "is_live": false
+        }
       ]
     }
   },
@@ -1097,7 +1112,10 @@
       "window": 3,
       "today": "2027-06-01",
       "legs": [
-        { "mode": "train", "is_live": true }
+        {
+          "mode": "train",
+          "is_live": true
+        }
       ]
     }
   },
@@ -1109,8 +1127,14 @@
       "window": 0,
       "today": "2027-05-04",
       "legs": [
-        { "mode": "fly", "is_live": true },
-        { "mode": "fly", "is_live": false }
+        {
+          "mode": "fly",
+          "is_live": true
+        },
+        {
+          "mode": "fly",
+          "is_live": false
+        }
       ]
     }
   },
@@ -1568,6 +1592,138 @@
       "lat": "39.19",
       "lng": "-106.82",
       "round": "banana"
+    }
+  },
+  {
+    "name": "fix1_vot_qualifies_elects_below_threshold",
+    "type": "evaluate",
+    "options": [
+      {
+        "name": "Fly direct",
+        "legs": [
+          {
+            "mode": "fly",
+            "cost": 620,
+            "hours": 5.0
+          }
+        ]
+      },
+      {
+        "name": "Cheaper + slower",
+        "legs": [
+          {
+            "mode": "fly",
+            "cost": 400,
+            "hours": 4.0
+          },
+          {
+            "mode": "train",
+            "cost": 70,
+            "hours": 3.0
+          }
+        ]
+      }
+    ],
+    "threshold": 200,
+    "vot": 10
+  },
+  {
+    "name": "fix1_vot_qualifies_does_not_fire_without_vot",
+    "type": "evaluate",
+    "options": [
+      {
+        "name": "Fly direct",
+        "legs": [
+          {
+            "mode": "fly",
+            "cost": 620,
+            "hours": 5.0
+          }
+        ]
+      },
+      {
+        "name": "Cheaper + slower",
+        "legs": [
+          {
+            "mode": "fly",
+            "cost": 400,
+            "hours": 4.0
+          },
+          {
+            "mode": "train",
+            "cost": 70,
+            "hours": 3.0
+          }
+        ]
+      }
+    ],
+    "threshold": 200
+  },
+  {
+    "name": "fix2_self_gateway_den_origin_aspen",
+    "type": "plan",
+    "params": {
+      "dest_lat": 39.2232,
+      "dest_lng": -106.8687,
+      "origin_iata": "DEN"
+    }
+  },
+  {
+    "name": "fix3_travelers_9_vehicle_scaling_aspen",
+    "type": "plan",
+    "params": {
+      "dest_lat": 39.19,
+      "dest_lng": -106.82,
+      "origin_iata": "JFK",
+      "travelers": 9
+    }
+  },
+  {
+    "name": "fix4_max_ground_hours_1_santorini",
+    "type": "plan",
+    "params": {
+      "dest_lat": 36.3992,
+      "dest_lng": 25.4793,
+      "origin_iata": "LHR",
+      "max_ground_h": 1
+    }
+  },
+  {
+    "name": "fix5_stn_bgy_lcc_small_airport_fare",
+    "type": "plan",
+    "params": {
+      "dest_lat": 45.669,
+      "dest_lng": 9.7,
+      "origin_iata": "STN"
+    }
+  },
+  {
+    "name": "fix6_kyiv_click_no_invented_airport",
+    "type": "plan",
+    "params": {
+      "dest_lat": 50.4501,
+      "dest_lng": 30.5234,
+      "origin_iata": "JFK"
+    }
+  },
+  {
+    "name": "fix6_vilnius_gateways_exclude_restricted",
+    "type": "plan",
+    "params": {
+      "dest_lat": 54.6872,
+      "dest_lng": 25.2797,
+      "origin_iata": "JFK",
+      "max_ground_h": 8
+    }
+  },
+  {
+    "name": "fix7_group_totals_note_carries_vehicle_count",
+    "type": "plan",
+    "params": {
+      "dest_lat": 39.19,
+      "dest_lng": -106.82,
+      "origin_iata": "JFK",
+      "travelers": 5
     }
   }
 ]

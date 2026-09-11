@@ -54,26 +54,23 @@ function noteDateBasis(ctx, est) {
   else if (est.date_mult) ctx.date_applied = true;
 }
 
-/** Mirrors server.py's _estimate_note() - the note text is compared byte for byte by the
- * web-parity gate, so these two functions have to stay in lockstep. */
+/** Build a structured plan() note: {key, params} - mirrors itinerary.note(). Notes used to be
+ * hardcoded English strings spliced untranslated into every non-English locale's trust box;
+ * the browser's own i18n layer now looks the key up in its own language file. */
+function note(key, params = {}) {
+  return { key, params };
+}
+
+/** Mirrors server.py's _estimate_note() - the note KEY is compared by the web-parity gate, so
+ * these two functions have to stay in lockstep. */
 function estimateNote(date, ctx) {
-  const head = "Fares are distance-based ESTIMATES.";
-  if (ctx.past_date) {
-    return `${head} That departure date has already passed, so no booking-window or `
-      + "season adjustment was applied. Pick a future date. Verify before booking.";
-  }
-  if (ctx.date_applied) {
-    return `${head} Adjusted for your booking window and the season. Verify before booking.`;
-  }
-  if (date) {
-    return `${head} This date sits in a neutral booking window, so it did not move the `
-      + "fare. Verify before booking.";
-  }
+  if (ctx.past_date) return note("notes.estimatePastDate");
+  if (ctx.date_applied) return note("notes.estimateDateApplied");
+  if (date) return note("notes.estimateNeutralWindow");
   // No livePossible branch here on purpose: this build has no Duffel code path and the page
   // CSP won't allow one, so the "add a date for live fares" case can never be reached. It
   // matches server.py's plan(allow_live=False), which is what the parity gate generates.
-  return `${head} No live fare provider is configured, so every flight fare here is `
-    + "modelled. Verify before booking.";
+  return note("notes.estimateNoProvider");
 }
 
 /** itinerary.js leg spec for a flight leg - mirrors server.py's _flight_leg_spec(), estimate
@@ -122,8 +119,28 @@ export function plan({
   if (!origin) {
     return { ok: false, error: `unknown origin airport '${originIata}'`, code: "unknown_origin" };
   }
-  const dest = geo.nearestAirport(destLat, destLng, { preferHub: true });
+  if (geo.isSuspended(origin)) {
+    // text must match ui/i18n/en.json's notes.originSuspended template exactly - server.py
+    // renders the same key server-side (itinerary.render_note), and the web-parity gate pins
+    // both engines' JSON output byte for byte.
+    return {
+      ok: false,
+      error: `${origin.iata} has no bookable service right now because of closed or `
+        + "restricted airspace or ground crossings. Pick a different origin.",
+      code: "origin_suspended",
+    };
+  }
+  const { airport: dest, note: suspendedNote } = geo.nearestServedOrNote(destLat, destLng, { preferHub: true });
   if (!dest) {
+    if (suspendedNote) {
+      // text must match ui/i18n/en.json's notes.airportSuspended template exactly (see above).
+      return {
+        ok: false,
+        error: "No served airport is near this point. Airspace or service there is "
+          + "currently suspended.",
+        code: "airport_suspended",
+      };
+    }
     return { ok: false, error: "no airport found near that point", code: "no_airport_near_point" };
   }
   if (dest.iata === origin.iata) {
@@ -181,8 +198,28 @@ export function plan({
   // splits (fly to a cheaper hub, then ground it)
   gws.forEach((g, i) => {
     const gf = priced[i + 1];
-    g.fly = gf;
     const groundCost = trip.scaleLegCost(g.ground_mode, g.ground_cost, travelers) * rtMult;
+    // A real-corridor ferry leg uses the actual port-to-port crossing distance - boats sail
+    // the strait, they don't follow a winding road. Mirrors server.py's plan().
+    const groundKm = g.ferry
+      ? g.ferry.crossing_km * rtMult
+      : geo.haversineKm(g.lat, g.lng, dest.lat, dest.lng) * geo.ROAD_WINDING * rtMult;
+    // the gateway curated for this destination IS the user's own origin airport - there is no
+    // flight to take, just the ground leg from home. Mirrors server.py's plan(). Skip pricing
+    // a same-airport "flight" entirely (no invented fare on top of the real bus/train).
+    if (g.iata === origin.iata) {
+      const name = `${g.ground_mode.charAt(0).toUpperCase()}${g.ground_mode.slice(1)} only from ${origin.iata}`;
+      options.push(trip.parseOption(`${name} | ${g.ground_mode} ${groundCost} ${g.ground_hours}`));
+      geoByName[name] = [
+        { type: "ground", mode: g.ground_mode, from: pt(origin), to: pt(dest) },
+      ];
+      emissionsLegsByName[name] = [{ mode: g.ground_mode, road_km: groundKm }];
+      legSpecsByName[name] = [
+        groundLegSpec(g, dest, groundCost, groundKm / Math.max(rtMult, 1)),
+      ];
+      return;
+    }
+    g.fly = gf;
     const flyCost = flightCost(gf);
     const name = `${g.iata} + ${g.ground_mode}`;
     options.push(trip.parseOption(
@@ -193,11 +230,6 @@ export function plan({
       { type: "ground", mode: g.ground_mode, from: pt(g), to: pt(dest) },
     ];
     const flyKm = geo.haversineKm(origin.lat, origin.lng, g.lat, g.lng) * rtMult;
-    // A real-corridor ferry leg uses the actual port-to-port crossing distance - boats sail
-    // the strait, they don't follow a winding road. Mirrors server.py's plan().
-    const groundKm = g.ferry
-      ? g.ferry.crossing_km * rtMult
-      : geo.haversineKm(g.lat, g.lng, dest.lat, dest.lng) * geo.ROAD_WINDING * rtMult;
     emissionsLegsByName[name] = [
       { mode: "fly", distance_km: flyKm },
       { mode: g.ground_mode, road_km: groundKm },
@@ -231,37 +263,25 @@ export function plan({
   const notes = [];
   notes.push(estimateNote(date, ctx));
   if (travelers > 1) {
-    notes.push(`Costs are GROUP TOTALS for ${travelers} travelers: per-person fares `
-      + `×${travelers}; drive/rental legs are per vehicle.`);
+    notes.push(note("notes.groupTotals", { travelers, vehicles: trip.vehiclesNeeded(travelers) }));
   }
   if (roundtrip) {
     if (ret) {
-      notes.push(`Round-trip: outbound + return (${ret}) estimated separately; `
-        + "times are the outbound leg.");
+      notes.push(note("notes.roundtripEstimatedSeparate", { return_date: ret }));
     } else {
-      notes.push("Round-trip: fares shown are ~2× one-way; add a return date for real "
-        + "RT pricing. Times are for the outbound leg.");
+      notes.push(note("notes.roundtripEstimated2x"));
     }
   }
   if (gws.some((g) => g.ferry)) {
-    notes.push("Ferry legs are REAL corridors (bundled research, operators + typical "
-      + "fares + sailings/day as of the data's date). Schedules vary by day and "
-      + "season, so check the operator before relying on a connection.");
+    notes.push(note("notes.ferryRealCorridor"));
   }
   if (gws.some((g) => g.transit)) {
-    notes.push("Ground legs marked 'live schedule' use real timetables via Transitous "
-      + "(transitous.org, community GTFS/OSM data): real operators, departures "
-      + "and door-to-door times. Fares on those legs are still estimates.");
+    notes.push(note("notes.transitLiveSchedule"));
   }
   if ((dest.dist_km || 0) > 120) {
-    notes.push(`Nearest airport ${dest.iata} is ~${Math.trunc(dest.dist_km)} km from the `
-      + "clicked point, so the last mile to your exact spot isn't included.");
+    notes.push(note("notes.lastMileGap", { iata: dest.iata, km: Math.trunc(dest.dist_km) }));
   }
-  notes.push(
-    "co2e_kg per option is a rough ESTIMATE from flight/ground distance, not a "
-    + "certified footprint; see docs/api.md for the factor basis. The lowest-carbon "
-    + "option is flagged as 'greenest' but never auto-recommended over the cheapest.",
-  );
+  notes.push(note("notes.co2eEstimate"));
 
   return {
     ok: true,

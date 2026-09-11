@@ -24,6 +24,8 @@ export function pyG(x) {
 export const FLIGHT_CURVE = [30.0, 1.8, 0.012]; // (base, per_sqrt_km, per_km)
 export const FLIGHT_FLOOR = 45.0;
 export const NA_SHORT_FLOOR = 65.0;
+export const LCC_FLOOR = 18.0;             // saturated LCC markets (EU/SEA/IN/KR): real fares go lower
+export const LCC_SATURATION_DISCOUNT = 0.70; // extra discount on top of ROUTE_MULT for those markets
 export const SMALL_AIRPORT_PREMIUM = { 1: 0.0, 2: 0.18, 3: 0.75 };
 export const HUB_COMPETITION_DISCOUNT = 0.92;
 export const FLIGHT_FIXED_H = 1.1;
@@ -149,6 +151,13 @@ export const NEAREST_SOFT_KM = 120;
 export const NEAREST_WARN_KM = 400;
 export const NEAREST_HARD_KM = 700;
 
+// "closed": no civil flights at all. "restricted": no bookable Western service / suspended
+// ground crossings. Both are honesty flags - mirrors geo.SUSPENDED_STATUSES/is_suspended().
+const SUSPENDED_STATUSES = new Set(["closed", "restricted"]);
+export function isSuspended(a) {
+  return SUSPENDED_STATUSES.has(a.status);
+}
+
 /** Closest airport to a point, capped at maxKm - mirrors geo.nearest_airport exactly,
  * including its "first minimal wins" tie-break (relies on airports() iteration order matching
  * the Python side's, which it does: both read the same airports.json in file order). */
@@ -156,6 +165,7 @@ export function nearestAirport(lat, lng, { preferHub = false, maxKm = NEAREST_HA
   let best = null;
   let bestScore = null;
   for (const a of airports()) {
+    if (isSuspended(a)) continue;
     const d = haversineKm(lat, lng, a.lat, a.lng);
     if (maxKm !== null && d > maxKm) continue;
     const score = preferHub ? d + (a.hub - 1) * 20 : d;
@@ -168,6 +178,26 @@ export function nearestAirport(lat, lng, { preferHub = false, maxKm = NEAREST_HA
   const distKm = haversineKm(lat, lng, best.lat, best.lng);
   const warnTier = distKm >= NEAREST_WARN_KM ? "hard" : (distKm >= NEAREST_SOFT_KM ? "soft" : null);
   return { ...best, dist_km: distKm, warn_tier: warnTier };
+}
+
+/** nearestAirport(), plus honesty: if the ONLY candidate(s) near a point are closed or
+ * restricted, say so instead of the generic "no airport found near that point" - mirrors
+ * geo.nearest_served_or_note(). Returns { airport, note } - airport is null on failure. */
+export function nearestServedOrNote(lat, lng, { preferHub = false, maxKm = NEAREST_HARD_KM } = {}) {
+  const served = nearestAirport(lat, lng, { preferHub, maxKm });
+  if (served) return { airport: served, note: null };
+  for (const a of airports()) {
+    if (!isSuspended(a)) continue;
+    const d = haversineKm(lat, lng, a.lat, a.lng);
+    if (maxKm === null || d <= maxKm) {
+      return {
+        airport: null,
+        note: "no served airport near this point; airspace or service there is "
+          + "currently suspended",
+      };
+    }
+  }
+  return { airport: null, note: null };
 }
 
 // --------------------------------------------------------------------------- regions
@@ -285,14 +315,37 @@ export function fareAnchorFor(orig, dest) {
 
 export function estimateFlight(orig, dest, date = null, today = null) {
   const d = haversineKm(orig.lat, orig.lng, dest.lat, dest.lng);
+  if (d <= 0) {
+    // same airport at both ends - there is no flight, so don't let NA_SHORT_FLOOR or any
+    // other floor fabricate a fare for a $0-distance "hop" (a self-gateway plan used to do
+    // exactly this: DEN-to-DEN priced at the short-haul floor on top of a real bus).
+    return {
+      price: 0.0, hours: 0.0, distance_km: 0.0, source: "estimate",
+      route_mult: 1.0, regions: "same-same", likely_connection: false, same_airport: true,
+    };
+  }
   const [base, perSqrt, perKm] = FLIGHT_CURVE;
   let fare = base + perSqrt * Math.sqrt(d) + perKm * d;
-  fare *= 1 + (SMALL_AIRPORT_PREMIUM[dest.hub] ?? 0.0);
-  fare *= 1 + 0.5 * (SMALL_AIRPORT_PREMIUM[orig.hub] ?? 0.0);
-  if (orig.hub === 1 && dest.hub === 1) fare *= HUB_COMPETITION_DISCOUNT;
   const rO = regionOf(orig.lat, orig.lng);
   const rD = regionOf(dest.lat, dest.lng);
   const rm = _routeMult(rO, rD);
+  const destPrem = SMALL_AIRPORT_PREMIUM[dest.hub] ?? 0.0;
+  const origPrem = 0.5 * (SMALL_AIRPORT_PREMIUM[orig.hub] ?? 0.0);
+  if (rm <= 0.6 && (destPrem > 0 || origPrem > 0)) {
+    // heavy LCC/resort-island saturation (intra-EU, intra-SEA, intra-IN, intra-KR...) with at
+    // least one small/secondary field in play: the two small-airport premiums used to stack
+    // multiplicatively ON TOP OF the LCC route discount and roughly doubled real posted fares
+    // (STN-BGY, ATH-JTR vs Ryanair/easyJet). Cap the combined premium instead of letting the
+    // tiers stack - and apply the same deeper saturation discount those small/secondary fields
+    // actually see. Gated on an actual premium so a major hub-to-hub route (BCN-FCO) stays
+    // untouched - this is a small-airport fix, not a blanket EU/SEA/IN/KR discount.
+    const combinedPrem = Math.min(1.10, (1 + destPrem) * (1 + origPrem));
+    fare *= combinedPrem * LCC_SATURATION_DISCOUNT;
+  } else {
+    fare *= 1 + destPrem;
+    fare *= 1 + origPrem;
+  }
+  if (orig.hub === 1 && dest.hub === 1) fare *= HUB_COMPETITION_DISCOUNT;
   fare *= rm;
 
   let anchor = null;
@@ -312,7 +365,10 @@ export function estimateFlight(orig, dest, date = null, today = null) {
 
   const dm = fareDateMultiplier(date, today);
   fare *= dm;
-  const floor = (rO === rD && rO === "NA" && d < 400) ? NA_SHORT_FLOOR : FLIGHT_FLOOR;
+  let floor;
+  if (rO === rD && rO === "NA" && d < 400) floor = NA_SHORT_FLOOR;
+  else if (rm <= 0.6 && (destPrem > 0 || origPrem > 0)) floor = LCC_FLOOR; // small/secondary LCC field
+  else floor = FLIGHT_FLOOR;
   fare = Math.max(floor, fare);
   let hours = FLIGHT_FIXED_H + d / _flightSpeedKmh(d);
   const connects = d > 2000 && (orig.hub === 3 || dest.hub === 3);
@@ -661,7 +717,7 @@ export function curatedGateways(destIata) {
       if (String(e.dest_airport || "").toUpperCase() !== String(destIata || "").toUpperCase()) continue;
       for (const g of e.gateways) {
         const a = byIata(g.hub_airport);
-        if (!a) continue;
+        if (!a || isSuspended(a)) continue;
         out.push({
           iata: a.iata, name: a.name, city: a.city ?? null, lat: a.lat, lng: a.lng,
           hub: a.hub, ground_mode: g.ground_mode,
@@ -676,7 +732,9 @@ export function curatedGateways(destIata) {
 }
 
 export function discoverGateways(dest, origin = null, { maxGroundH = 6.0, maxGateways = 4 } = {}) {
-  const result = curatedGateways(dest.iata);
+  // curated entries carry real numbers but aren't exempt from the user's own time budget -
+  // a maxGroundH:1 request must drop a curated 7h ferry same as an auto-discovered one.
+  const result = curatedGateways(dest.iata).filter((g) => g.ground_hours <= maxGroundH);
   const seen = new Set(result.map((g) => g.iata));
 
   const maxGwHub = { 1: 0, 2: 1, 3: 2 }[dest.hub] ?? 0;
@@ -689,6 +747,7 @@ export function discoverGateways(dest, origin = null, { maxGroundH = 6.0, maxGat
   for (const a of airports()) {
     if (a.iata === dest.iata || seen.has(a.iata)) continue;
     if (origin && a.iata === origin.iata) continue;
+    if (isSuspended(a)) continue;
     if (a.hub > maxGwHub) continue;
     const d = haversineKm(dest.lat, dest.lng, a.lat, a.lng);
     if (d < 25 || d > maxKm) continue;

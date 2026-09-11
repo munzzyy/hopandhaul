@@ -3698,7 +3698,8 @@
       "country": "BY",
       "lat": 52.108,
       "lng": 23.897,
-      "hub": 1
+      "hub": 1,
+      "status": "restricted"
     },
     {
       "iata": "BQU",
@@ -6497,7 +6498,8 @@
       "country": "UA",
       "lat": 48.259,
       "lng": 25.981,
-      "hub": 2
+      "hub": 2,
+      "status": "closed"
     },
     {
       "iata": "CWJ",
@@ -7487,7 +7489,8 @@
       "country": "UA",
       "lat": 48.357,
       "lng": 35.101,
-      "hub": 2
+      "hub": 2,
+      "status": "closed"
     },
     {
       "iata": "DNR",
@@ -10394,7 +10397,8 @@
       "country": "BY",
       "lat": 52.527,
       "lng": 31.017,
-      "hub": 2
+      "hub": 2,
+      "status": "restricted"
     },
     {
       "iata": "GMI",
@@ -12806,7 +12810,8 @@
       "country": "UA",
       "lat": 48.884,
       "lng": 24.686,
-      "hub": 2
+      "hub": 2,
+      "status": "closed"
     },
     {
       "iata": "IFP",
@@ -15236,7 +15241,8 @@
       "country": "RU",
       "lat": 54.892,
       "lng": 20.599,
-      "hub": 1
+      "hub": 1,
+      "status": "restricted"
     },
     {
       "iata": "KGE",
@@ -15344,7 +15350,8 @@
       "country": "UA",
       "lat": 46.676,
       "lng": 32.506,
-      "hub": 2
+      "hub": 2,
+      "status": "closed"
     },
     {
       "iata": "KHG",
@@ -16811,7 +16818,8 @@
       "country": "UA",
       "lat": 48.043,
       "lng": 33.21,
-      "hub": 2
+      "hub": 2,
+      "status": "closed"
     },
     {
       "iata": "KWI",
@@ -18809,7 +18817,8 @@
       "country": "UA",
       "lat": 49.812,
       "lng": 23.956,
-      "hub": 1
+      "hub": 1,
+      "status": "closed"
     },
     {
       "iata": "LWS",
@@ -20555,7 +20564,8 @@
       "country": "UA",
       "lat": 47.076,
       "lng": 37.45,
-      "hub": 2
+      "hub": 2,
+      "status": "closed"
     },
     {
       "iata": "MPY",
@@ -20798,7 +20808,8 @@
       "country": "BY",
       "lat": 53.888,
       "lng": 28.04,
-      "hub": 1
+      "hub": 1,
+      "status": "restricted"
     },
     {
       "iata": "MSR",
@@ -27134,7 +27145,8 @@
       "country": "UA",
       "lat": 50.607,
       "lng": 26.142,
-      "hub": 2
+      "hub": 2,
+      "status": "closed"
     },
     {
       "iata": "RXS",
@@ -28115,7 +28127,8 @@
       "country": "UA",
       "lat": 45.052,
       "lng": 33.975,
-      "hub": 1
+      "hub": 1,
+      "status": "closed"
     },
     {
       "iata": "SIS",
@@ -32165,7 +32178,8 @@
       "country": "UA",
       "lat": 48.634,
       "lng": 22.263,
-      "hub": 1
+      "hub": 1,
+      "status": "closed"
     },
     {
       "iata": "UDR",
@@ -34131,12 +34145,12 @@
     },
     {
       "iata": "WSI",
-      "name": "[Duplicate] Western Sydney International Airport",
+      "name": "Western Sydney International Airport",
       "city": "Sydney",
       "country": "AU",
       "lat": -33.888,
       "lng": 150.715,
-      "hub": 1
+      "hub": 3
     },
     {
       "iata": "WSK",

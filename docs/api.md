@@ -20,7 +20,10 @@ message for which one and why), `forbidden_host` (the `Host` header wasn't local
 `not_found` (unknown path or missing static asset), `unknown_origin` (the `origin` IATA
 code isn't in the airport database), `no_airport_near_point` (nothing within the
 nearest-airport search radius), `origin_is_destination` (the clicked point resolves to the
-same airport as `origin`, so there is nothing to plan), `geocoding_not_configured` / `geocode_lookup_failed`
+same airport as `origin`, so there is nothing to plan), `origin_suspended` (`origin` is a
+closed or restricted airport - no civil flights, or no bookable Western service),
+`airport_suspended` (the clicked point's only nearby airport(s) are closed/restricted, so
+there is honestly nothing to plan there), `geocoding_not_configured` / `geocode_lookup_failed`
 (no Geoapify key / the provider call failed), `no_airport_found` (`/api/nearest` found
 nothing), `dates_all_past` / `dates_all_failed` / `date_lookup_failed` (`/api/dates`: the
 whole window is in the past, nothing in it priced, or one individual day failed),
@@ -167,7 +170,7 @@ applies the $200 rule to recommend one.
     "travelers": 1, "threshold": 200.0, "vot": null,
     "origin": {"iata": "JFK", "lat": ..., "lng": ..., "name": "...", "city": "...", "hub": 1},
     "dest": {"iata": "ASE", "lat": ..., "lng": ..., "dist_km": 3.2, "click": {"lat": ..., "lng": ...}},
-    "gateways": [{"iata": "DEN", "ground_mode": "bus", "ground_hours": 4.0, "ground_cost": 75, "...": "..."}],
+    "gateways": [{"iata": "DEN", "ground_mode": "bus", "ground_hours": 4.0, "ground_cost": 34, "...": "..."}],
     "direct": {"price": 620, "hours": 5.5, "source": "estimate", "rt": false},
     "result": {
       "recommended": "Fly direct to ASE",
@@ -178,16 +181,27 @@ applies the $200 rule to recommend one.
                    "...": "..."}]
     },
     "weather": null,
-    "notes": ["Fares are distance-based ESTIMATES ... add a date for live fares.",
-              "co2e_kg per option is a rough ESTIMATE from flight/ground distance, not a certified footprint ..."]
+    "notes": [{"key": "notes.estimateAddDateForLive", "params": {}},
+              {"key": "notes.co2eEstimate", "params": {}}]
   }
   ```
 - `pricing_source` is `"estimate"` whenever no live provider key/date combination was used,
   `"mixed"` when some legs were live and others fell back, and `"<provider>-live"` (e.g.
   `"duffel-live"`) when every leg priced live.
-- `notes` is a plain-English list explaining anything a user should know about how the numbers
-  were produced (estimate mode, FX conversion, group totals, round-trip approximation, a
-  distant nearest-airport match, etc). Read it before trusting the number.
+- `notes` is a list of **structured, translatable notes**: `{"key": "notes.xxx", "params":
+  {...}}`, never a hardcoded English string. `key` matches an entry in `src/hopandhaul/ui/i18n/
+  en.json` (and every other locale catalog there) under the `notes.` namespace; `params` fills
+  in that template's `{placeholder}` fields (e.g. `notes.groupTotals` carries `travelers` and
+  `vehicles`; `notes.lastMileGap` carries `iata` and `km`). A caller that only speaks English
+  can render the same text the CLI does via `itinerary.render_note(note)` (Python) - the CLI
+  (`hopandhaul go`/`hopandhaul duffel`) always prints full English sentences this way, read
+  from the same `en.json` the browser ships, not a second hand-maintained table. The full key
+  catalog: `estimatePastDate`, `estimateDateApplied`, `estimateNeutralWindow`,
+  `estimateAddDateForLive`, `estimateNoProvider`, `mixedLiveEstimate`, `liveLookupFailed`,
+  `fxStatic`, `fxLive`, `fxUnknown`, `groupTotals`, `roundtripReal`,
+  `roundtripEstimatedSeparate`, `roundtripEstimated2x`, `ferryRealCorridor`,
+  `transitLiveSchedule`, `lastMileGap`, `co2eEstimate`, `originSuspended`, `airportSuspended`
+  (all under the `notes.` prefix). Read the notes before trusting the number.
 
 ### Gateway extras: `gateways[].ferry` and `gateways[].transit`
 

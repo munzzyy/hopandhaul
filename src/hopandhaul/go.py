@@ -19,12 +19,13 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import difflib
 import functools
 import io
 import json
 import sys
 
-from . import duffel, geo, server, trip
+from . import duffel, geo, itinerary, server, trip
 
 
 def resolve_airport(query: str) -> tuple[dict | None, list[dict]]:
@@ -74,6 +75,31 @@ def _search_airports(q: str) -> tuple[dict | None, list[dict]]:
               if sc <= scored[0][0] + 1
               and geo.haversine_km(a["lat"], a["lng"], best["lat"], best["lng"]) > 150][:4]
     return best, others
+
+
+def _suggest_airports(q: str, limit: int = 3) -> list[dict]:
+    """Typo tolerance: when substring search misses entirely ('Aspin', 'Bostn', 'Pariss'),
+    fall back to difflib.get_close_matches over every city/airport name instead of just
+    failing - a CLI should say "did you mean" the same way a shell does. Several airports can
+    share a city name ('Paris' -> CDG/ORY/BVA); pick the best-connected one (lowest hub tier)
+    for that match instead of whichever happened to be inserted first."""
+    names = {}
+    for a in geo.airports():
+        for key in (a.get("city"), a.get("name")):
+            if not key:
+                continue
+            kl = key.lower()
+            cur = names.get(kl)
+            if cur is None or a["hub"] < cur["hub"]:
+                names[kl] = a
+    matches = difflib.get_close_matches((q or "").lower(), list(names.keys()), n=limit, cutoff=0.6)
+    seen, out = set(), []
+    for m in matches:
+        a = names[m]
+        if a["iata"] not in seen:
+            seen.add(a["iata"])
+            out.append(a)
+    return out
 
 
 def _with_private_rows(result: dict) -> dict:
@@ -129,13 +155,22 @@ def main(argv=None) -> int:
         print(f"error: {e}", file=sys.stderr)
         return 2
 
+    def _no_match_error(query: str) -> None:
+        sugg = _suggest_airports(query)
+        if sugg:
+            s = sugg[0]
+            print(f"error: no airport matches {query!r}. Did you mean {s['iata']} "
+                  f"({s.get('city') or s['name']})?", file=sys.stderr)
+        else:
+            print(f"error: no airport matches {query!r}, try an IATA code", file=sys.stderr)
+
     origin, o_others = resolve_airport(args.origin)
     if not origin:
-        print(f"error: no airport matches {args.origin!r}, try an IATA code", file=sys.stderr)
+        _no_match_error(args.origin)
         return 2
     dest, d_others = resolve_airport(args.dest)
     if not dest:
-        print(f"error: no airport matches {args.dest!r}, try an IATA code", file=sys.stderr)
+        _no_match_error(args.dest)
         return 2
     # Destination point: the airport is the fallback, but when the user typed a PLACE and
     # we're online, the town itself is the honest target - plan() resolves its own nearest
@@ -174,7 +209,10 @@ def main(argv=None) -> int:
     )
     if not out.get("ok"):
         print(f"error: {out.get('error', 'could not plan that trip')}", file=sys.stderr)
-        return 1
+        # origin == destination is a bad-input error the same way a malformed --date is -
+        # give it the same exit code as every other CLI validation failure, not the code a
+        # runtime planning failure (no airport nearby, provider down) gets.
+        return 2 if out.get("code") == "origin_is_destination" else 1
     if args.json:
         print(json.dumps(out, indent=2, ensure_ascii=False, default=str))
         return 0
@@ -201,7 +239,7 @@ def main(argv=None) -> int:
     if out.get("notes"):
         print("\nNOTES:")
         for n in out["notes"]:
-            print(f"  • {n}")
+            print(f"  • {itinerary.render_note(n)}")
     return 0
 
 
@@ -270,6 +308,29 @@ def selftest() -> int:
         rc_unk = main(["JFK", "ASE", "--offline", "--currency", "ZZZ"])
     check("an unrecognized --currency still succeeds, falling back to USD with a stderr note",
           rc_unk == 0 and "$" in out_buf2.getvalue() and "no FX rate" in err_buf2.getvalue())
+
+    # typo tolerance: substring search misses entirely, difflib fallback should still suggest
+    # the right airport instead of a flat "no match".
+    sugg_a = _suggest_airports("Aspin")
+    check("typo 'Aspin' suggests ASE (Aspen)", any(a["iata"] == "ASE" for a in sugg_a))
+    sugg_b = _suggest_airports("Bostn")
+    check("typo 'Bostn' suggests BOS (Boston)", any(a["iata"] == "BOS" for a in sugg_b))
+    sugg_c = _suggest_airports("Pariss")
+    check("typo 'Pariss' suggests a Paris airport (CDG/ORY)",
+          any(a["iata"] in ("CDG", "ORY") for a in sugg_c))
+    err_buf3 = io.StringIO()
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err_buf3):
+        rc_typo = main(["Aspin", "JFK", "--offline"])
+    check("a typo'd origin exits 2 with a 'did you mean' suggestion",
+          rc_typo == 2 and "ASE" in err_buf3.getvalue())
+
+    # origin == destination is a bad-input error - same exit code as every other CLI
+    # validation failure (a malformed --date, travelers out of range), not the code a runtime
+    # planning failure gets.
+    err_buf4 = io.StringIO()
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err_buf4):
+        rc_same = main(["JFK", "JFK", "--offline"])
+    check("origin == destination exits 2, matching other validation errors", rc_same == 2)
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (offline checks)")
     return 1 if fails else 0

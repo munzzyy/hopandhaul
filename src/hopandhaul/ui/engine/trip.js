@@ -70,10 +70,20 @@ export function parseOption(text, minLegs = 1) {
   };
 }
 
-/** Group math: per-person modes (fly/train/bus/ferry...) scale ×N; per-vehicle modes don't - 
- * mirrors trip.scale_leg_cost(). */
+export const PEOPLE_PER_VEHICLE = 4; // one car/taxi/rental seats this many before a 2nd is priced in
+
+/** How many cars a drive/rental/taxi leg actually needs for the group - mirrors
+ * trip.vehicles_needed(). One car doesn't carry 9 people; ceil(travelers / 4). */
+export function vehiclesNeeded(travelers) {
+  return Math.max(1, Math.ceil(travelers / PEOPLE_PER_VEHICLE));
+}
+
+/** Group math: per-person modes (fly/train/bus/ferry...) scale ×N; per-vehicle modes scale by
+ * the number of VEHICLES needed (one car doesn't carry a group of 9) - mirrors
+ * trip.scale_leg_cost(). */
 export function scaleLegCost(mode, cost, travelers) {
-  if (travelers <= 1 || PER_VEHICLE_MODES.has(mode.toLowerCase())) return cost;
+  if (travelers <= 1) return cost;
+  if (PER_VEHICLE_MODES.has(mode.toLowerCase())) return cost * vehiclesNeeded(travelers);
   return cost * travelers;
 }
 
@@ -138,7 +148,10 @@ export function evaluate(options, {
     o.hours_eff = pyRound(o.hours + buf, 4);
   }
 
-  const directs = opts.filter((o) => !o.is_split);
+  // baseline = cheapest DIRECT FLIGHT (single-leg, and that leg actually flies) - mirrors
+  // trip.py evaluate(). A single-leg GROUND-only option (the self-gateway case) must compete
+  // against the direct flight under the normal rules, not silently become the baseline.
+  const directs = opts.filter((o) => !o.is_split && FLIGHT_MODES.has(o.legs[0].mode));
   let baseline;
   let baselineKind;
   if (directs.length) {
@@ -150,6 +163,7 @@ export function evaluate(options, {
   }
 
   const adj = (o) => o.cost + (vot ? vot * o.hours_eff : 0.0);
+  const baselineAdj = pyRound(adj(baseline), 2);
 
   const rows = [];
   for (const o of opts) {
@@ -158,11 +172,15 @@ export function evaluate(options, {
     const isBaseline = o === baseline;
     const dominant = !isBaseline && dominates(o, baseline);
     const qualifies = savings >= threshold;
+    // README's third path: an option whose vot-adjusted cost beats the baseline's is worth
+    // it even if it never clears the cash threshold - mirrors trip.py evaluate().
+    const votBeats = Boolean(vot) && !isBaseline && pyRound(adj(o), 2) < baselineAdj;
     let status;
     if (isBaseline) status = "baseline";
     else if (dominant) status = "dominant";
     else if (o.is_split && qualifies) status = "split_qualifies";
     else if (qualifies) status = "alt_qualifies";
+    else if (votBeats) status = "vot_qualifies";
     else if (savings > 0) status = "cheaper_below_threshold";
     else if (extraH < 0) status = "pricier_faster";
     else status = "worse";
@@ -188,7 +206,7 @@ export function evaluate(options, {
     });
   }
 
-  let eligible = rows.filter((r) => r.is_baseline || r.dominant || r.qualifies);
+  let eligible = rows.filter((r) => r.is_baseline || r.dominant || r.qualifies || r.status === "vot_qualifies");
   let timeBudgetBinding = false;
   if (maxHours !== null) {
     const fits = eligible.filter((r) => !r.over_time_budget);

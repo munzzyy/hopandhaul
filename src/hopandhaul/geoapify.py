@@ -35,8 +35,10 @@ def have_keys() -> bool:
     return _secrets.has("GEOAPIFY_API_KEY")
 
 
-def _http_json(url: str, timeout: int = 15) -> dict:
-    return net.fetch_json(url, headers={"Accept": "application/json"}, timeout=timeout)
+def _http_json(url: str, timeout: int = 8) -> dict:
+    # fail fast, like transit.py's Transitous calls: a slow geocoder must not hang a plan()
+    # request for the full 3-retry/backoff budget (up to ~60s) - 1 retry, a short timeout.
+    return net.fetch_json(url, headers={"Accept": "application/json"}, timeout=timeout, max_retries=1)
 
 
 def _clean(r: dict) -> dict:
@@ -52,7 +54,7 @@ def _clean(r: dict) -> dict:
     }
 
 
-def geocode(text: str, limit: int = 5, lang: str = "en", timeout: int = 15) -> list[dict]:
+def geocode(text: str, limit: int = 5, lang: str = "en", timeout: int = 8) -> list[dict]:
     """Forward geocode a place/address string -> ranked list of candidates."""
     if not have_keys():
         return []
@@ -73,7 +75,7 @@ def geocode(text: str, limit: int = 5, lang: str = "en", timeout: int = 15) -> l
     return result
 
 
-def reverse(lat: float, lng: float, lang: str = "en", timeout: int = 15) -> dict | None:
+def reverse(lat: float, lng: float, lang: str = "en", timeout: int = 8) -> dict | None:
     """Reverse geocode a coordinate -> a single human label.
 
     No caller in server.py or the UI (see issue #1) - left that way on purpose, not because

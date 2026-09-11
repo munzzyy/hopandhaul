@@ -37,6 +37,8 @@ _DATA_PKG = "hopandhaul.data"
 FLIGHT_CURVE = (30.0, 1.8, 0.012)          # (base, per_sqrt_km, per_km)
 FLIGHT_FLOOR = 45.0
 NA_SHORT_FLOOR = 65.0                      # US/Canada short hops: fixed costs dominate
+LCC_FLOOR = 18.0                           # saturated LCC markets (EU/SEA/IN/KR): real fares go lower
+LCC_SATURATION_DISCOUNT = 0.70             # extra discount on top of ROUTE_MULT for those markets
 SMALL_AIRPORT_PREMIUM = {1: 0.0, 2: 0.18, 3: 0.75}   # by hub tier (full at dest, half at origin)
 HUB_COMPETITION_DISCOUNT = 0.92            # both ends tier-1: competitive trunk route
 FLIGHT_FIXED_H = 1.1                       # per-flight ground/air overhead (hours)
@@ -208,6 +210,17 @@ def by_iata(code: str) -> dict | None:
     return _AIRPORTS_BY_IATA.get((code or "").upper())
 
 
+# "closed": no civil flights at all (LWO - zero since 2022). "restricted": no bookable Western
+# service / suspended ground crossings (MSQ/BQT/GME/KGD - EU-Belarus/Russia airspace + rail).
+# Both are honesty flags, not connectivity data - a curated gateway or "nearest airport" result
+# must never silently point someone at either.
+SUSPENDED_STATUSES = {"closed", "restricted"}
+
+
+def is_suspended(a: dict) -> bool:
+    return a.get("status") in SUSPENDED_STATUSES
+
+
 # --------------------------------------------------------------------------- geometry
 def haversine_km(lat1, lng1, lat2, lng2) -> float:
     r = 6371.0
@@ -233,6 +246,8 @@ def nearest_airport(lat, lng, prefer_hub=False, max_km=NEAREST_HARD_KM) -> dict 
     but still under max_km) - callers decide how loudly to surface each tier."""
     best, best_score = None, None
     for a in airports():
+        if is_suspended(a):
+            continue
         d = haversine_km(lat, lng, a["lat"], a["lng"])
         if max_km is not None and d > max_km:
             continue
@@ -245,6 +260,24 @@ def nearest_airport(lat, lng, prefer_hub=False, max_km=NEAREST_HARD_KM) -> dict 
     dist_km = haversine_km(lat, lng, best["lat"], best["lng"])
     warn_tier = "hard" if dist_km >= NEAREST_WARN_KM else ("soft" if dist_km >= NEAREST_SOFT_KM else None)
     return dict(best, dist_km=dist_km, warn_tier=warn_tier)
+
+
+def nearest_served_or_note(lat, lng, prefer_hub=False, max_km=NEAREST_HARD_KM):
+    """nearest_airport(), plus honesty: if the ONLY candidate(s) near a point are closed or
+    restricted, say so instead of the generic 'no airport found near that point' - a click near
+    Kyiv or Vilnius must never silently resolve to a suspended field with no explanation.
+    Returns (airport_or_None, suspended_note_or_None)."""
+    served = nearest_airport(lat, lng, prefer_hub=prefer_hub, max_km=max_km)
+    if served:
+        return served, None
+    for a in airports():
+        if not is_suspended(a):
+            continue
+        d = haversine_km(lat, lng, a["lat"], a["lng"])
+        if max_km is None or d <= max_km:
+            return None, ("no served airport near this point; airspace or service there is "
+                          "currently suspended")
+    return None, None
 
 
 # --------------------------------------------------------------------------- regions
@@ -383,16 +416,38 @@ def estimate_flight(orig: dict, dest: dict, date: str | None = None,
     route (see fare_anchors): the model fare is clamped into the band real fares imply,
     and the real averages ride along in the output for provenance."""
     d = haversine_km(orig["lat"], orig["lng"], dest["lat"], dest["lng"])
+    if d <= 0:
+        # same airport at both ends - there is no flight, so don't let NA_SHORT_FLOOR or any
+        # other floor fabricate a fare for a $0-distance "hop" (a self-gateway plan used to do
+        # exactly this: DEN-to-DEN priced at the short-haul floor on top of a real bus).
+        return {"price": 0.0, "hours": 0.0, "distance_km": 0.0, "source": "estimate",
+                "route_mult": 1.0, "regions": "same-same", "likely_connection": False,
+                "same_airport": True}
     base, per_sqrt, per_km = FLIGHT_CURVE
     fare = base + per_sqrt * math.sqrt(d) + per_km * d
-    # small/expensive airports raise fares - fully at the destination, half at the origin.
-    fare *= (1 + SMALL_AIRPORT_PREMIUM.get(dest["hub"], 0.0))
-    fare *= (1 + 0.5 * SMALL_AIRPORT_PREMIUM.get(orig["hub"], 0.0))
-    if orig["hub"] == 1 and dest["hub"] == 1:
-        fare *= HUB_COMPETITION_DISCOUNT
     r_o = region_of(orig["lat"], orig["lng"])
     r_d = region_of(dest["lat"], dest["lng"])
     rm = _route_mult(r_o, r_d)
+    # small/expensive airports raise fares - fully at the destination, half at the origin.
+    dest_prem = SMALL_AIRPORT_PREMIUM.get(dest["hub"], 0.0)
+    orig_prem = 0.5 * SMALL_AIRPORT_PREMIUM.get(orig["hub"], 0.0)
+    if rm <= 0.6 and (dest_prem > 0 or orig_prem > 0):
+        # heavy LCC/resort-island saturation (intra-EU, intra-SEA, intra-IN, intra-KR...) with
+        # at least one small/secondary field in play: the two small-airport premiums used to
+        # stack multiplicatively ON TOP OF the LCC route discount and roughly doubled real
+        # posted fares (STN-BGY, ATH-JTR vs Ryanair/easyJet). Cap the combined premium instead
+        # of letting the tiers stack - and apply the same deeper saturation discount those
+        # small/secondary fields actually see: they're the LOW-cost bases the LCC network was
+        # built around (lower landing fees), not expensive detours. Gated on an actual premium
+        # so a major hub-to-hub LCC-market route (BCN-FCO, both hub 1) stays untouched - this
+        # is a small-airport fix, not a blanket EU/SEA/IN/KR discount.
+        combined_prem = min(1.10, (1 + dest_prem) * (1 + orig_prem))
+        fare *= combined_prem * LCC_SATURATION_DISCOUNT
+    else:
+        fare *= (1 + dest_prem)
+        fare *= (1 + orig_prem)
+    if orig["hub"] == 1 and dest["hub"] == 1:
+        fare *= HUB_COMPETITION_DISCOUNT
     fare *= rm
 
     anchor = None
@@ -409,7 +464,14 @@ def estimate_flight(orig: dict, dest: dict, date: str | None = None,
 
     dm = fare_date_multiplier(date, today)
     fare *= dm
-    floor = NA_SHORT_FLOOR if (r_o == r_d == "NA" and d < 400) else FLIGHT_FLOOR
+    if r_o == r_d == "NA" and d < 400:
+        floor = NA_SHORT_FLOOR
+    elif rm <= 0.6 and (dest_prem > 0 or orig_prem > 0):
+        floor = LCC_FLOOR    # the generic $45 fixed-cost floor doesn't hold for small/secondary
+                              # LCC fields; a major hub-to-hub route in the same market still uses
+                              # the normal floor
+    else:
+        floor = FLIGHT_FLOOR
     fare = max(floor, fare)
     hours = FLIGHT_FIXED_H + d / _flight_speed_kmh(d)
     # a tiny field far from the origin almost always means one connection - count it.
@@ -821,7 +883,7 @@ def curated_gateways(dest_iata: str) -> list[dict]:
                 continue
             for g in e["gateways"]:
                 a = by_iata(g["hub_airport"])
-                if not a:
+                if not a or is_suspended(a):
                     continue
                 out.append({
                     "iata": a["iata"], "name": a["name"], "city": a.get("city"),
@@ -841,7 +903,9 @@ def discover_gateways(dest: dict, origin: dict | None = None, max_ground_h: floa
     Curated pairs first (best data), then auto-discovered from the airport DB: any better-
     connected airport within ground range whose ground leg fits under max_ground_h.
     """
-    result = curated_gateways(dest["iata"])
+    # curated entries carry real numbers but aren't exempt from the user's own time budget -
+    # a --max-ground-hours 1 request must drop a curated 7h ferry same as an auto-discovered one.
+    result = [g for g in curated_gateways(dest["iata"]) if g["ground_hours"] <= max_ground_h]
     seen = {g["iata"] for g in result}
 
     # a gateway must be materially better-connected than the destination to be worth it.
@@ -857,6 +921,8 @@ def discover_gateways(dest: dict, origin: dict | None = None, max_ground_h: floa
         if a["iata"] == dest["iata"] or a["iata"] in seen:
             continue
         if origin and a["iata"] == origin["iata"]:
+            continue
+        if is_suspended(a):
             continue
         if a["hub"] > max_gw_hub:
             continue
@@ -1249,6 +1315,56 @@ def selftest():
               abs(g_hi["cost"] - g_lo["cost"]) <= 25 and abs(g_hi["hours"] - g_lo["hours"]) <= 1.0)
     check("pick_ground_mode picks the better-scoring mode near a boundary, not a fixed cliff",
           pick_ground_mode(65, "EU") == "train")  # EU train is cheap+fast enough to win early
+
+    # FIX2: a same-airport "flight" (0 km) must never fabricate a fare, not even at the
+    # short-haul floor - it's the whole engine behind the DEN-origin-clicks-Aspen bug.
+    same = estimate_flight(den, den)
+    check("a same-airport pair prices at $0, not the short-haul floor",
+          same["price"] == 0.0 and same["distance_km"] == 0.0)
+
+    # FIX4: curated gateways aren't exempt from --max-ground-hours - a curated 7h+ ferry must
+    # be dropped same as an auto-discovered one under a tight budget.
+    jtr = by_iata("JTR")
+    gws_wide = discover_gateways(jtr, origin=by_iata("LHR"), max_ground_h=9)
+    gws_tight = discover_gateways(jtr, origin=by_iata("LHR"), max_ground_h=1)
+    check("a wide ground budget still includes a curated multi-hour ferry gateway to Santorini",
+          any(g["ground_hours"] > 1 for g in gws_wide))
+    check("max_ground_hours=1 drops every gateway (curated included) whose ground leg is over 1h",
+          all(g["ground_hours"] <= 1 for g in gws_tight))
+
+    # FIX5: intra-Europe LCC/resort-island fares must land near real posted fares, not the old
+    # 90-180% overestimate, and the fix must not touch a US route's premium.
+    stn, bgy, ath, jtr2 = by_iata("STN"), by_iata("BGY"), by_iata("ATH"), by_iata("JTR")
+    stn_bgy = estimate_flight(stn, bgy)
+    ath_jtr = estimate_flight(ath, jtr2)
+    check(f"STN-BGY lands under $45 and inside an honest band (got ${stn_bgy['price']})",
+          18 <= stn_bgy["price"] < 45)
+    check(f"ATH-JTR lands under $45 and inside an honest band (got ${ath_jtr['price']})",
+          16 <= ath_jtr["price"] < 45)
+    jfk, ase = by_iata("JFK"), by_iata("ASE")
+    jfk_ase = estimate_flight(jfk, ase)
+    check("a genuinely thin US route (JFK-ASE, hub-3 dest) keeps its small-airport premium, "
+          "unaffected by the LCC-market fix (route_mult stays 1.0)",
+          jfk_ase["route_mult"] == 1.0)
+
+    # FIX6: closed/restricted airports are honesty flags, not connectivity data.
+    check("LWO (Lviv, zero civil flights since 2022) is flagged closed",
+          by_iata("LWO")["status"] == "closed")
+    for code in ("MSQ", "BQT", "GME", "KGD"):
+        check(f"{code} is flagged restricted (no bookable Western service / suspended crossing)",
+              by_iata(code)["status"] == "restricted")
+    vno_gws = discover_gateways(by_iata("VNO"), origin=by_iata("JFK"), max_ground_h=8)
+    check("Vilnius gateways contain no MSQ/BQT/KGD (restricted, excluded from gateway candidacy)",
+          not any(g["iata"] in ("MSQ", "BQT", "KGD") for g in vno_gws))
+    gme_apt = by_iata("GME")
+    served, note = nearest_served_or_note(gme_apt["lat"], gme_apt["lng"], prefer_hub=True, max_km=80)
+    check("a point whose only nearby field is restricted (GME) resolves to an honest note, "
+          "not a silent recommendation of a restricted airport",
+          served is None and note is not None and "suspended" in note)
+    check("WSI's leftover '[Duplicate]' tag is gone and it's tiered as no-scheduled-service "
+          "(hub 3), not hub 1",
+          by_iata("WSI")["name"] == "Western Sydney International Airport"
+          and by_iata("WSI")["hub"] == 3)
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (geo checks)")
     return 1 if fails else 0

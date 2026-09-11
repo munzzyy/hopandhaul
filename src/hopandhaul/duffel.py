@@ -213,13 +213,17 @@ def format_money(amount_usd: float, currency: str = "USD") -> str:
     before a number reaches a terminal, after evaluate()/build_and_evaluate() are done."""
     cur = (currency or "USD").upper()
     amt, _converted, rate_source = from_usd(amount_usd, cur)
-    body = f"{amt:,.0f}" if abs(amt - round(amt)) < 0.005 else f"{amt:,.2f}"
+    # the sign goes BEFORE the symbol ("-€5", not "€-5") - a negative --threshold used to print
+    # the currency symbol/code in the middle of the number.
+    sign = "-" if amt < 0 else ""
+    aamt = abs(amt)
+    body = f"{aamt:,.0f}" if abs(aamt - round(aamt)) < 0.005 else f"{aamt:,.2f}"
     if cur != "USD" and rate_source == "unknown":
         # no rate for this currency anywhere: `amt` is still the plain USD figure, so say so
         # rather than label an unconverted dollar amount with a currency it never touched.
-        return f"${body} (USD; no rate for {cur})"
+        return f"{sign}${body} (USD; no rate for {cur})"
     sym = _CURRENCY_SYMBOLS.get(cur)
-    return f"{sym}{body}" if sym else f"{body} {cur}"
+    return f"{sign}{sym}{body}" if sym else f"{sign}{body} {cur}"
 
 
 def iso8601_to_hours(s: str) -> float:
@@ -574,15 +578,19 @@ def print_setup_help():
     print("Get one free:")
     print("  1) https://app.duffel.com  -> Developers -> Access tokens -> create a TEST token")
     print("  2) store it (either works):")
-    print("       setx DUFFEL_API_KEY \"duffel_test_...\"        (new shell), or")
+    print("       export DUFFEL_API_KEY=\"duffel_test_...\"        (add to your shell rc file, "
+          "e.g. ~/.bashrc or ~/.zshrc, to keep it across sessions), or")
+    print("       setx DUFFEL_API_KEY \"duffel_test_...\"          (Windows: new shell), or")
     print("       add DUFFEL_API_KEY to secrets.local.json in this folder")
-    print("\nMeanwhile the agent prices flights via web search and still runs trip.py.")
+    print("\nMeanwhile flight legs are priced with distance ESTIMATES and trip.py still runs.")
 
 
 def _fmt_money(x: float) -> str:
     """Mirrors trip.py's private _fmt_money - duplicated here rather than reached into across
     modules, same one-function-worth-of-footprint every other module in this repo keeps local."""
-    return f"${x:,.0f}" if abs(x - round(x)) < 0.005 else f"${x:,.2f}"
+    sign = "-" if x < 0 else ""
+    ax = abs(x)
+    return f"{sign}${ax:,.0f}" if abs(ax - round(ax)) < 0.005 else f"{sign}${ax:,.2f}"
 
 
 def _airport_label(a: dict) -> str:
@@ -592,6 +600,25 @@ def _airport_label(a: dict) -> str:
     if city and city != a.get("name"):
         return f"{a['iata']} ({a['name']}, {city})"
     return f"{a['iata']} ({a['name']})"
+
+
+_PRICE_BASIS_DOLLAR_RE = re.compile(r"\$(-?[0-9][0-9,]*\.?[0-9]*)")
+
+
+def _convert_price_basis(text: str, money_fmt) -> str:
+    """price_basis strings (itinerary.ferry_provenance/ground_provenance/
+    flight_provenance_estimate) are built server-side in plain USD - the plan() JSON contract
+    is currency-agnostic, the CLI is where --currency actually renders. Re-render every '$NNN'
+    literal in the narration through the same money_fmt used for the leg's own cost, so
+    'go JFK Tallinn --currency EUR' never leaves a stray USD figure in the ferry/ground
+    provenance line."""
+    if not money_fmt:
+        return text
+
+    def repl(m):
+        return money_fmt(float(m.group(1).replace(",", "")))
+
+    return _PRICE_BASIS_DOLLAR_RE.sub(repl, text)
 
 
 def _format_itinerary_block(option: dict, money_fmt=None) -> str:
@@ -620,7 +647,7 @@ def _format_itinerary_block(option: dict, money_fmt=None) -> str:
         if leg.get("checkin_by"):
             checkin = leg["checkin_by"]
             lines.append(f"         be at the airport by {checkin['day']} {checkin['clock']}")
-        lines.append(f"         {money(leg['cost'])} · {leg['price_basis']}")
+        lines.append(f"         {money(leg['cost'])} · {_convert_price_basis(leg['price_basis'], money_fmt)}")
         lines.append(f"         verify: {leg['verify_url']}")
     return "\n".join(lines)
 
@@ -1095,6 +1122,12 @@ def selftest():
     check("duffel rejects a return date before departure",
           main(["--from", "JFK", "--to", "ASE", "--date", "2026-08-15",
                 "--return-date", "2026-08-01"]) == 2)
+
+    # negative money renders "-$5"/"-€5", not "$-5"/"€-5" - the sign belongs before the symbol.
+    check("_fmt_money(-5) == '-$5'", _fmt_money(-5) == "-$5")
+    check("format_money(-5, 'EUR') puts the sign before the symbol",
+          format_money(-5, "EUR").startswith("-"))
+    check("format_money(-5) (USD) == '-$5'", format_money(-5) == "-$5")
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (offline checks)")
     return 1 if fails else 0
