@@ -18,6 +18,22 @@ function reveal(el) {
   el.classList.add("show");
 }
 
+/** Resolve any param whose OWN value is shaped {"i18n": "some.key"} through t() first, so a
+ * structured payload can hand this renderer a param that itself needs localizing (e.g. a mode
+ * name: {mode: {i18n: "mode.train"}}) instead of baking one language's word into the param
+ * value. Plain params (numbers, plain strings) pass through unchanged. Optional {params} on the
+ * pointer itself is supported for a nested interpolation, though nothing ships one yet. */
+function resolveParams(params) {
+  if (!params) return params;
+  const out = {};
+  for (const [k, v] of Object.entries(params)) {
+    out[k] = (v && typeof v === "object" && typeof v.i18n === "string")
+      ? t(v.i18n, v.params)
+      : v;
+  }
+  return out;
+}
+
 /** One caution-list note - the engine's own real shape today is still a plain English string
  * (see plan.js), but the documented contract is a structured {key, params} object routed
  * through t(); support both so this renders correctly under either, and so nothing breaks
@@ -28,12 +44,56 @@ function renderNote(n) {
   if (n == null) return null;
   if (typeof n === "string") return n;
   if (typeof n !== "object" || !n.key) return null;
-  const translated = t(n.key, n.params);
+  const translated = t(n.key, resolveParams(n.params));
   if (translated === n.key) {
     console.warn(`[hopandhaul] unknown note key: ${n.key}`);
     return null;
   }
   return translated;
+}
+
+/** An option's display name: prefer the structured name_key/name_params contract (localizes
+ * properly), fall back to the plain English `name` string when name_key is absent OR isn't in
+ * any catalog yet (a translator-only key ahead of the round that adds it) - same "t(key) ===
+ * key means untranslated" convention every other fallback in this file already uses. `name`
+ * itself is left completely alone everywhere else in this module: it is the option's identity
+ * (compared against R.recommended/R.greenest, parsed for the gateway IATA below), never just
+ * display text, and localizing it here would break every one of those comparisons. */
+function optionDisplayName(o) {
+  if (o.name_key) {
+    const label = t(o.name_key, resolveParams(o.name_params));
+    if (label !== o.name_key) return label;
+  }
+  return o.name;
+}
+
+/** The gateway hub's IATA/city, for the "Fly into {hub}..." sentence - prefer the structured
+ * name_params.iata when the engine sent one (exact, no parsing), else fall back to slicing it
+ * out of the identity name string the way this always worked before name_key existed. */
+function hubFromOption(o) {
+  return (o.name_params && o.name_params.iata) || o.name.split(" + ")[0];
+}
+
+/** The direct-flight destination IATA for the "Fly direct to {dest}" heading - same
+ * prefer-structured-then-fall-back-to-parsing-the-identity-string pattern as hubFromOption(). */
+function directDestFromOption(o) {
+  return (o.name_params && o.name_params.iata) || o.name.replace("Fly direct to ", "");
+}
+
+/** A leg's price-provenance sentence: prefer the structured basis_parts contract (an ordered
+ * list of {key, params} segments, each localized through t()), fall back to the plain English
+ * price_basis string when basis_parts is absent OR any one segment doesn't actually resolve
+ * (a key not yet in any catalog) - a half-translated sentence is worse than the honest English
+ * one it would otherwise show. */
+function basisText(leg) {
+  const parts = leg.basis_parts;
+  if (Array.isArray(parts) && parts.length) {
+    const resolved = parts.map((seg) => t(seg.key, resolveParams(seg.params)));
+    if (resolved.every((s, i) => s !== parts[i].key)) {
+      return resolved.join(" ").replace(/\s+/g, " ").trim();
+    }
+  }
+  return leg.price_basis || "";
 }
 
 function weatherChip(w) {
@@ -100,12 +160,24 @@ function recommendationCard(R, rec, isDirect) {
   } else if (rec.dominant) {
     heroValue = fmtMoney(rec.savings_vs_baseline);
     heroLabel = t("rec.cheaperNoSlower");
-    subline = flyIntoLine(rec.name.split(" + ")[0], modeLabel(rec.legs[1]?.mode))
+    subline = flyIntoLine(hubFromOption(rec), modeLabel(rec.legs[1]?.mode))
       + " " + esc(t("rec.cleanWin"));
   } else {
     heroValue = fmtMoney(rec.savings_vs_baseline);
-    heroLabel = t("rec.savedVs", { money: fmtMoney(R.threshold) });
-    subline = flyIntoLine(rec.name.split(" + ")[0], modeLabel(rec.legs[1]?.mode));
+    // card.votReason does not exist in any catalog yet (see report) - t() falls back to
+    // returning the key itself when a catalog has no entry for it, same convention
+    // applyStatic() relies on, so this degrades to the literal key string rather than throwing
+    // until that key ships. A vot_qualifies winner earned its recommendation by beating the
+    // baseline once the visitor's own value-of-time is priced in, not by clearing the flat
+    // $threshold rule - the $600-rule sentence below was previously shown for every non-dominant
+    // winner regardless of which rule actually fired, which misattributed the reason.
+    if (rec.status === "vot_qualifies") {
+      const votReason = t("card.votReason");
+      heroLabel = votReason !== "card.votReason" ? votReason : t("rec.savedVs", { money: fmtMoney(R.threshold) });
+    } else {
+      heroLabel = t("rec.savedVs", { money: fmtMoney(R.threshold) });
+    }
+    subline = flyIntoLine(hubFromOption(rec), modeLabel(rec.legs[1]?.mode));
     if (rec.extra_hours_vs_baseline > 0 && rec.breakeven_vot != null) {
       breakeven = esc(t("rec.adds", { hours: fmtH(rec.extra_hours_vs_baseline), money: fmtMoney(rec.breakeven_vot) }));
       if (R.vot != null) {
@@ -119,8 +191,8 @@ function recommendationCard(R, rec, isDirect) {
   }
 
   const routeLine = isDirect
-    ? modeIcon("fly") + " " + esc(t("rec.flyDirectTo", { dest: rec.name.replace("Fly direct to ", "") }))
-    : modeIcon("fly") + "<svg class=\"icon icon--arrow\" aria-hidden=\"true\"><use href=\"#i-arrow\"/></svg>" + modeIcon(rec.legs[1]?.mode) + " " + esc(rec.name);
+    ? modeIcon("fly") + " " + esc(t("rec.flyDirectTo", { dest: directDestFromOption(rec) }))
+    : modeIcon("fly") + "<svg class=\"icon icon--arrow\" aria-hidden=\"true\"><use href=\"#i-arrow\"/></svg>" + modeIcon(rec.legs[1]?.mode) + " " + esc(optionDisplayName(rec));
 
   return "\n"
     + "    <div class=\"rec-card " + (isDirect ? "rec-card--direct" : "rec-card--split") + "\">\n"
@@ -166,7 +238,7 @@ function itineraryLegRow(leg) {
     + "</bdi> &middot; " + esc(fmtH(leg.duration_h)) + "</div>\n"
     + checkin
     + "        <div class=\"itin-leg-price\">" + fmtMoney(leg.cost) + " &middot; "
-    + esc(leg.price_basis) + "</div>\n"
+    + esc(basisText(leg)) + "</div>\n"
     + "        <a class=\"itin-leg-verify\" href=\"" + esc(leg.verify_url)
     + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + esc(t("itin.verify"))
     + " <svg class=\"icon\" aria-hidden=\"true\"><use href=\"#i-link\"/></svg></a>\n"
@@ -205,7 +277,7 @@ function optionRow(o, recName, greenestName) {
   return "\n"
     + "    <li class=\"opt " + (o.name === recName ? "opt--win" : "") + "\">\n"
     + "      <div class=\"opt-top\">\n"
-    + "        <span class=\"opt-name\" dir=\"auto\">" + esc(o.name) + "</span>\n"
+    + "        <span class=\"opt-name\" dir=\"auto\">" + esc(optionDisplayName(o)) + "</span>\n"
     + "        <span class=\"opt-price\">" + fmtMoney(o.cost) + "</span>\n"
     + "      </div>\n"
     + "      <div class=\"opt-meta\">\n"
@@ -513,7 +585,7 @@ export function renderPlan(data, placeLabel, focusPanel = false) {
       + spliceToken(
         esc(t("greenest.note", { name: NAME_TOKEN, co2: fmtCo2(greenestOpt.co2e_kg), co2rec: fmtCo2(rec.co2e_kg) })),
         NAME_TOKEN,
-        "<strong>" + esc(greenestOpt.name) + "</strong>",
+        "<strong>" + esc(optionDisplayName(greenestOpt)) + "</strong>",
       )
       + "</p>"
     : "";

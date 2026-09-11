@@ -171,6 +171,15 @@ def price_leg(origin: dict, dest: dict, *, travelers: int = 1,
     options.append(trip.parse_option(f"{direct_name} | fly {direct_cost} {direct['hours']}"))
 
     for g in geo.discover_gateways(dest, origin=origin, max_ground_h=max_ground_h):
+        # the curated/discovered gateway near dest IS the origin airport itself - there is no
+        # flight to price, just the ground leg from origin. discover_gateways() already filters
+        # this at the source; this guard is defense in depth (mirrors server.py's plan()).
+        if g["iata"] == origin["iata"]:
+            ground_cost = trip.scale_leg_cost(g["ground_mode"], g["ground_cost"], travelers)
+            name = f"{g['ground_mode'].capitalize()} only from {origin['iata']}"
+            options.append(trip.parse_option(
+                f"{name} | {g['ground_mode']} {ground_cost} {g['ground_hours']}"))
+            continue
         gf = geo.estimate_flight(origin, g)
         fly_cost = round(gf["price"] * max(1, travelers), 2)
         ground_cost = trip.scale_leg_cost(g["ground_mode"], g["ground_cost"], travelers)
@@ -184,6 +193,14 @@ def price_leg(origin: dict, dest: dict, *, travelers: int = 1,
     # departing a remote/expensive airport (a Santorini stop's return-home hop) was priced
     # direct-only even when grounding to a real hub first and flying from there was cheaper.
     for g in geo.discover_gateways(origin, origin=dest, max_ground_h=max_ground_h):
+        # symmetric self-gateway case: the gateway near origin IS the destination itself - no
+        # flight to price, just the ground leg all the way (mirrors server.py's plan()).
+        if g["iata"] == dest["iata"]:
+            ground_cost = trip.scale_leg_cost(g["ground_mode"], g["ground_cost"], travelers)
+            name = f"{g['ground_mode'].capitalize()} only to {dest['iata']}"
+            options.append(trip.parse_option(
+                f"{name} | {g['ground_mode']} {ground_cost} {g['ground_hours']}"))
+            continue
         gf = geo.estimate_flight(g, dest)
         fly_cost = round(gf["price"] * max(1, travelers), 2)
         ground_cost = trip.scale_leg_cost(g["ground_mode"], g["ground_cost"], travelers)

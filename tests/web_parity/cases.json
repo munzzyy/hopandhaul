@@ -1771,5 +1771,96 @@
       "dest_lng": -104.9903,
       "origin_iata": "ORD"
     }
+  },
+  {
+    "name": "bug1_final_leg_direct_is_not_a_split",
+    "type": "evaluate",
+    "options": [
+      {"name": "Fly direct to BRN", "legs": [{"mode": "fly", "cost": 300, "hours": 2.0}, {"mode": "final:train", "cost": 20, "hours": 1.0}]},
+      {"name": "GVA + train", "legs": [{"mode": "fly", "cost": 210, "hours": 3.0}, {"mode": "train", "cost": 30, "hours": 1.0}, {"mode": "final:train", "cost": 20, "hours": 1.0}]}
+    ],
+    "threshold": 200
+  },
+  {
+    "name": "bug1_final_leg_split_vs_direct_below_threshold",
+    "type": "evaluate",
+    "options": [
+      {"name": "Fly direct to EWR", "legs": [{"mode": "fly", "cost": 400, "hours": 5.5}, {"mode": "final:ferry", "cost": 15, "hours": 1.5}]},
+      {"name": "HER + ferry", "legs": [{"mode": "fly", "cost": 300, "hours": 6.0}, {"mode": "ferry", "cost": 75, "hours": 3.0}, {"mode": "final:ferry", "cost": 15, "hours": 1.5}]}
+    ],
+    "threshold": 200
+  },
+  {
+    "name": "bug1_control_no_final_leg",
+    "type": "evaluate",
+    "options": [
+      {"name": "Fly direct to BRN", "legs": [{"mode": "fly", "cost": 300, "hours": 2.0}]},
+      {"name": "GVA + train", "legs": [{"mode": "fly", "cost": 210, "hours": 3.0}, {"mode": "train", "cost": 30, "hours": 1.0}]}
+    ],
+    "threshold": 200
+  },
+  {
+    "name": "bug1_plan_interlaken_from_jfk_baseline_stays_direct",
+    "type": "plan",
+    "params": {
+      "dest_lat": 46.6863,
+      "dest_lng": 7.8632,
+      "origin_iata": "JFK"
+    }
+  },
+  {
+    "name": "bug2_pwm_origin_boston_click_no_phantom_flight",
+    "type": "plan",
+    "params": {
+      "dest_lat": 42.3656,
+      "dest_lng": -71.0096,
+      "origin_iata": "PWM",
+      "threshold": 40
+    }
+  },
+  {
+    "name": "bug4_hydra_no_invented_train",
+    "type": "plan",
+    "params": {
+      "dest_lat": 37.35,
+      "dest_lng": 23.47,
+      "origin_iata": "JFK"
+    }
+  },
+  {
+    "name": "bug4_capri_no_invented_drive",
+    "type": "plan",
+    "params": {
+      "dest_lat": 40.5532,
+      "dest_lng": 14.2222,
+      "origin_iata": "JFK"
+    }
+  },
+  {
+    "name": "bug5_kaliningrad_restricted_crossing",
+    "type": "plan",
+    "params": {
+      "dest_lat": 54.71,
+      "dest_lng": 20.51,
+      "origin_iata": "JFK"
+    }
+  },
+  {
+    "name": "bug5_kyiv_control_still_priced",
+    "type": "plan",
+    "params": {
+      "dest_lat": 50.4501,
+      "dest_lng": 30.5234,
+      "origin_iata": "JFK"
+    }
+  },
+  {
+    "name": "bug6_lviv_closed_airport_note",
+    "type": "plan",
+    "params": {
+      "dest_lat": 49.8397,
+      "dest_lng": 24.0297,
+      "origin_iata": "JFK"
+    }
   }
 ]

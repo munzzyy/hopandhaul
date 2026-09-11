@@ -18,6 +18,13 @@ function loadData() {
     dataPromise = fetch(DATA_URL).then((r) => {
       if (!r.ok) throw new Error(`basemap fetch ${r.status}`);
       return r.json();
+    }).catch((e) => {
+      // A rejected fetch (offline on first load, before the service worker has ever cached
+      // basemap.json) used to stay cached forever - the map was blank until a hard refresh even
+      // after connectivity came back. Clear the memo so the next call actually retries instead
+      // of replaying the same dead promise.
+      dataPromise = null;
+      throw e;
     });
   }
   return dataPromise;
@@ -46,13 +53,25 @@ export const Atlas = L.GridLayer.extend({
     // Projected-path cache keyed by "tier" - reprojecting on every tile paint is the difference
     // between smooth panning and visible per-tile jank at world scale (thousands of points).
     this._projected = {};
+    this._tryLoad();
+    // A later reconnect should redraw the real basemap without needing a hard refresh -
+    // loadData()'s own memo reset (see above) makes this retry a real fetch, not a replay.
+    window.addEventListener("online", () => this._tryLoad());
+  },
+
+  /** Fetch the basemap if it isn't already loaded (or already loading). Safe to call
+   * repeatedly - a no-op once this._raw is set, and loadData() itself is memoized while a
+   * fetch is still in flight, so this never fires a second request on top of one already
+   * running. */
+  _tryLoad() {
+    if (this._raw) return;
     loadData().then((raw) => {
       this._raw = raw;
       this.redraw();
     }).catch(() => {
-      // Offline on first load, before the service worker has ever cached basemap.json: the
-      // tile grid just stays the plain --map-bg water color set on #map itself (styles.css) -
-      // no crash, no dangling network retry loop.
+      // Still offline, or the fetch failed again - the tile grid stays the plain --map-bg
+      // water color set on #map itself (styles.css). loadData() has already reset its memo,
+      // so the next redraw() (a pan/zoom, or the 'online' listener above) tries again.
     });
   },
 
@@ -64,7 +83,10 @@ export const Atlas = L.GridLayer.extend({
    * segment can cross a tile with both endpoints far away - both must still be drawn. */
   _tier(z) {
     const tier = z < FINE_MIN_ZOOM ? "coarse" : "fine";
-    if (!this._raw) return null;
+    if (!this._raw) {
+      this._tryLoad(); // opportunistic retry on every later redraw, not just the 'online' event
+      return null;
+    }
     if (!this._projected[tier]) {
       const src = this._raw[tier];
       const proj = (layer) => (src[layer] || []).map((path) => {

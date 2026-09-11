@@ -44,10 +44,38 @@ let lastDatesData = null; // last successful /api/dates sweep - same deal, re-re
 let datesToken = 0; // bumped by every planTo(); an older sweep resolving late checks it and bails
 let planInFlight = false; // true from the moment a plan request starts until it settles
 let searchDisabled = false; // cached has_geocode result, re-applied after a language switch re-renders the input
-let lastErrorMsg = null; // message currently shown in the error panel, if any
+let lastErrorMsg = null; // RAW message currently behind the error panel, if any (server/engine
+                          // English string, or the client-side network message)
 let lastErrorWasNetwork = false; // true when lastErrorMsg is the client-side t("error.network")
                                   // string (as opposed to a server-supplied string) - only that
                                   // case needs its body re-translated on a language switch
+let lastErrorCode = null; // data.code alongside lastErrorMsg, when the engine sent one - lets
+                           // errorDisplayMsg() translate a known code instead of showing the
+                           // engine's raw English sentence verbatim
+
+// origin_suspended's raw text is "{IATA} has no bookable service right now because of..." -
+// the IATA code is the only param notes.originSuspended needs, and it's the leading token of
+// the engine's own message (see engine/plan.js: `${origin.iata} has no bookable service...`).
+const ORIGIN_SUSPENDED_IATA = /^([A-Z]{3,4})\s/;
+
+/** Translate a known engine error code into the matching notes.* catalog string (same wording
+ * the engine already renders as a *note* elsewhere, reused here for the top-level plan failure)
+ * - falls back to the raw engine string for any code this doesn't recognize, so an error this
+ * function doesn't know about still shows something rather than nothing. */
+function translateEngineError(code, raw) {
+  if (code === "origin_suspended") {
+    const m = ORIGIN_SUSPENDED_IATA.exec(raw || "");
+    if (m) return t("notes.originSuspended", { iata: m[1] });
+  } else if (code === "airport_suspended") {
+    return t("notes.airportSuspended");
+  }
+  return raw;
+}
+
+function errorDisplayMsg() {
+  if (lastErrorWasNetwork) return t("error.network");
+  return translateEngineError(lastErrorCode, lastErrorMsg);
+}
 
 function announce(msg) {
   liveRegion.textContent = msg;
@@ -148,14 +176,17 @@ async function planTo(lat, lng) {
     lastPlanData = null;
     lastErrorMsg = data.error;
     lastErrorWasNetwork = isNetworkError;
+    lastErrorCode = isNetworkError ? null : data.code || null;
     clearMap();
-    renderError(data.error, true);
-    announce(t("announce.cantPlan", { error: data.error || t("error.unknown") }));
+    const shown = errorDisplayMsg();
+    renderError(shown, true);
+    announce(t("announce.cantPlan", { error: shown || t("error.unknown") }));
     return;
   }
 
   lastErrorMsg = null;
   lastErrorWasNetwork = false;
+  lastErrorCode = null;
   lastPlanData = data;
   const R = data.result;
   const rec = R.options.find((o) => o.name === R.recommended);
@@ -269,9 +300,11 @@ function rerenderCurrent() {
     $("#date-strip")?.addEventListener("click", onDateChipClick);
     redrawLastPlan(); // map popups bake t() strings at draw time - re-translate them too
   } else if (lastErrorMsg != null) {
-    // re-render the panel so the title/chrome re-translate; if the body was the client-side
-    // network message it needs re-translating too, otherwise it's a server string as sent
-    renderError(lastErrorWasNetwork ? t("error.network") : lastErrorMsg);
+    // re-render the panel so the title/chrome re-translate; errorDisplayMsg() re-runs the same
+    // network-message / known-error-code translation the initial render used, so a language
+    // switch on a stuck error re-translates it too instead of freezing it in whatever language
+    // was active when the error first landed.
+    renderError(errorDisplayMsg());
   } else if (lastClick) {
     // a plan attempt is in flight or previously errored with nothing cached - leave state as is
   } else {
@@ -335,15 +368,47 @@ function updateFxNote() {
   const note = $("#fx-note");
   const cur = currentCurrency();
   const src = rateSourceFor(cur);
-  if (src === "live") note.textContent = t("fx.live", { date: liveRatesDate() || "" });
-  else if (src === "static") note.textContent = t("fx.static", { date: FX_AS_OF });
-  else note.textContent = "";
+  if (src === "live") {
+    note.textContent = t("fx.live", { date: liveRatesDate() || "" });
+  } else if (src === "cached") {
+    // A live rate landed earlier this session but the app is effectively offline right now -
+    // fx.cached does not exist in any catalog yet (see report), so this falls back to the
+    // honest-enough fx.static line until that key ships.
+    const cached = t("fx.cached", { date: liveRatesDate() || "" });
+    note.textContent = cached !== "fx.cached" ? cached : t("fx.static", { date: FX_AS_OF });
+  } else if (src === "static") {
+    note.textContent = t("fx.static", { date: FX_AS_OF });
+  } else {
+    note.textContent = "";
+  }
+}
+
+// The value-of-time and split-threshold inputs are NEVER converted - they're always USD, same
+// as the engine's own math - so once the display currency is anything else, a bare "$" next to
+// them silently lies about what unit they take. Spelling out "USD" instead of converting is the
+// honest fix: converting would mean re-deriving the visitor's typed number every time the
+// currency picker changes, for a value that was never meant to move.
+// form.votUsd/form.thresholdUsd don't exist in any catalog yet (see report) - t() returning the
+// key itself is this function's own signal to fall back to the plain (non-USD-suffixed) label.
+function updateUsdLabels() {
+  const usdMode = currentCurrency() !== "USD";
+  const votLabel = $("#vot-label");
+  const thresholdLabel = $("#threshold-label");
+  if (votLabel) {
+    const usdText = t("form.votUsd");
+    votLabel.textContent = usdMode && usdText !== "form.votUsd" ? usdText : t("form.vot");
+  }
+  if (thresholdLabel) {
+    const usdText = t("form.thresholdUsd");
+    thresholdLabel.textContent = usdMode && usdText !== "form.thresholdUsd" ? usdText : t("form.threshold");
+  }
 }
 
 function applyCurrency(code) {
   setDisplayCurrency(code);
   if ($("#currency").value !== code) $("#currency").value = code;
   updateFxNote();
+  updateUsdLabels();
   rerenderCurrent(); // every price flows through fmtMoney() - no refetch needed, just repaint
   redrawLastPlan(); // map popups call fmtMoney() at draw time too
 }
@@ -367,6 +432,65 @@ function wireConnectivity() {
   if (!isOffline()) ensureLiveRates().finally(updateFxNote);
   onNetChange(({ offline }) => {
     if (!offline) ensureLiveRates().finally(updateFxNote);
+    // Going offline never fetches - just re-evaluate the note so a currency priced off an
+    // already-cached live rate stops calling itself "live" the instant Offline is selected.
+    else updateFxNote();
+  });
+}
+
+// -------------------------------------------------------------------- popover reflow
+// #controls clips overflow (overflow-y: auto at every width, capped at 38vh on mobile) and
+// every dropdown that lives inside it - both search comboboxes, the theme list, the connection-
+// mode list - is position:absolute relative to an ancestor inside that clipped box. A scrolling
+// ancestor clips its absolutely-positioned descendants no matter their z-index, so on a short
+// mobile viewport most of a 6-result dropdown just isn't reachable. Fix: once any of those lists
+// stops being [hidden], promote it to position:fixed and place it from its trigger's live
+// viewport rect (matched generically by aria-controls, so this covers whichever module owns
+// each popover's open/close logic without needing to touch that module), and re-place it on
+// scroll/resize while it stays open.
+const popoverCleanups = new WeakMap();
+
+function floatPopover(popover) {
+  const trigger = document.querySelector(`[aria-controls="${popover.id}"]`);
+  if (!trigger) return;
+  function place() {
+    const r = trigger.getBoundingClientRect();
+    popover.style.position = "fixed";
+    popover.style.margin = "0";
+    popover.style.top = `${Math.round(r.bottom + 6)}px`;
+    if (popover.classList.contains("aclist")) {
+      // the two search comboboxes span the full width of their input
+      popover.style.left = `${Math.round(r.left)}px`;
+      popover.style.right = "auto";
+      popover.style.width = `${Math.round(r.width)}px`;
+    } else {
+      // theme/connection lists hug the end of their (icon-sized) trigger button
+      popover.style.right = `${Math.round(window.innerWidth - r.right)}px`;
+      popover.style.left = "auto";
+      popover.style.width = "";
+    }
+    // Clamp to whatever room is actually left below the trigger, so the list's own bottom edge
+    // never runs past the screen instead of just past #controls.
+    const avail = window.innerHeight - r.bottom - 10;
+    popover.style.maxHeight = `${Math.max(120, Math.round(avail))}px`;
+  }
+  place();
+  const reflow = () => { if (!popover.hidden) place(); };
+  window.addEventListener("scroll", reflow, true);
+  window.addEventListener("resize", reflow);
+  popoverCleanups.set(popover, () => {
+    window.removeEventListener("scroll", reflow, true);
+    window.removeEventListener("resize", reflow);
+    popover.style.cssText = "";
+  });
+}
+
+function watchPopovers() {
+  document.querySelectorAll("#controls .aclist, #controls .theme-list").forEach((el) => {
+    new MutationObserver(() => {
+      if (el.hidden) popoverCleanups.get(el)?.();
+      else floatPopover(el);
+    }).observe(el, { attributes: true, attributeFilter: ["hidden"] });
   });
 }
 
@@ -564,6 +688,7 @@ async function main() {
     refreshThemeLabel();
     refreshNetLabel();
     updateFxNote();
+    updateUsdLabels(); // applyStatic() just reset these two labels to their plain (non-USD) text
     if (lastConfig) applyConfigBadge(lastConfig);
     // applyStatic() only touches data-i18n(-attr) elements - the disabled search's placeholder
     // was set imperatively by search.disable(), so it needs its own re-localize here.
@@ -578,10 +703,13 @@ async function main() {
   wireCurrency();
   wireConnectivity();
   wireSkipLink();
+  watchPopovers();
   search = initSearch({
     onChoose(r) {
       lastPlaceLabel = r.label;
-      map.setView([r.lat, r.lng], 7);
+      // No pre-emptive setView here: draw() always lands the real frame (map.stop() + a
+      // non-animated fitBounds), and a flying setView started here used to race that fit and
+      // sometimes win, leaving the map thousands of pixels away from both pins.
       planTo(r.lat, r.lng);
     },
   });
@@ -598,7 +726,8 @@ async function main() {
   registerServiceWorker();
 
   if (pending) {
-    map.setView([pending.lat, pending.lng], 7);
+    // Same reasoning as the search onChoose() above: draw()'s fitBounds is the frame that has
+    // to land, so don't race it with a setView here.
     planTo(pending.lat, pending.lng);
   } else {
     renderEmpty();

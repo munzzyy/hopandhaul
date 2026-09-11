@@ -29,15 +29,21 @@ export function num(tok) {
   return v;
 }
 
-/** 'fly 210 3.0' -> {mode, cost, hours, mode_unknown} - mirrors trip.parse_leg(). */
+// Marks geo.finalLeg()'s last-mile hop, appended to EVERY option including the direct flight -
+// mirrors trip.FINAL_LEG_PREFIX. Must never count toward is_split (see parseOption() below).
+export const FINAL_LEG_PREFIX = "final:";
+
+/** 'fly 210 3.0' -> {mode, cost, hours, mode_unknown, final} - mirrors trip.parse_leg(). */
 export function parseLeg(text) {
   const parts = text.split(/\s+/).filter(Boolean);
   if (parts.length < 2) throw new Error(`leg needs at least 'mode cost': got ${JSON.stringify(text)}`);
-  const mode = parts[0].toLowerCase();
+  const rawMode = parts[0].toLowerCase();
+  const isFinal = rawMode.startsWith(FINAL_LEG_PREFIX);
+  const mode = isFinal ? rawMode.slice(FINAL_LEG_PREFIX.length) : rawMode;
   const cost = num(parts[1]);
   const hours = parts.length >= 3 ? num(parts[2]) : 0.0;
   if (cost < 0 || hours < 0) throw new Error(`leg cost/hours must be >= 0: got ${JSON.stringify(text)}`);
-  return { mode, cost, hours, mode_unknown: !KNOWN_MODES.has(mode) };
+  return { mode, cost, hours, mode_unknown: !KNOWN_MODES.has(mode), final: isFinal };
 }
 
 /** 'NAME | fly 210 3.0 ; train 75 4.0' -> full option dict with totals - mirrors
@@ -60,13 +66,17 @@ export function parseOption(text, minLegs = 1) {
   const cost = legs.reduce((sum, leg) => sum + leg.cost, 0);
   const hours = legs.reduce((sum, leg) => sum + leg.hours, 0);
   if (!name) name = legs.map((leg) => leg.mode).join(" → ");
+  // A "split" is a base-trip decision - the appended final leg (marked final:true by
+  // parseLeg()) rides along on every option, including the direct flight, and must never
+  // count toward is_split. Mirrors trip.parse_option().
+  const nonFinalLegs = legs.filter((leg) => !leg.final).length;
   return {
     name,
     legs,
     cost: pyRound(cost, 2),
     hours: pyRound(hours, 4),
     nlegs: legs.length,
-    is_split: legs.length >= 2,
+    is_split: nonFinalLegs >= 2,
   };
 }
 

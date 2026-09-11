@@ -252,6 +252,12 @@ export function clearMap() {
  * from the CSS custom properties at draw time - zero hardcoded hexes in JS - so a theme
  * toggle just needs to re-call draw() with the same data to restyle everything. */
 export function draw(data, rec) {
+  // A caller (search choose, URL restore) may have just kicked off an animated setView to give
+  // quick visual feedback while the plan request was in flight. If that pan/zoom is still
+  // running when fitBounds below fires, Leaflet drops the second move silently - the map "moves"
+  // but never actually reaches the frame this plan needs. Cancelling first guarantees the fit
+  // below always wins.
+  map.stop();
   clear();
   lastPlan = { data, rec };
   const O = data.origin, D = data.dest;
@@ -284,5 +290,8 @@ export function draw(data, rec) {
   });
 
   const pts = [[O.lat, O.lng], [D.lat, D.lng], ...data.gateways.map((g) => [g.lat, g.lng])];
-  map.fitBounds(L.latLngBounds(pts).pad(0.35), { maxZoom: 8 });
+  // animate:false on this, the fit that actually has to land: an animated fit racing a caller's
+  // own pre-emptive setView is exactly how the map used to end up thousands of pixels off-screen
+  // (a later move can get dropped mid-animation). This one is never allowed to be dropped.
+  map.fitBounds(L.latLngBounds(pts).pad(0.35), { maxZoom: 8, animate: false });
 }

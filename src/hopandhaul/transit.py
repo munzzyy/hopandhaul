@@ -84,6 +84,27 @@ def _leg_summary(leg: dict) -> dict:
     }
 
 
+def _has_flight_leg(itin: dict) -> bool:
+    """True when ANY leg of a Transitous itinerary is a flight - a ground-transport request
+    that gets handed a routing which includes a plane leg (ZRH-Interlaken 'train' that actually
+    starts with two flights from Cagliari) is not ground transport at all and must be rejected
+    outright, not accepted and mislabeled 'train'."""
+    return any(str(leg.get("mode", "")).upper() == "AIRPLANE" for leg in itin.get("legs", []))
+
+
+def _plausible(i: dict, formula_hours: float | None) -> bool:
+    """Sanity-clamp a live itinerary against the formula estimate for the same leg: accept it
+    only if its duration is within max(2.5x the formula, formula + 2h) AND it has <= 5
+    transfers. Real routing engines occasionally return absurd multi-leg detours (LHR-LGW via
+    Sardinia at 25.5h) that are technically ground-only but nothing a real traveler would take
+    or that this engine should call 'live schedule'. No cap is applied when the caller has no
+    formula to compare against."""
+    if formula_hours is None:
+        return True
+    cap = max(2.5 * formula_hours, formula_hours + 2.0)
+    return i["duration_h"] <= cap and i["transfers"] <= 5
+
+
 def _summarize(itin: dict) -> dict:
     legs = [_leg_summary(x) for x in itin.get("legs", [])]
     riding = [x for x in legs if x["mode"] not in ("walk",)]
@@ -102,51 +123,64 @@ def _summarize(itin: dict) -> dict:
 
 def ground_options(from_lat: float, from_lng: float, to_lat: float, to_lng: float,
                    date: str | None = None, prefer_mode: str | None = None,
-                   timeout: int = 8) -> dict | None:
+                   timeout: int = 8, formula_hours: float | None = None) -> dict | None:
     """Real scheduled journeys between two points. Returns the best itinerary summary plus
-    how many the planner offered, or None (no coverage / network down / breaker open).
+    how many the planner offered, or None (no coverage / network down / breaker open / nothing
+    plausible - see below).
 
     prefer_mode: when the engine already chose a leg mode ("ferry", "train", "bus"), pick the
     fastest itinerary WHOSE MAIN MODE MATCHES it if one exists - the point is to put real
-    times on the leg we're already showing, not to silently swap it for a different mode."""
+    times on the leg we're already showing, not to silently swap it for a different mode.
+
+    formula_hours: this leg's own formula-estimated duration, when the caller has one (server.py
+    always does). Every itinerary that contains an actual flight leg is rejected outright - a
+    "ground transport" request that comes back with a plane in it is not ground transport - and
+    whatever survives that is sanity-clamped against the formula (see _plausible()). When
+    nothing plausible remains, this returns None so the caller keeps its formula number instead
+    of accepting and labeling an absurd live result 'live schedule'."""
     if _breaker_open():
         return None
     if not date:
         # schedules need a concrete day; a week out is a sane, mostly-cache-friendly default
         date = (datetime.date.today() + datetime.timedelta(days=7)).isoformat()
-    key = (round(from_lat, 3), round(from_lng, 3), round(to_lat, 3), round(to_lng, 3),
-           date, prefer_mode)
+    # cached by coords/date only (not prefer_mode/formula_hours) - the raw itinerary list is
+    # reusable across callers asking for different preferred modes or comparing against
+    # different formula estimates; only the final selection below depends on those.
+    key = (round(from_lat, 3), round(from_lng, 3), round(to_lat, 3), round(to_lng, 3), date)
     cached = _CACHE.get(key)
     if cached is not None:
-        return cached or None
-    params = {
-        "fromPlace": f"{from_lat},{from_lng}",
-        "toPlace": f"{to_lat},{to_lng}",
-        "time": f"{date}T06:00:00Z",
-    }
-    url = BASE + "?" + urllib.parse.urlencode(params)
-    try:
-        out = net.fetch_json(url, headers={"User-Agent": UA, "Accept": "application/json"},
-                             timeout=timeout, max_retries=0)
-        _breaker_record(True)
-    except (net.FetchError, OSError, ValueError):
-        _breaker_record(False)
-        _CACHE.set(key, {})           # negative-cache this exact lookup for the TTL
-        return None
-    itins = [_summarize(i) for i in out.get("itineraries", [])]
-    itins = [i for i in itins if i["duration_h"] > 0 and i["main_mode"]]
+        itins = cached
+    else:
+        params = {
+            "fromPlace": f"{from_lat},{from_lng}",
+            "toPlace": f"{to_lat},{to_lng}",
+            "time": f"{date}T06:00:00Z",
+        }
+        url = BASE + "?" + urllib.parse.urlencode(params)
+        try:
+            out = net.fetch_json(url, headers={"User-Agent": UA, "Accept": "application/json"},
+                                 timeout=timeout, max_retries=0)
+            _breaker_record(True)
+        except (net.FetchError, OSError, ValueError):
+            _breaker_record(False)
+            _CACHE.set(key, [])       # negative-cache this exact lookup for the TTL
+            return None
+        raw = [i for i in out.get("itineraries", []) if not _has_flight_leg(i)]
+        itins = [_summarize(i) for i in raw]
+        itins = [i for i in itins if i["duration_h"] > 0 and i["main_mode"]]
+        _CACHE.set(key, itins)
     if not itins:
-        _CACHE.set(key, {})
         return None
     pool = itins
     if prefer_mode:
         matching = [i for i in itins if i["main_mode"] == prefer_mode]
         if matching:
             pool = matching
-    best = min(pool, key=lambda i: i["duration_h"])
-    result = {**best, "n_options": len(itins), "date": date, "source": "transitous"}
-    _CACHE.set(key, result)
-    return result
+    plausible_pool = [i for i in pool if _plausible(i, formula_hours)]
+    if not plausible_pool:
+        return None
+    best = min(plausible_pool, key=lambda i: i["duration_h"])
+    return {**best, "n_options": len(itins), "date": date, "source": "transitous"}
 
 
 def describe(t: dict) -> str:
@@ -242,6 +276,32 @@ def selftest() -> int:
           (_breaker.update(open_until=time.time() + 60) or
            ground_options(0, 0, 1, 1) is None))
     _breaker["open_until"] = 0.0
+
+    # BUG3: Transitous results get zero sanity checks before overwriting a formula estimate.
+    flight_itin = {"duration": 53200, "transfers": 9, "legs": [
+        {"mode": "AIRPLANE", "agencyName": "Some Carrier", "duration": 5400,
+         "startTime": "2026-07-16T07:00"},
+        {"mode": "RAIL", "agencyName": "SBB", "duration": 3600,
+         "startTime": "2026-07-16T09:00"},
+    ]}
+    check("an itinerary containing a flight leg is flagged, not accepted as 'ground'",
+          _has_flight_leg(flight_itin))
+    ground_itin = {"duration": 3600, "transfers": 0, "legs": [
+        {"mode": "RAIL", "agencyName": "SBB", "routeShortName": "IC1", "duration": 3600,
+         "startTime": "2026-07-16T09:00"},
+    ]}
+    check("a real ground-only itinerary has no flight leg", not _has_flight_leg(ground_itin))
+
+    sane = {"duration_h": 1.5, "transfers": 1}
+    absurd = {"duration_h": 14.78, "transfers": 9}
+    check("a live duration close to the formula estimate is plausible",
+          _plausible(sane, formula_hours=1.2))
+    check("a live duration 12x the formula estimate is rejected as implausible",
+          not _plausible(absurd, formula_hours=1.2))
+    check("too many transfers is rejected even if duration looks fine",
+          not _plausible({"duration_h": 1.5, "transfers": 6}, formula_hours=1.2))
+    check("no formula to compare against never blocks (always plausible)",
+          _plausible(absurd, formula_hours=None))
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (offline checks)")
     return 1 if fails else 0

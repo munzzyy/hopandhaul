@@ -54,6 +54,26 @@ function note(key, params = {}) {
   return { key, params };
 }
 
+// A note param may be { i18n: "mode.train" } instead of a raw English word - both renderers
+// resolve it through the language catalog instead of splicing an English mode word into every
+// locale (see itinerary.py's mode_i18n_param() / render_note() for the full contract, documented
+// in docs/api.md). results.js (not owned here) is the browser-side renderer.
+const MODE_I18N_KEY = {
+  fly: "mode.flight", flight: "mode.flight", plane: "mode.flight", air: "mode.flight",
+  train: "mode.train", rail: "mode.train",
+  bus: "mode.bus", coach: "mode.bus",
+  shuttle: "mode.shuttle",
+  drive: "mode.drive", car: "mode.drive", taxi: "mode.drive", uber: "mode.drive", rideshare: "mode.drive",
+  rental: "mode.rentalCar",
+  ferry: "mode.ferry",
+  ground: "mode.ground",
+};
+
+/** A leg mode string -> { i18n: "mode.xxx" } note param - mirrors itinerary.mode_i18n_param(). */
+export function modeI18nParam(mode) {
+  return { i18n: MODE_I18N_KEY[mode] || "mode.ground" };
+}
+
 // --------------------------------------------------------------------------- verify links
 /** Deep link to check a flight leg's price against reality.
  * Format: https://www.google.com/travel/flights?q=Flights+from+XXX+to+YYY+on+YYYY-MM-DD, or
@@ -132,6 +152,61 @@ export function flightProvenanceEstimate(detail, date) {
   if (detail.date_mult) bits.push(`date factor ×${detail.date_mult.toFixed(2)}`);
   if (detail.likely_connection) bits.push("fare priced assuming a connecting flight (small/remote airport)");
   return bits.join("; ");
+}
+
+/** Structured twin of flightProvenanceEstimate() - an ARRAY of {key, params} segments under
+ * basis.* instead of a hardcoded English sentence - mirrors itinerary.basis_parts_flight_estimate().
+ * The plain English string stays too, for backcompat - see docs/api.md. */
+export function basisPartsFlightEstimate(detail, date) {
+  if (!detail) return [{ key: "basis.routeBand", params: {} }];
+  const parts = [date ? { key: "basis.routeBandDated", params: { date } }
+    : { key: "basis.routeBand", params: {} }];
+  if (detail.regions) {
+    parts.push({ key: "basis.marketMult", params: { region: detail.regions, mult: pyRound(detail.route_mult ?? 1.0, 2) } });
+  }
+  const an = detail.anchor;
+  if (an) {
+    parts.push({ key: "basis.anchoredBts", params: { lo: an.fare_low, hi: an.fare_avg, asof: an.asof ?? "" } });
+  }
+  if (detail.date_mult) parts.push({ key: "basis.dateAdjusted", params: { mult: pyRound(detail.date_mult, 2) } });
+  if (detail.likely_connection) parts.push({ key: "basis.connectingAssumed", params: {} });
+  return parts;
+}
+
+/** Structured twin of flightProvenanceLive() - mirrors itinerary.basis_parts_flight_live(). */
+export function basisPartsFlightLive(live) {
+  const parts = [{ key: "basis.liveDuffel", params: { carrier: live.carrier || "" } }];
+  if (live.native_price != null && live.currency && live.currency !== "USD") {
+    const key = live.converted ? "basis.fxLivePriced" : "basis.fxNativePriced";
+    parts.push({ key, params: { native: live.native_price, currency: live.currency } });
+  }
+  return parts;
+}
+
+/** Structured twin of ferryProvenance() - mirrors itinerary.basis_parts_ferry(). */
+export function basisPartsFerry(ferry) {
+  return [{
+    key: "basis.ferryBand",
+    params: {
+      lo: ferry.price_usd_lo ?? null, hi: ferry.price_usd_hi ?? null,
+      operators: (ferry.operators || []).join(", ") || null, asof: ferry.price_asof || "",
+    },
+  }];
+}
+
+/** Structured twin of groundProvenance() - mirrors itinerary.basis_parts_ground(). */
+export function basisPartsGround(gw, roadKm) {
+  let parts;
+  if (gw.ferry) {
+    parts = basisPartsFerry(gw.ferry);
+  } else if (gw.source === "curated") {
+    parts = [{ key: "basis.curatedGateway", params: {} }];
+  } else {
+    parts = [{ key: "basis.groundEstimate", params: { km: roadKm != null ? Math.trunc(roadKm) : null } }];
+  }
+  const tr = gw.transit;
+  if (tr && tr.line) parts.push({ key: "basis.transitLive", params: { line: tr.line } });
+  return parts;
 }
 
 export function flightProvenanceLive(live) {
@@ -236,6 +311,7 @@ export function buildTimeline(legs, {
       checkin_by: checkinBy,
       cost: leg.cost,
       price_basis: leg.price_basis,
+      basis_parts: leg.basis_parts || [],
       verify_url: leg.verify_url,
       is_live: false,
       carrier: null,
@@ -274,6 +350,7 @@ function liveSegmentsToRows(leg, segments, date, addCheckin, airportBufferH) {
       checkin_by: checkinBy,
       cost: idx === 0 ? leg.cost : 0.0,
       price_basis: leg.price_basis,
+      basis_parts: leg.basis_parts || [],
       verify_url: leg.verify_url,
       is_live: true,
       carrier: seg.carrier ?? null,

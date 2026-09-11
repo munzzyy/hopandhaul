@@ -262,22 +262,64 @@ def nearest_airport(lat, lng, prefer_hub=False, max_km=NEAREST_HARD_KM) -> dict 
     return dict(best, dist_km=dist_km, warn_tier=warn_tier)
 
 
+GROUND_RESTRICTED_COUNTRIES = {"RU", "BY"}  # closed EU land/rail crossings; Ukraine stays OPEN
+# how close the genuinely-nearest suspended airport has to be to count as "this point's own
+# crossing" - without a cap, a point with sparse local airport coverage (Kyiv: neither of its
+# own airports is even in this DB) matches whatever suspended field is LEAST far away anywhere
+# in range, even a few hundred km off in a different country, and gets wrongly refused as if
+# that were the actual local border crossing.
+GROUND_RESTRICTED_LOCAL_KM = 120.0
+
+
+def nearest_airport_including_suspended(lat, lng, max_km=NEAREST_HARD_KM) -> dict | None:
+    """Like nearest_airport() but does NOT skip closed/restricted fields - used only to detect
+    when the genuinely closest airport to a point is a suspended one, so final_leg() can refuse
+    an honest-looking ground crossing into it (Kaliningrad via Palanga) instead of silently
+    routing around the suspension and pricing a leg across a border that is, in fact, closed."""
+    best, best_d = None, None
+    for a in airports():
+        d = haversine_km(lat, lng, a["lat"], a["lng"])
+        if max_km is not None and d > max_km:
+            continue
+        if best_d is None or d < best_d:
+            best, best_d = a, d
+    return best
+
+
+def _nearer_suspended(lat, lng, served) -> dict | None:
+    """The nearest closed/restricted airport to a point, only if it is actually closer than the
+    served airport that was ultimately chosen - lets a caller say "closer field X is closed, we
+    routed you via Y" instead of silently substituting with no explanation (go JFK "Lviv" used
+    to reroute via RZE with zero mention that LWO, the actually-nearest field, is closed)."""
+    served_d = haversine_km(lat, lng, served["lat"], served["lng"])
+    best, best_d = None, None
+    for a in airports():
+        if not is_suspended(a):
+            continue
+        d = haversine_km(lat, lng, a["lat"], a["lng"])
+        if d < served_d and (best_d is None or d < best_d):
+            best, best_d = a, d
+    return best
+
+
 def nearest_served_or_note(lat, lng, prefer_hub=False, max_km=NEAREST_HARD_KM):
     """nearest_airport(), plus honesty: if the ONLY candidate(s) near a point are closed or
     restricted, say so instead of the generic 'no airport found near that point' - a click near
     Kyiv or Vilnius must never silently resolve to a suspended field with no explanation.
-    Returns (airport_or_None, suspended_note_or_None)."""
+    Returns (airport_or_None, suspended_note_or_None, skipped_closer_airport_or_None) - the
+    third item is set when a genuinely closer suspended field was skipped in favor of the one
+    returned, so the caller can say so instead of substituting silently."""
     served = nearest_airport(lat, lng, prefer_hub=prefer_hub, max_km=max_km)
     if served:
-        return served, None
+        return served, None, _nearer_suspended(lat, lng, served)
     for a in airports():
         if not is_suspended(a):
             continue
         d = haversine_km(lat, lng, a["lat"], a["lng"])
         if max_km is None or d <= max_km:
             return None, ("no served airport near this point; airspace or service there is "
-                          "currently suspended")
-    return None, None
+                          "currently suspended"), None
+    return None, None, None
 
 
 # --------------------------------------------------------------------------- regions
@@ -749,6 +791,42 @@ def _offset_point(lat, lng, theta_rad, dist_km) -> tuple:
     return round(math.degrees(p2), 4), round(lng2, 4)
 
 
+FINAL_LEG_WATER_RUN_KM = 8.0  # far stricter than WATER_RUN_MIN_KM: never rescue, never invent
+
+
+def _cell_water_majority(lat: float, lng: float) -> bool:
+    """Island-suspicious signal: does ANY cell in lat/lng's immediate 3x3 grid neighborhood read
+    water? The land grid is deliberately coastal-land-biased (see module comment above) - a real
+    small island still reads "land" at its own cell and most neighbors, so requiring a majority
+    never fires (checked against Aegina: 7 of 9 neighbor cells are land). A single neighboring
+    water cell, though, cleanly separates a genuine island/coastal point (Aegina: 2 water
+    neighbors; Hydra: 5) from real mainland interior points (Interlaken, Denver: 0 water
+    neighbors, verified in geo.selftest()) - the false-positive risk of "any" is a point right at
+    a river/lake edge inland, which a last-mile leg refusing to fabricate a crossing for is the
+    conservative failure mode anyway."""
+    g = _landgrid()
+    res = g["res"]
+    for dlat in (-res, 0.0, res):
+        for dlng in (-res, 0.0, res):
+            if not is_land(lat + dlat, lng + dlng):
+                return True
+    return False
+
+
+def _sea_gap_final(a: dict, b: dict) -> bool:
+    """final_leg()'s OWN stricter water policy (see its docstring): a last-mile leg is never
+    allowed the coast-hugging offset-rescue sea_gap() grants gateway ground legs (that rescue is
+    what shifted a Hydra-town endpoint onto the Greek mainland and invented a train). Endpoints
+    are never moved, the blocking threshold is far lower (FINAL_LEG_WATER_RUN_KM, not
+    WATER_RUN_MIN_KM), and a destination whose own grid cell reads water-majority blocks the leg
+    even when the sampled path itself found little water - the rule is "never invent"; when the
+    coarse grid can't be sure, refuse and let the caller's note say so."""
+    stats = water_path_stats(a["lat"], a["lng"], b["lat"], b["lng"])
+    if stats["max_run_km"] >= FINAL_LEG_WATER_RUN_KM:
+        return True
+    return _cell_water_majority(b["lat"], b["lng"])
+
+
 def sea_gap(a: dict, b: dict) -> bool:
     """True when open sea genuinely separates two points and no land detour plausibly exists.
 
@@ -905,6 +983,12 @@ def discover_gateways(dest: dict, origin: dict | None = None, max_ground_h: floa
     """
     # curated entries carry real numbers but aren't exempt from the user's own time budget -
     # a --max-ground-hours 1 request must drop a curated 7h ferry same as an auto-discovered one.
+    # Curated candidates are deliberately NOT filtered against the counterpart airport here: a
+    # curated gateway that equals the counterpart is the legitimate self-gateway case (SLC's own
+    # curated gateway for JAC is SLC itself - "just drive from home") and callers (server.py's
+    # plan(), multicity.price_leg()) special-case it into a ground-only option rather than a
+    # same-airport phantom flight. See those callers' self-gateway guards - BOTH the dest-side
+    # and origin-side ones - for where that honesty actually has to happen.
     result = [g for g in curated_gateways(dest["iata"]) if g["ground_hours"] <= max_ground_h]
     seen = {g["iata"] for g in result}
 
@@ -1025,10 +1109,23 @@ def final_leg(dest_airport: dict, lat: float, lng: float) -> dict | None:
     place = {"iata": "", "lat": lat, "lng": lng}
     region = region_of(lat, lng)
 
-    # Same three water-honesty rules discover_gateways() uses, applied to airport -> place
-    # instead of gateway -> dest: a dominant real ferry corridor IS the connection; different
-    # landmasses with no corridor means no leg at all; same landmass but a sea_gap with no
-    # detour also means no leg.
+    # Ground-border honesty: if the airport genuinely nearest this point (suspended fields
+    # included) is itself suspended AND sits in a country whose land/rail crossings into it are
+    # closed (RU, BY - Ukraine's border stays ground-open, that route is real), there is no
+    # honest last-mile leg to invent even though dest_airport (some other, served field) may sit
+    # perfectly reachable by air. This is what stopped a Kaliningrad click from resolving via
+    # Palanga plus a "train" across a closed EU-Russia crossing.
+    nearest_any = nearest_airport_including_suspended(lat, lng)
+    if (nearest_any and is_suspended(nearest_any)
+            and nearest_any.get("country") in GROUND_RESTRICTED_COUNTRIES
+            and haversine_km(lat, lng, nearest_any["lat"], nearest_any["lng"])
+                <= GROUND_RESTRICTED_LOCAL_KM):
+        return {"possible": False, "reason": "restricted_crossing",
+                "country": nearest_any["country"]}
+
+    # final_leg() gets its OWN stricter water policy - see _sea_gap_final()'s docstring. No
+    # offset-rescue, no moving the endpoint: unlike discover_gateways()'s gateway ground legs, a
+    # last-mile hop that turns out to cross open water is pure invention, not a detour choice.
     corridor = ferry_corridor_for(dest_airport, place)
     usable = (corridor is not None
               and (corridor.get("frequency_per_day") or 0) >= MIN_FERRY_FREQ_PER_DAY)
@@ -1039,7 +1136,7 @@ def final_leg(dest_airport: dict, lat: float, lng: float) -> dict | None:
         if not usable:
             return {"possible": False}
         ferry = corridor
-    elif sea_gap(dest_airport, place):
+    elif _sea_gap_final(dest_airport, place):
         return {"possible": False}
 
     if ferry:
@@ -1422,7 +1519,8 @@ def selftest():
     check("Vilnius gateways contain no MSQ/BQT/KGD (restricted, excluded from gateway candidacy)",
           not any(g["iata"] in ("MSQ", "BQT", "KGD") for g in vno_gws))
     gme_apt = by_iata("GME")
-    served, note = nearest_served_or_note(gme_apt["lat"], gme_apt["lng"], prefer_hub=True, max_km=80)
+    served, note, _skipped = nearest_served_or_note(
+        gme_apt["lat"], gme_apt["lng"], prefer_hub=True, max_km=80)
     check("a point whose only nearby field is restricted (GME) resolves to an honest note, "
           "not a silent recommendation of a restricted airport",
           served is None and note is not None and "suspended" in note)
@@ -1450,6 +1548,44 @@ def selftest():
     honolulu_click = final_leg(ogg, 21.3069, -157.8583)   # downtown Honolulu, Oahu
     check("an island final leg with no real corridor and no land route is honestly impossible",
           honolulu_click == {"possible": False})
+
+    # BUG4: final_leg() gets its OWN stricter water policy - no offset-rescue, a far lower
+    # blocking threshold, and an island-suspicious grid-cell check for narrow straits the
+    # sampled path misses entirely.
+    ath = by_iata("ATH")
+    hydra_click = final_leg(ath, 37.35, 23.47)   # Hydra town - car-free island in the Saronic Gulf
+    check(f"Hydra: no invented train over open sea (got {hydra_click})",
+          hydra_click == {"possible": False})
+    nap = by_iata("NAP")
+    capri_click = final_leg(nap, 40.5532, 14.2222)   # Capri - across the Bay of Naples
+    check(f"Capri: no invented drive across the Bay of Naples (got {capri_click})",
+          capri_click == {"possible": False})
+    aegina_click = final_leg(ath, 37.7454, 23.4272)   # Aegina - grid path sampling reads 0% water
+    check(f"Aegina: island-suspicious grid-cell check catches what the path sampling missed "
+          f"(got {aegina_click})", aegina_click == {"possible": False})
+    check("control: Interlaken (genuine mainland town) still gets its final leg, unaffected "
+          "by the stricter island policy", interlaken is not None and interlaken["possible"])
+
+    # BUG4 (second half): a refused final leg past FINAL_LEG_MIN_KM must never be silent - see
+    # server.py's plan(), which always emits notes.lastMileGap (or a more specific note) now,
+    # dropping the old 120km gate. Sanity-check the raw distances here are indeed > 12km.
+    check("Hydra/Capri/Aegina refusals are all well past FINAL_LEG_MIN_KM (so a caller-side "
+          "note is always owed)",
+          all(haversine_km(a["lat"], a["lng"], lat, lng) > FINAL_LEG_MIN_KM
+              for a, lat, lng in ((ath, 37.35, 23.47), (nap, 40.5532, 14.2222),
+                                  (ath, 37.7454, 23.4272))))
+
+    # BUG5: a suspended RU/BY airport genuinely nearest the point refuses the crossing outright;
+    # Ukraine stays ground-open even though its own airports are also suspended right now.
+    kaliningrad_click = final_leg(by_iata("PLQ"), 54.71, 20.51)   # Kaliningrad city
+    check(f"Kaliningrad: closed EU-Russia ground crossing refuses instead of pricing a leg "
+          f"(got {kaliningrad_click})",
+          kaliningrad_click is not None and kaliningrad_click["possible"] is False
+          and kaliningrad_click.get("reason") == "restricted_crossing")
+    kyiv_click = final_leg(by_iata("RMO"), 50.4501, 30.5234)   # Kyiv, resolved via RMO (Chisinau)
+    check(f"Kyiv: ground crossing stays open (not RU/BY) despite Ukraine's own airports being "
+          f"suspended (got {kyiv_click})",
+          kyiv_click is not None and kyiv_click.get("possible") is True)
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (geo checks)")
     return 1 if fails else 0

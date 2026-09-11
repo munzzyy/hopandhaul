@@ -180,12 +180,47 @@ export function nearestAirport(lat, lng, { preferHub = false, maxKm = NEAREST_HA
   return { ...best, dist_km: distKm, warn_tier: warnTier };
 }
 
+/** Like nearestAirport() but does NOT skip closed/restricted fields - mirrors
+ * geo.nearest_airport_including_suspended(). Used only to detect when the genuinely closest
+ * airport to a point is a suspended one. */
+export function nearestAirportIncludingSuspended(lat, lng, maxKm = NEAREST_HARD_KM) {
+  let best = null;
+  let bestD = null;
+  for (const a of airports()) {
+    const d = haversineKm(lat, lng, a.lat, a.lng);
+    if (maxKm !== null && d > maxKm) continue;
+    if (bestD === null || d < bestD) {
+      best = a;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+/** The nearest closed/restricted airport to a point, only if it's actually closer than the
+ * served airport ultimately chosen - mirrors geo._nearer_suspended(). */
+function nearerSuspended(lat, lng, served) {
+  const servedD = haversineKm(lat, lng, served.lat, served.lng);
+  let best = null;
+  let bestD = null;
+  for (const a of airports()) {
+    if (!isSuspended(a)) continue;
+    const d = haversineKm(lat, lng, a.lat, a.lng);
+    if (d < servedD && (bestD === null || d < bestD)) {
+      best = a;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
 /** nearestAirport(), plus honesty: if the ONLY candidate(s) near a point are closed or
  * restricted, say so instead of the generic "no airport found near that point" - mirrors
- * geo.nearest_served_or_note(). Returns { airport, note } - airport is null on failure. */
+ * geo.nearest_served_or_note(). Returns { airport, note, skippedCloser } - airport is null on
+ * failure; skippedCloser is set when a genuinely closer suspended field was skipped. */
 export function nearestServedOrNote(lat, lng, { preferHub = false, maxKm = NEAREST_HARD_KM } = {}) {
   const served = nearestAirport(lat, lng, { preferHub, maxKm });
-  if (served) return { airport: served, note: null };
+  if (served) return { airport: served, note: null, skippedCloser: nearerSuspended(lat, lng, served) };
   for (const a of airports()) {
     if (!isSuspended(a)) continue;
     const d = haversineKm(lat, lng, a.lat, a.lng);
@@ -194,10 +229,11 @@ export function nearestServedOrNote(lat, lng, { preferHub = false, maxKm = NEARE
         airport: null,
         note: "no served airport near this point; airspace or service there is "
           + "currently suspended",
+        skippedCloser: null,
       };
     }
   }
-  return { airport: null, note: null };
+  return { airport: null, note: null, skippedCloser: null };
 }
 
 // --------------------------------------------------------------------------- regions
@@ -609,7 +645,31 @@ function _offsetPoint(lat, lng, thetaRad, distKm) {
   return [pyRound(p2 / DEG2RAD, 4), pyRound(lng2, 4)];
 }
 
-/** True when open sea genuinely separates two points and no land detour plausibly exists - 
+export const FINAL_LEG_WATER_RUN_KM = 8.0; // far stricter than WATER_RUN_MIN_KM - never rescue
+
+/** Island-suspicious signal: does ANY cell in lat/lng's immediate 3x3 grid neighborhood read
+ * water? Mirrors geo._cell_water_majority() - see its docstring for why "any", not "majority". */
+function _cellWaterMajority(lat, lng) {
+  const g = landgrid();
+  const res = g.res;
+  for (const dlat of [-res, 0.0, res]) {
+    for (const dlng of [-res, 0.0, res]) {
+      if (!isLand(lat + dlat, lng + dlng)) return true;
+    }
+  }
+  return false;
+}
+
+/** finalLeg()'s OWN stricter water policy - mirrors geo._sea_gap_final(). No offset-rescue, a
+ * far lower blocking threshold, and an island-suspicious grid-cell check for when the sampled
+ * path missed a narrow strait entirely. */
+function _seaGapFinal(a, b) {
+  const stats = waterPathStats(a.lat, a.lng, b.lat, b.lng);
+  if (stats.max_run_km >= FINAL_LEG_WATER_RUN_KM) return true;
+  return _cellWaterMajority(b.lat, b.lng);
+}
+
+/** True when open sea genuinely separates two points and no land detour plausibly exists -
  * mirrors geo.sea_gap: direct-run trigger, tight offset-path rescue, fixed-link rescue. */
 export function seaGap(a, b) {
   const stats = waterPathStats(a.lat, a.lng, b.lat, b.lng);
@@ -734,6 +794,9 @@ export function curatedGateways(destIata) {
 export function discoverGateways(dest, origin = null, { maxGroundH = 6.0, maxGateways = 4 } = {}) {
   // curated entries carry real numbers but aren't exempt from the user's own time budget -
   // a maxGroundH:1 request must drop a curated 7h ferry same as an auto-discovered one.
+  // Curated candidates are deliberately NOT filtered against the counterpart airport here - the
+  // legitimate self-gateway case (a destination whose curated gateway IS the origin) is handled
+  // downstream by plan.js's own self-gateway guards (both directions) - mirrors geo.py.
   const result = curatedGateways(dest.iata).filter((g) => g.ground_hours <= maxGroundH);
   const seen = new Set(result.map((g) => g.iata));
 
@@ -820,6 +883,10 @@ export function discoverGateways(dest, origin = null, { maxGroundH = 6.0, maxGat
 // plain-overland, then honestly-impossible treatment discoverGateways() already gives a gateway
 // leg - see the matching comment in geo.py.
 export const FINAL_LEG_MIN_KM = 12.0;
+export const GROUND_RESTRICTED_COUNTRIES = new Set(["RU", "BY"]); // Ukraine stays ground-open
+// how close the genuinely-nearest suspended airport has to be to count as "this point's own
+// crossing" - mirrors geo.GROUND_RESTRICTED_LOCAL_KM.
+export const GROUND_RESTRICTED_LOCAL_KM = 120.0;
 
 export function finalLeg(destAirport, lat, lng) {
   const d = haversineKm(destAirport.lat, destAirport.lng, lat, lng);
@@ -827,6 +894,17 @@ export function finalLeg(destAirport, lat, lng) {
   const place = { iata: "", lat, lng };
   const region = regionOf(lat, lng);
 
+  // Ground-border honesty: the airport genuinely nearest this point (suspended included) is
+  // itself suspended AND sits in a country whose land/rail crossings are closed - mirrors
+  // geo.final_leg()'s restricted-crossing guard (Kaliningrad via Palanga).
+  const nearestAny = nearestAirportIncludingSuspended(lat, lng);
+  if (nearestAny && isSuspended(nearestAny) && GROUND_RESTRICTED_COUNTRIES.has(nearestAny.country)
+      && haversineKm(lat, lng, nearestAny.lat, nearestAny.lng) <= GROUND_RESTRICTED_LOCAL_KM) {
+    return { possible: false, reason: "restricted_crossing", country: nearestAny.country };
+  }
+
+  // finalLeg()'s OWN stricter water policy - see _seaGapFinal()'s docstring. No offset-rescue,
+  // no moving the endpoint - mirrors geo.final_leg().
   const corridor = ferryCorridorFor(destAirport, place);
   const usable = corridor !== null
     && (corridor.frequency_per_day || 0) >= MIN_FERRY_FREQ_PER_DAY;
@@ -836,7 +914,7 @@ export function finalLeg(destAirport, lat, lng) {
   } else if (landmassOf(destAirport) !== landmassOf(place)) {
     if (!usable) return { possible: false };
     ferry = corridor;
-  } else if (seaGap(destAirport, place)) {
+  } else if (_seaGapFinal(destAirport, place)) {
     return { possible: false };
   }
 

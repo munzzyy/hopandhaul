@@ -86,22 +86,35 @@ def _sum_lr(values) -> float:
     return total
 
 
+FINAL_LEG_PREFIX = "final:"  # marks geo.final_leg()'s last-mile hop - see parse_leg()/parse_option()
+
+
 def parse_leg(text: str) -> dict:
     """'fly 210 3.0' -> {'mode','cost','hours'}. Tolerates a missing hours (defaults 0).
 
     Unknown modes are accepted (a typo shouldn't crash a CLI) but flagged with
     'mode_unknown' so callers can warn instead of silently mispricing (a typo'd
     "flght"/"walk" used to fall into the per-person cost branch with no signal).
+
+    A mode token prefixed "final:" (e.g. "final:train") marks the airport-to-actual-point
+    last-mile hop appended by server.py/go.py to EVERY option (see geo.final_leg()). That leg
+    is structurally part of getting to the destination, not a multimodal "split" - callers
+    append it to the direct-flight option too, and a 2-leg direct must never be mistaken for a
+    split. The prefix is stripped before pricing/naming; parse_option() reads leg["final"] to
+    exclude it from is_split.
     """
     parts = text.split()
     if len(parts) < 2:
         raise ValueError(f"leg needs at least 'mode cost': got {text!r}")
-    mode = parts[0].lower()
+    raw_mode = parts[0].lower()
+    is_final = raw_mode.startswith(FINAL_LEG_PREFIX)
+    mode = raw_mode[len(FINAL_LEG_PREFIX):] if is_final else raw_mode
     cost = num(parts[1])
     hours = num(parts[2]) if len(parts) >= 3 else 0.0
     if cost < 0 or hours < 0:
         raise ValueError(f"leg cost/hours must be >= 0: got {text!r}")
-    return {"mode": mode, "cost": cost, "hours": hours, "mode_unknown": mode not in KNOWN_MODES}
+    return {"mode": mode, "cost": cost, "hours": hours, "mode_unknown": mode not in KNOWN_MODES,
+            "final": is_final}
 
 
 def parse_option(text: str, min_legs: int = 1) -> dict:
@@ -127,13 +140,18 @@ def parse_option(text: str, min_legs: int = 1) -> dict:
     hours = _sum_lr(leg["hours"] for leg in legs)
     if not name:
         name = " → ".join(leg["mode"] for leg in legs)
+    # A "split" is a base-trip decision (fly cheaper + ground the rest of the way) - the
+    # appended final leg (geo.final_leg()'s airport-to-actual-point hop, marked "final" by
+    # parse_leg()) rides along on every option, including the direct flight, so it must never
+    # count toward is_split or the 2-leg direct/split classification below.
+    non_final_legs = sum(1 for leg in legs if not leg["final"])
     return {
         "name": name,
         "legs": legs,
         "cost": round(cost, 2),
         "hours": round(hours, 4),
         "nlegs": len(legs),
-        "is_split": len(legs) >= 2,
+        "is_split": non_final_legs >= 2,
     }
 
 
@@ -806,7 +824,43 @@ def selftest():
     check("_fmt_money(-5.5) == '-$5.50'", _fmt_money(-5.5) == "-$5.50")
     check("_fmt_money(5) is unaffected", _fmt_money(5) == "$5")
 
-    n_cases = 20
+    # Case 20 (BUG1): a "final:" marked last-mile leg appended to a DIRECT option must not
+    # promote it to a 2-leg split - the whole baseline/threshold rule depended on a single-leg
+    # direct flight being recognizable as such even with a final leg riding along.
+    direct_plus_final = parse_option("Fly direct to BRN | fly 300 2.0 ; final:train 20 1.0")
+    check("a direct + final leg is NOT a split (final legs never count toward is_split)",
+          direct_plus_final["is_split"] is False)
+    check("a direct + final leg still totals both legs' cost/hours",
+          _approx(direct_plus_final["cost"], 320) and _approx(direct_plus_final["hours"], 3.0))
+    split_plus_final = parse_option(
+        "GVA + train | fly 210 3.0 ; train 30 1.0 ; final:train 20 1.0")
+    check("a REAL split (2 non-final legs) plus a final leg is still is_split",
+          split_plus_final["is_split"] is True)
+    r20 = evaluate([direct_plus_final, split_plus_final], threshold=200)
+    check("BUG1 repro shape: the 2-leg direct is still baseline, not demoted to 'no direct given'",
+          r20["baseline_kind"] == "cheapest direct" and r20["baseline"] == "Fly direct to BRN")
+    # Control: without a final leg at all, the same two options rank identically - the final
+    # leg's presence must never change WHICH option wins, only ride along on both fairly.
+    direct_no_final = parse_option("Fly direct to BRN | fly 300 2.0")
+    split_no_final = parse_option("GVA + train | fly 210 3.0 ; train 30 1.0")
+    r20b = evaluate([direct_no_final, split_no_final], threshold=200)
+    check("control (no final legs) matches the with-final-leg baseline/recommendation shape",
+          r20b["baseline"] == "Fly direct to BRN" and r20b["recommended"] == r20["recommended"])
+    # BUG1's second repro shape: a split that only wins by a small margin under the $200 rule
+    # must lose to a 2-leg-with-final direct baseline, not sneak past because the direct got
+    # miscounted as a split and vanished from the baseline pool.
+    direct_ferry_final = parse_option(
+        "Fly direct to EWR | fly 400 5.5 ; final:ferry 15 1.5")
+    split_ferry_final = parse_option(
+        "HER + ferry | fly 300 6.0 ; ferry 75 3.0 ; final:ferry 15 1.5")
+    r20c = evaluate([direct_ferry_final, split_ferry_final], threshold=200)
+    check("a split saving only $10 vs a 2-leg-with-final direct does NOT qualify (< $200 rule)",
+          r20c["recommended"] == "Fly direct to EWR")
+    split_row20c = next(o for o in r20c["options"] if o["name"] == "HER + ferry")
+    check("that split is tagged cheaper_below_threshold, not a phantom win off a broken baseline",
+          split_row20c["status"] == "cheaper_below_threshold")
+
+    n_cases = 21
     print(f"\n{'ALL PASS' if not failures else str(len(failures)) + ' FAILED'} "
           f"({n_cases} cases)")
     return 1 if failures else 0

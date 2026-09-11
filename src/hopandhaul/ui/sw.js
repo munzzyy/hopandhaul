@@ -12,7 +12,7 @@
 // generic fetch handler below on first successful load, so whichever language a visitor
 // actually chooses works offline from then on, and they're dropped on every version bump
 // along with the rest of the runtime cache.
-const CACHE_VERSION = "hopandhaul-shell-v11"; // local dev value - pages.yml stamps this with the deploy SHA on publish
+const CACHE_VERSION = "hopandhaul-shell-v12"; // local dev value - pages.yml stamps this with the deploy SHA on publish
 // Separate, version-independent cache for runtime-fetched i18n/*.json catalogs (only en.json is
 // precached above). Kept OUT of the activate-time cleanup below on purpose: without this, every
 // CACHE_VERSION bump would drop every non-English catalog a visitor had cached, stranding them
@@ -97,8 +97,11 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
 
-  // API calls need live data - never serve a stale plan from cache.
-  if (url.pathname.startsWith("/api/")) return;
+  // API calls need live data - never serve a stale plan from cache. startsWith("/api/") only
+  // holds at the repo root; GitHub Pages serves this whole app under /<repo-name>/, where every
+  // path (including /api/*, when a real server is proxied behind the same origin) carries that
+  // prefix - matching on the segment anywhere in the path works at both the root and a subpath.
+  if (url.pathname.includes("/api/")) return;
 
   // Deep links are dead offline otherwise: the fetch handler below exact-matches URLs, and only
   // "./" itself is precached, so anything shared as a full path (e.g. index.html?lat=...&lng=...)
@@ -117,7 +120,9 @@ self.addEventListener("fetch", (event) => {
   // - en.json itself is still precached into CACHE_VERSION at install (see SHELL_FILES), so this
   // checks LANG_CACHE first and falls back to the shell cache rather than treating en.json as a
   // miss here on first run.
-  if (url.pathname.startsWith("/i18n/") && url.pathname.endsWith(".json")) {
+  // Same subpath concern as the /api/ check above - .includes() works at both the repo root
+  // and a GitHub Pages /<repo-name>/ prefix, where startsWith("/i18n/") would never match.
+  if (url.pathname.includes("/i18n/") && url.pathname.endsWith(".json")) {
     event.respondWith(
       caches.open(LANG_CACHE).then(async (langCache) => {
         const cached = (await langCache.match(event.request)) || (await caches.match(event.request));

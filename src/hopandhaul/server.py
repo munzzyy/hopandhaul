@@ -291,11 +291,20 @@ def parse_dates_params(q: dict) -> dict:
     return out
 
 
+GEOCODE_LANGS = {"en", "de", "fr"}  # what Photon actually supports server-side; else default en
+
+
+def _v_geocode_lang(raw: str | None) -> str:
+    v = (raw or "en").strip().lower()
+    return v if v in GEOCODE_LANGS else "en"
+
+
 def parse_geocode_params(q: dict) -> dict:
     text = _v_query_text(_require(q, "q"))
     limit = _optional(q, "limit")
     n = _v_int_range(limit, "limit", 1, 10) if limit else 6
-    return {"text": text, "limit": n}
+    lang = _v_geocode_lang(_optional(q, "lang"))
+    return {"text": text, "limit": n, "lang": lang}
 
 
 def parse_nearest_params(q: dict) -> dict:
@@ -490,13 +499,15 @@ def _flight_leg_spec(origin, dest, f, cost, date, ret=None):
             "carrier": s.get("carrier"), "flight_number": s.get("flight_number"),
         } for s in f["segments"]]
         price_basis = itinerary.flight_provenance_live(f)
+        basis_parts = itinerary.basis_parts_flight_live(f)
     else:
         detail = f.get("estimate_detail")
         price_basis = itinerary.flight_provenance_estimate(detail, date)
+        basis_parts = itinerary.basis_parts_flight_estimate(detail, date)
         likely_connection = bool(detail and detail.get("likely_connection"))
     return {
         "mode": "fly", "cost": round(cost, 2), "hours": f["hours"],
-        "from": origin, "to": dest, "price_basis": price_basis,
+        "from": origin, "to": dest, "price_basis": price_basis, "basis_parts": basis_parts,
         "verify_url": itinerary.verify_link("fly", origin, dest, date, ret),
         "is_live": is_live, "segments": segments, "likely_connection": likely_connection,
     }
@@ -511,6 +522,7 @@ def _ground_leg_spec(g, dest, cost, road_km, frm=None):
         "mode": g["ground_mode"], "cost": round(cost, 2), "hours": g["ground_hours"],
         "from": origin_pt, "to": dest,
         "price_basis": itinerary.ground_provenance(g, road_km),
+        "basis_parts": itinerary.basis_parts_ground(g, road_km),
         "verify_url": itinerary.verify_link(g["ground_mode"], origin_pt, dest),
         "is_live": False, "segments": None,
     }
@@ -525,6 +537,7 @@ def _final_leg_spec(dest, place, final, cost):
         "mode": final["mode"], "cost": round(cost, 2), "hours": final["hours"],
         "from": dest, "to": place,
         "price_basis": itinerary.ground_provenance(gw_like, final.get("distance_km")),
+        "basis_parts": itinerary.basis_parts_ground(gw_like, final.get("distance_km")),
         "verify_url": itinerary.verify_link(final["mode"], dest, place),
         "is_live": False, "segments": None,
     }
@@ -545,7 +558,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     # prefer_hub=True so a click near a city snaps to the field with real airline service
     # instead of the literal closest point on the map (a seaplane base, a business-aviation
     # field) - matches what /api/nearest already does.
-    dest, suspended_note = geo.nearest_served_or_note(dest_lat, dest_lng, prefer_hub=True)
+    dest, suspended_note, skipped_closer = geo.nearest_served_or_note(dest_lat, dest_lng, prefer_hub=True)
     if not dest:
         if suspended_note:
             return {"ok": False, "error": itinerary.render_note(itinerary.note("notes.airportSuspended")),
@@ -589,8 +602,12 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             # in transit.ground_options), so a slow-but-successful lookup is never discarded
             # by its own coordinator.
             ex_t = concurrent.futures.ThreadPoolExecutor(max_workers=min(2, len(lookups)))
+            # formula_hours=g["ground_hours"] is the leg's own formula estimate, captured here
+            # before it's ever overwritten below - transit.ground_options() sanity-clamps the
+            # live result against it and refuses anything implausible (see transit.py).
             futs = {ex_t.submit(transit.ground_options, from_lat, from_lng,
-                                to_lat, to_lng, date, g["ground_mode"]): g
+                                to_lat, to_lng, date, g["ground_mode"],
+                                formula_hours=g["ground_hours"]): g
                     for g, from_lat, from_lng, to_lat, to_lng in lookups}
             done_t, _ = concurrent.futures.wait(list(futs), timeout=9.0)
             for f in done_t:
@@ -675,6 +692,10 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
                 ctx[k] = v
 
     options, geo_by_name, emissions_legs_by_name, leg_specs_by_name, notes = [], {}, {}, {}, []
+    # structured option-name contract (see docs/api.md): name_key/name_params alongside the
+    # plain English `name` trip.py already computes, so a locale can word the option name
+    # itself instead of inheriting hardcoded English ("Fly direct to CVU") in every catalog.
+    name_meta_by_name = {}
 
     def _flight_cost(f):
         """Flight leg cost: already all-travelers; ×2 only when a RT wasn't really priced."""
@@ -694,7 +715,10 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     final_geo_entry = final_emissions_entry = final_leg_spec_row = None
     if final and final.get("possible"):
         final_cost = trip.scale_leg_cost(final["mode"], final["cost"], travelers) * rt_mult
-        final_suffix = f" ; {final['mode']} {final_cost} {final['hours']}"
+        # "final:" prefix marks this leg as the last-mile hop (see trip.FINAL_LEG_PREFIX) so it
+        # never counts toward is_split even though it rides along on every option, including
+        # the direct flight - a 2-leg direct must not be misclassified as a multimodal split.
+        final_suffix = f" ; {trip.FINAL_LEG_PREFIX}{final['mode']} {final_cost} {final['hours']}"
         final_geo_entry = {"type": "ground", "mode": final["mode"],
                            "from": _pt(dest), "to": _pt(final_place)}
         final_dist_km = ((final["ferry"]["crossing_km"] if final.get("ferry")
@@ -714,6 +738,7 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
     direct_cost = _flight_cost(df)
     options.append(trip.parse_option(
         f"{direct_name} | fly {direct_cost} {df['hours']}{final_suffix}"))
+    name_meta_by_name[direct_name] = {"key": "option.flyDirect", "params": {"iata": dest["iata"]}}
     geo_by_name[direct_name] = [{"type": "flight", "from": _pt(origin), "to": _pt(dest)}]
     leg_specs_by_name[direct_name] = [_flight_leg_spec(origin, dest, df, direct_cost, date, ret)]
     # emissions distance is always the great-circle flight distance, regardless of whether the
@@ -745,6 +770,9 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             name = f"{g['ground_mode'].capitalize()} only from {origin['iata']}"
             options.append(trip.parse_option(
                 f"{name} | {g['ground_mode']} {ground_cost} {g['ground_hours']}{final_suffix}"))
+            name_meta_by_name[name] = {"key": "option.groundOnlyFrom",
+                                       "params": {"iata": origin["iata"],
+                                                  "mode": itinerary.mode_i18n_param(g["ground_mode"])}}
             geo_by_name[name] = [
                 {"type": "ground", "mode": g["ground_mode"], "from": _pt(origin), "to": _pt(dest)},
             ]
@@ -760,6 +788,9 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         options.append(trip.parse_option(
             f"{name} | fly {fly_cost} {gf['hours']} ; "
             f"{g['ground_mode']} {ground_cost} {g['ground_hours']}{final_suffix}"))
+        name_meta_by_name[name] = {"key": "option.gatewayGround",
+                                   "params": {"iata": g["iata"],
+                                              "mode": itinerary.mode_i18n_param(g["ground_mode"])}}
         geo_by_name[name] = [
             {"type": "flight", "from": _pt(origin), "to": _pt(g)},
             {"type": "ground", "mode": g["ground_mode"], "from": _pt(g), "to": _pt(dest)},
@@ -788,11 +819,37 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         else:
             ground_km = (geo.haversine_km(origin["lat"], origin["lng"], g["lat"], g["lng"])
                          * geo.ROAD_WINDING * rt_mult)
+        # the symmetric self-gateway case the dest-side loop above already guards: the
+        # gateway curated/discovered near ORIGIN IS the destination itself (a Boston-area click
+        # from PWM, whose curated origin-side gateway is BOS) - there is no flight to take, just
+        # the ground leg all the way. Pricing a same-airport "flight" here used to fabricate a
+        # $0-fare BOS->BOS leg plus a phantom transfer buffer on top of a real bus/train.
+        # discover_gateways() already filters this out at the source (see geo.py); this is
+        # defense in depth so a data or call-site slip can never resurrect the phantom leg.
+        if g["iata"] == dest["iata"]:
+            name = f"{g['ground_mode'].capitalize()} only to {dest['iata']}"
+            options.append(trip.parse_option(
+                f"{name} | {g['ground_mode']} {ground_cost} {g['ground_hours']}{final_suffix}"))
+            name_meta_by_name[name] = {"key": "option.groundOnlyTo",
+                                       "params": {"iata": dest["iata"],
+                                                  "mode": itinerary.mode_i18n_param(g["ground_mode"])}}
+            geo_by_name[name] = [
+                {"type": "ground", "mode": g["ground_mode"], "from": _pt(origin), "to": _pt(dest)},
+            ]
+            emissions_legs_by_name[name] = [{"mode": g["ground_mode"], "road_km": ground_km}]
+            leg_specs_by_name[name] = [
+                _ground_leg_spec(g, dest, ground_cost, ground_km / max(rt_mult, 1), frm=origin),
+            ]
+            _append_final(name)
+            continue
         fly_cost = _flight_cost(gf)
         name = f"{g['ground_mode'].capitalize()} to {g['iata']} + fly"
         options.append(trip.parse_option(
             f"{name} | {g['ground_mode']} {ground_cost} {g['ground_hours']} ; "
             f"fly {fly_cost} {gf['hours']}{final_suffix}"))
+        name_meta_by_name[name] = {"key": "option.groundToHubFly",
+                                   "params": {"iata": g["iata"],
+                                              "mode": itinerary.mode_i18n_param(g["ground_mode"])}}
         geo_by_name[name] = [
             {"type": "ground", "mode": g["ground_mode"], "from": _pt(origin), "to": _pt(g)},
             {"type": "flight", "from": _pt(g), "to": _pt(dest)},
@@ -824,6 +881,11 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
             emissions_legs_by_name.get(o["name"], []), travelers=travelers)
         o["itinerary"] = itinerary.build_timeline(
             leg_specs_by_name.get(o["name"], []), date=date, transfer_buffer_h=transfer_buffer)
+        # structured option-name contract (docs/api.md): name_key/name_params alongside the
+        # plain English `name` - see the module docstring above name_meta_by_name.
+        meta = name_meta_by_name.get(o["name"], {"key": None, "params": {}})
+        o["name_key"] = meta["key"]
+        o["name_params"] = meta["params"]
     greenest = min(clean["options"], key=lambda o: o["co2e_kg"])["name"] if clean["options"] else None
     clean["greenest"] = greenest
 
@@ -862,12 +924,22 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         notes.append(itinerary.note("notes.ferryRealCorridor"))
     if any(g.get("transit") for g in gws + origin_gws):
         notes.append(itinerary.note("notes.transitLiveSchedule"))
+    if skipped_closer:
+        # the nearest-served airport chosen is not the nearest airport period - a closer field
+        # was skipped because it's closed/restricted (go JFK "Lviv" -> RZE, LWO closed nearby).
+        notes.append(itinerary.note("notes.airportClosedNearby", closed_iata=skipped_closer["iata"],
+                                    closed_name=skipped_closer["name"], used_iata=dest["iata"]))
     if final and final.get("possible"):
-        notes.append(itinerary.note("notes.finalLeg", mode=final["mode"], iata=dest["iata"],
-                                    km=round(final["distance_km"])))
-    elif dest.get("dist_km", 0) > 120:
+        notes.append(itinerary.note("notes.finalLeg", mode=itinerary.mode_i18n_param(final["mode"]),
+                                    iata=dest["iata"], km=round(final["distance_km"])))
+    elif final and final.get("reason") == "restricted_crossing":
+        notes.append(itinerary.note("notes.groundCrossingRestricted", iata=dest["iata"],
+                                    country=final.get("country", "")))
+    elif final is not None:
+        # any other refusal (open sea, no corridor) at dist > FINAL_LEG_MIN_KM: always say so,
+        # not just past the old 120km threshold - "never invent" pairs with "never stay silent".
         notes.append(itinerary.note("notes.lastMileGap", iata=dest["iata"],
-                                    km=int(dest["dist_km"])))
+                                    km=int(dest.get("dist_km", 0))))
     if ctx["live_used"]:
         # live fares (Duffel) never include baggage in the quoted price - only the client
         # engine never reaches this branch (it has no live path at all), so this is server-only.
@@ -1225,7 +1297,7 @@ class Handler(BaseHTTPRequestHandler):
         if not places:
             return self._send_err(200, "geocoding_not_configured", "geocoding not configured")
         try:
-            results = places.geocode(params["text"], limit=params["limit"])
+            results = places.geocode(params["text"], limit=params["limit"], lang=params["lang"])
         except (net.FetchError, urllib.error.HTTPError, urllib.error.URLError,
                 ValueError, KeyError) as e:
             _log_exc("/api/geocode", e)
@@ -2024,6 +2096,14 @@ def selftest():
         check("geocode: limit clamped/rejected outside 1-10", False)
     except ValidationError:
         check("geocode: limit clamped/rejected outside 1-10", True)
+
+    # BUG9: geocode lang param - a supported code passes through, anything else (or missing)
+    # falls back to en rather than being rejected, so a UI that forgets to send it never 400s.
+    check("geocode: lang=de passes through", parse_geocode_params(qs(q="Paris", lang="de"))["lang"] == "de")
+    check("geocode: an unsupported lang code falls back to en, not rejected",
+          parse_geocode_params(qs(q="Paris", lang="xx"))["lang"] == "en")
+    check("geocode: no lang param defaults to en",
+          parse_geocode_params(qs(q="Paris"))["lang"] == "en")
 
     try:
         parse_nearest_params(qs(lat="39.19", lng="200"))

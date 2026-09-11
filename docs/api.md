@@ -98,10 +98,14 @@ Tells the frontend what's configured, with no secrets attached.
   answers: `"geoapify"` when that key is configured, else `"photon"`.
 - `has_weather` (Open-Meteo) and `has_transit` (Transitous) are keyless and normally true.
 
-## `GET /api/geocode?q=<text>&limit=<n>`
+## `GET /api/geocode?q=<text>&limit=<n>&lang=<code>`
 
 Type-ahead place search, Photon by default and Geoapify when keyed. Requires `q`; `limit`
-defaults to 6, clamped to 1-10.
+defaults to 6, clamped to 1-10. `lang` is optional, one of `en`/`de`/`fr` (what Photon actually
+supports server-side); anything else, or omitted, falls back to `en` - it is never rejected, so
+a UI that forgets to send it just gets English results instead of a 400. The map UI should send
+`lang=<currentLangCode>` so a place search result is worded in whatever language the page is
+already showing (see `ui/api.js`).
 
 - If `q` is missing or empty: `400 {"ok": false, "error": "q is required", "code": "invalid_param"}`.
 - On a provider error:
@@ -202,13 +206,22 @@ applies the $200 rule to recommend one.
   `fxStatic`, `fxLive`, `fxUnknown`, `groupTotals`, `roundtripReal`,
   `roundtripEstimatedSeparate`, `roundtripEstimated2x`, `ferryRealCorridor`,
   `transitLiveSchedule`, `lastMileGap`, `finalLeg`, `co2eEstimate`, `originSuspended`,
-  `airportSuspended`, `legLikelyConnecting`, `liveBaggageCaveat` (all under the `notes.`
-  prefix). Read the notes before trusting the number.
-  - `notes.finalLeg` and `notes.lastMileGap` are mutually exclusive: `finalLeg` fires whenever
-    the resolved destination airport is more than 12km from the clicked point AND an honest
-    last-mile leg exists (real ferry corridor or plain overland - see "The last-mile leg"
-    below); `lastMileGap` is the fallback for the remaining case, where the airport is far from
-    the click but the gap is genuinely impossible to cross honestly (only open sea, no corridor).
+  `airportSuspended`, `legLikelyConnecting`, `liveBaggageCaveat`, `groundCrossingRestricted`,
+  `airportClosedNearby` (all under the `notes.` prefix). Read the notes before trusting the number.
+  - `notes.finalLeg`, `notes.groundCrossingRestricted`, and `notes.lastMileGap` are mutually
+    exclusive and cover every case where the resolved destination airport is more than 12km
+    (`geo.FINAL_LEG_MIN_KM`) from the clicked point: `finalLeg` fires when an honest last-mile
+    leg exists (real ferry corridor or plain overland - see "The last-mile leg" below);
+    `groundCrossingRestricted` fires when the airport genuinely nearest the click is itself
+    suspended and sits in a country whose land/rail crossings are closed (Russia, Belarus -
+    Ukraine stays ground-open); `lastMileGap` is the fallback for every other refusal (only open
+    sea, no corridor). Unlike earlier versions of this API, `lastMileGap` is NOT gated on a
+    120km distance - it fires on any refused last-mile leg past 12km, so a refusal is never
+    silent.
+  - `notes.airportClosedNearby` fires when the airport nearest the clicked point (suspended
+    fields included) is closed/restricted and a different, served airport was used instead -
+    carries `closed_iata`, `closed_name`, `used_iata` - so a route via a farther field never
+    looks like a coincidence.
   - `notes.legLikelyConnecting` never appears at the top level - it rides inside a flight leg's
     own `label` field (see "Itinerary..." below), not in the response's top-level `notes` array.
   - `notes.liveBaggageCaveat` is server-only: it appears whenever any leg in the plan priced off
@@ -225,11 +238,18 @@ resolved destination airport (`dest.iata`) onward to the actual clicked point (`
 whenever that gap is more than 12km (`geo.FINAL_LEG_MIN_KM`). The leg is priced through the same
 machinery as a gateway's ground leg: a real ferry corridor when one dominantly covers the gap
 (`gateways[].ferry`'s sibling logic, reused symmetrically), otherwise plain overland, chosen by
-the same region-aware mode/distance rules. It shows up as the LAST entry in each option's
-`itinerary.legs` and `geo` arrays, and its cost/hours are folded into that option's headline
-`cost`/`hours_eff` - since it's added uniformly to every option, the split-vs-direct comparison
-stays fair. When the gap is real but there is no honest way to cross it (open sea, no ferry
-corridor) the leg is silently omitted and `notes.lastMileGap` explains why instead.
+the same region-aware mode/distance rules, with its own stricter water policy: no coast-hugging
+offset-rescue (an endpoint the gateway logic would nudge to find a detour stays exactly where it
+is), a much lower open-water blocking threshold, and an island-suspicious check on the
+destination's own grid cell for when the sampled path misses a narrow strait entirely. It shows
+up as the LAST entry in each option's `itinerary.legs` and `geo` arrays, and its cost/hours are
+folded into that option's headline `cost`/`hours_eff` - since it's added uniformly to every
+option, the split-vs-direct comparison stays fair (in the option-string encoding, this leg's
+mode is prefixed `"final:"` - see `trip.FINAL_LEG_PREFIX` - so it can never be miscounted as part
+of a multimodal split, even on a 2-leg option). When the gap is real but there is no honest way
+to cross it (open sea, no corridor, or a closed ground crossing into the nearest airport) the leg
+is omitted and one of `notes.finalLeg`'s siblings explains why instead - see the notes catalog
+above.
 
 ### Origin-side splits: `origin_gateways`
 
@@ -345,6 +365,46 @@ The same live-vs-estimate split shows up one level up too: `direct` and each ent
 `gateways[].fly` are the raw pricing dict `itinerary` was built from, so a caller who wants the
 provenance without the formatted timeline can read `estimate_detail` (estimate) or `segments`/
 `carrier`/`native_price` (live) directly.
+
+### Translatable option names and price-basis: `name_key`/`name_params`, `basis_parts`
+
+Every option name (`"Fly direct to CVU"`, `"ZRH + train"`, ...) and every leg's price-basis
+string used to be hardcoded English, spliced untranslated into every non-English locale. Both
+are now ALSO available in a structured form; the plain English `name` / `price_basis` stay too,
+for the CLI and backcompat - a caller that only speaks English needs no changes.
+
+- Each option in `result.options` carries `name_key` and `name_params` alongside `name`:
+  `name_key` is one of `option.flyDirect` `{iata}`, `option.gatewayGround` `{iata, mode}`,
+  `option.groundToHubFly` `{iata, mode}`, `option.groundOnlyFrom` `{iata, mode}` (the dest-side
+  self-gateway case: the gateway curated/found near the destination is the user's own origin
+  airport, so there's no flight, just a ground leg from home), `option.groundOnlyTo` `{iata,
+  mode}` (the symmetric origin-side case: the gateway found near the origin is the destination
+  itself). `mode` is itself a param-i18n value (see below), never a raw English word. Every key
+  lives under the `option.` namespace in `ui/i18n/en.json` (and every other locale catalog).
+- Each leg in `result.options[].itinerary.legs` carries `basis_parts` alongside `price_basis`:
+  an ARRAY of `{key, params}` segments under the `basis.` namespace, in the same order the
+  English sentence would join them with `"; "`. Keys emitted: `basis.routeBand` / `basis.
+  routeBandDated {date}` (no date vs a given date), `basis.marketMult {region, mult}`, `basis.
+  anchoredBts {lo, hi, asof}` (a real BTS-anchored fare band backed the estimate),
+  `basis.dateAdjusted {mult}`, `basis.connectingAssumed` (small/remote-airport pricing assumed a
+  connection), `basis.liveDuffel {carrier}`, `basis.fxNativePriced`/`basis.fxLivePriced`/`basis.
+  fxStaticPriced {native, currency}` (a live fare quoted in a non-USD currency, and whether the
+  conversion was a live rate, a static table, or unconverted), `basis.ferryBand {lo, hi,
+  operators, asof}` (a real ferry corridor's researched fare band), `basis.curatedGateway` (a
+  hand-tuned gateway estimate), `basis.groundEstimate {km}` (a formula ground estimate), `basis.
+  transitLive {line}` (a real Transitous schedule rides alongside whichever of the above priced
+  the fare - `line` is the ready-made English description carrying real operator/route names,
+  which can't be meaningfully translated, so it's passed through as an opaque value rather than
+  further decomposed).
+- **Param-i18n convention**: a note/name/basis param whose VALUE is itself a translatable word
+  (so far, only leg modes) is `{"i18n": "mode.xxx"}` instead of a raw string - see `mode.flight`
+  /`mode.train`/`mode.bus`/`mode.shuttle`/`mode.drive`/`mode.rentalCar`/`mode.ferry`/`mode.
+  ground` in `ui/i18n/en.json`. A renderer resolves `{"i18n": "..."}` params by looking the key
+  up in its own active-language catalog before formatting; every other param renders as-is.
+  Python's `itinerary.render_note()`/`mode_i18n_param()` implement this for the CLI (always
+  English); the browser's `results.js` (not part of `ui/engine/`) is the equivalent renderer for
+  whatever language the page is showing, and must apply the same resolution to `name_params` and
+  `basis_parts` params, not just `notes[].params`.
 
 ## `GET /api/dates?lat=<f>&lng=<f>&date=<YYYY-MM-DD>&...`
 

@@ -80,6 +80,7 @@ function flightLegSpec(origin, dest, f, cost, date, ret = null) {
   return {
     mode: "fly", cost: pyRound(cost, 2), hours: f.hours, from: origin, to: dest,
     price_basis: itinerary.flightProvenanceEstimate(f.estimate_detail, date),
+    basis_parts: itinerary.basisPartsFlightEstimate(f.estimate_detail, date),
     verify_url: itinerary.verifyLink("fly", origin, dest, date, ret),
     is_live: false, segments: null,
     likely_connection: Boolean(f.estimate_detail && f.estimate_detail.likely_connection),
@@ -95,6 +96,7 @@ function groundLegSpec(g, dest, cost, roadKm, frm = null) {
   return {
     mode: g.ground_mode, cost: pyRound(cost, 2), hours: g.ground_hours, from: originPt, to: dest,
     price_basis: itinerary.groundProvenance(g, roadKm),
+    basis_parts: itinerary.basisPartsGround(g, roadKm),
     verify_url: itinerary.verifyLink(g.ground_mode, originPt, dest),
     is_live: false, segments: null,
   };
@@ -108,6 +110,7 @@ function finalLegSpec(dest, place, final, cost) {
   return {
     mode: final.mode, cost: pyRound(cost, 2), hours: final.hours, from: dest, to: place,
     price_basis: itinerary.groundProvenance(gwLike, final.distance_km),
+    basis_parts: itinerary.basisPartsGround(gwLike, final.distance_km),
     verify_url: itinerary.verifyLink(final.mode, dest, place),
     is_live: false, segments: null,
   };
@@ -148,7 +151,7 @@ export function plan({
       code: "origin_suspended",
     };
   }
-  const { airport: dest, note: suspendedNote } = geo.nearestServedOrNote(destLat, destLng, { preferHub: true });
+  const { airport: dest, note: suspendedNote, skippedCloser } = geo.nearestServedOrNote(destLat, destLng, { preferHub: true });
   if (!dest) {
     if (suspendedNote) {
       // text must match ui/i18n/en.json's notes.airportSuspended template exactly (see above).
@@ -204,6 +207,9 @@ export function plan({
   const geoByName = {};
   const emissionsLegsByName = {};
   const legSpecsByName = {};
+  // structured option-name contract (docs/api.md): name_key/name_params alongside the plain
+  // English name trip.js already computes - mirrors server.py's name_meta_by_name.
+  const nameMetaByName = {};
 
   function flightCost(f) {
     if (roundtrip && !f.rt) return f.price * 2;
@@ -224,7 +230,9 @@ export function plan({
   let finalLegSpecRow = null;
   if (final && final.possible) {
     const finalCost = trip.scaleLegCost(final.mode, final.cost, travelers) * rtMult;
-    finalSuffix = ` ; ${final.mode} ${finalCost} ${final.hours}`;
+    // "final:" prefix marks this leg as the last-mile hop (trip.FINAL_LEG_PREFIX) so it never
+    // counts toward is_split, even though it rides along on every option - mirrors server.py.
+    finalSuffix = ` ; ${trip.FINAL_LEG_PREFIX}${final.mode} ${finalCost} ${final.hours}`;
     finalGeoEntry = { type: "ground", mode: final.mode, from: pt(dest), to: pt(finalPlace) };
     const finalDistKm = (final.ferry ? final.ferry.crossing_km : final.distance_km) * rtMult;
     finalEmissionsEntry = { mode: final.mode, road_km: finalDistKm };
@@ -243,6 +251,7 @@ export function plan({
   const directName = `Fly direct to ${dest.iata}`;
   const directCost = flightCost(df);
   options.push(trip.parseOption(`${directName} | fly ${directCost} ${df.hours}${finalSuffix}`));
+  nameMetaByName[directName] = { key: "option.flyDirect", params: { iata: dest.iata } };
   geoByName[directName] = [{ type: "flight", from: pt(origin), to: pt(dest) }];
   legSpecsByName[directName] = [flightLegSpec(origin, dest, df, directCost, date, ret)];
   const directKm = geo.haversineKm(origin.lat, origin.lng, dest.lat, dest.lng) * rtMult;
@@ -264,6 +273,8 @@ export function plan({
     if (g.iata === origin.iata) {
       const name = `${g.ground_mode.charAt(0).toUpperCase()}${g.ground_mode.slice(1)} only from ${origin.iata}`;
       options.push(trip.parseOption(`${name} | ${g.ground_mode} ${groundCost} ${g.ground_hours}${finalSuffix}`));
+      nameMetaByName[name] = { key: "option.groundOnlyFrom",
+        params: { iata: origin.iata, mode: itinerary.modeI18nParam(g.ground_mode) } };
       geoByName[name] = [
         { type: "ground", mode: g.ground_mode, from: pt(origin), to: pt(dest) },
       ];
@@ -280,6 +291,8 @@ export function plan({
     options.push(trip.parseOption(
       `${name} | fly ${flyCost} ${gf.hours} ; ${g.ground_mode} ${groundCost} ${g.ground_hours}${finalSuffix}`,
     ));
+    nameMetaByName[name] = { key: "option.gatewayGround",
+      params: { iata: g.iata, mode: itinerary.modeI18nParam(g.ground_mode) } };
     geoByName[name] = [
       { type: "flight", from: pt(origin), to: pt(g) },
       { type: "ground", mode: g.ground_mode, from: pt(g), to: pt(dest) },
@@ -305,11 +318,31 @@ export function plan({
     const groundKm = g.ferry
       ? g.ferry.crossing_km * rtMult
       : geo.haversineKm(origin.lat, origin.lng, g.lat, g.lng) * geo.ROAD_WINDING * rtMult;
+    // the symmetric self-gateway case the dest-side loop above already guards - mirrors
+    // server.py. discoverGateways() already filters this at the source; this is defense in
+    // depth so a data slip can never resurrect a phantom same-airport "flight" leg.
+    if (g.iata === dest.iata) {
+      const name = `${g.ground_mode.charAt(0).toUpperCase()}${g.ground_mode.slice(1)} only to ${dest.iata}`;
+      options.push(trip.parseOption(`${name} | ${g.ground_mode} ${groundCost} ${g.ground_hours}${finalSuffix}`));
+      nameMetaByName[name] = { key: "option.groundOnlyTo",
+        params: { iata: dest.iata, mode: itinerary.modeI18nParam(g.ground_mode) } };
+      geoByName[name] = [
+        { type: "ground", mode: g.ground_mode, from: pt(origin), to: pt(dest) },
+      ];
+      emissionsLegsByName[name] = [{ mode: g.ground_mode, road_km: groundKm }];
+      legSpecsByName[name] = [
+        groundLegSpec(g, dest, groundCost, groundKm / Math.max(rtMult, 1), origin),
+      ];
+      appendFinal(name);
+      return;
+    }
     const flyCost = flightCost(gf);
     const name = `${g.ground_mode.charAt(0).toUpperCase()}${g.ground_mode.slice(1)} to ${g.iata} + fly`;
     options.push(trip.parseOption(
       `${name} | ${g.ground_mode} ${groundCost} ${g.ground_hours} ; fly ${flyCost} ${gf.hours}${finalSuffix}`,
     ));
+    nameMetaByName[name] = { key: "option.groundToHubFly",
+      params: { iata: g.iata, mode: itinerary.modeI18nParam(g.ground_mode) } };
     geoByName[name] = [
       { type: "ground", mode: g.ground_mode, from: pt(origin), to: pt(g) },
       { type: "flight", from: pt(g), to: pt(dest) },
@@ -338,6 +371,9 @@ export function plan({
     o.itinerary = itinerary.buildTimeline(legSpecsByName[o.name] || [], {
       date, transferBufferH: transferBuffer,
     });
+    const meta = nameMetaByName[o.name] || { key: null, params: {} };
+    o.name_key = meta.key;
+    o.name_params = meta.params;
   }
   clean.greenest = clean.options.length
     ? clean.options.reduce((best, o) => (o.co2e_kg < best.co2e_kg ? o : best)).name
@@ -364,12 +400,21 @@ export function plan({
   if ([...gws, ...originGws].some((g) => g.transit)) {
     notes.push(note("notes.transitLiveSchedule"));
   }
+  if (skippedCloser) {
+    notes.push(note("notes.airportClosedNearby", {
+      closed_iata: skippedCloser.iata, closed_name: skippedCloser.name, used_iata: dest.iata,
+    }));
+  }
   if (final && final.possible) {
     notes.push(note("notes.finalLeg", {
-      mode: final.mode, iata: dest.iata, km: Math.round(final.distance_km),
+      mode: itinerary.modeI18nParam(final.mode), iata: dest.iata, km: pyRound(final.distance_km),
     }));
-  } else if ((dest.dist_km || 0) > 120) {
-    notes.push(note("notes.lastMileGap", { iata: dest.iata, km: Math.trunc(dest.dist_km) }));
+  } else if (final && final.reason === "restricted_crossing") {
+    notes.push(note("notes.groundCrossingRestricted", { iata: dest.iata, country: final.country || "" }));
+  } else if (final !== null) {
+    // any other refusal (open sea, no corridor) at dist > FINAL_LEG_MIN_KM: always say so, not
+    // just past the old 120km threshold - mirrors server.py.
+    notes.push(note("notes.lastMileGap", { iata: dest.iata, km: Math.trunc(dest.dist_km || 0) }));
   }
   notes.push(note("notes.co2eEstimate"));
 

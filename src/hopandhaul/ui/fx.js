@@ -90,11 +90,17 @@ export function liveRatesDate() {
 
 /** Which source WOULD price `currency` right now, without doing the conversion - lets a caller
  * (the fx note under the currency picker) say "live" vs "approximate table" without formatting
- * a throwaway amount just to read its rateSource back out. */
+ * a throwaway amount just to read its rateSource back out.
+ *
+ * "cached": a live rate was fetched earlier this session, but the app is effectively offline
+ * right now - the conversion itself still uses that cached rate (no new request happens, or
+ * is needed), but calling it "live" while Offline is selected is dishonest about where the
+ * number actually came from. The caller's copy for this source should say so plainly instead
+ * of repeating "live" once connectivity has moved on. */
 export function rateSourceFor(currency) {
   const cur = String(currency || "USD").toUpperCase();
   if (cur === "USD") return "native";
-  if (_live?.rates?.[cur]) return "live";
+  if (_live?.rates?.[cur]) return isOffline() ? "cached" : "live";
   if (FX_USD[cur]) return "static";
   return "unknown";
 }

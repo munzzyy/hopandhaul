@@ -86,8 +86,14 @@ function defaultDate() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Real scheduled journeys between two points, or null. Mirrors transit.ground_options. */
-export async function groundOptions(fromLat, fromLng, toLat, toLng, date = null, preferMode = null) {
+/** Real scheduled journeys between two points, or null. Mirrors transit.ground_options.
+ * `formulaHours`, when given, is the plain-distance-formula ground estimate the caller would
+ * otherwise have used for this exact leg - the same sanity clamp the server applies to its own
+ * Transitous results, so an absurd live itinerary (one that secretly routes through a flight,
+ * racks up more than 5 transfers, or comes back wildly longer than the formula ever expected -
+ * a "train" that's actually 15 hours via a connecting flight through Sardinia) gets rejected
+ * here instead of quietly winning the ranking on a fake number. */
+export async function groundOptions(fromLat, fromLng, toLat, toLng, date = null, preferMode = null, formulaHours = null) {
   if (breakerOpen()) return null;
   const day = date || defaultDate();
   const q = new URLSearchParams({
@@ -111,6 +117,15 @@ export async function groundOptions(fromLat, fromLng, toLat, toLng, date = null,
   }
   let itins = (out.itineraries || []).map(summarize)
     .filter((i) => i.duration_h > 0 && i.main_mode);
+  // Same clamp as server.py's own Transitous enrichment: no itinerary that rides a flight leg,
+  // none with more than 5 transfers, and none whose duration blows past the wider of 2.5x the
+  // formula estimate or the formula plus 2 hours.
+  itins = itins.filter((i) => !i.legs.some((leg) => leg.mode === "fly"));
+  itins = itins.filter((i) => (i.transfers ?? 0) <= 5);
+  if (formulaHours != null && Number.isFinite(formulaHours) && formulaHours > 0) {
+    const ceiling = Math.max(formulaHours * 2.5, formulaHours + 2);
+    itins = itins.filter((i) => i.duration_h <= ceiling);
+  }
   if (!itins.length) return null;
   let pool = itins;
   if (preferMode) {

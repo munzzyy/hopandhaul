@@ -27,13 +27,57 @@ import sys
 
 from . import duffel, geo, itinerary, server, trip
 
+# A trailing qualifier the airport DB doesn't carry as a searchable word ("Victoria BC",
+# "Portland OR") used to just get dropped and the remaining city name tie-broken by hub tier -
+# which silently prefers whichever same-named city has the bigger airport, regardless of which
+# country the qualifier actually named ("Victoria BC" resolving to Victoria, Texas). These are
+# the qualifiers explicit enough to safely narrow the search to one country before that
+# tie-break ever runs.
+_CA_PROVINCES = {"BC", "ON", "QC", "AB", "MB", "SK", "NS", "NB", "NL", "PE"}
+_US_STATES = {
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA",
+    "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+    "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT",
+    "VA", "WA", "WV", "WI", "WY",
+}
+_AU_STATES = {"NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"}
+_ISO_COUNTRY_CODES = None
+
+
+def _iso_country_codes() -> set:
+    """Every ISO-3166 country code the bundled airport DB actually uses - computed from the
+    data itself (a["country"]) rather than hand-maintaining a second full country-code table
+    that could drift from what airports.json ships."""
+    global _ISO_COUNTRY_CODES
+    if _ISO_COUNTRY_CODES is None:
+        _ISO_COUNTRY_CODES = {a["country"] for a in geo.airports() if a.get("country")}
+    return _ISO_COUNTRY_CODES
+
+
+def _qualifier_country(word: str) -> str | None:
+    """A dropped trailing word -> the ISO2 country it names, or None. Region tables (checked
+    first - a US state code should mean the US state, not accidentally the one ISO country code
+    that happens to share the same two letters) before a bare ISO-3166 country code."""
+    w = word.upper()
+    if w in _CA_PROVINCES:
+        return "CA"
+    if w in _US_STATES:
+        return "US"
+    if w in _AU_STATES:
+        return "AU"
+    if len(w) == 2 and w in _iso_country_codes():
+        return w
+    return None
+
 
 def resolve_airport(query: str) -> tuple[dict | None, list[dict]]:
     """(airport, candidates). A 3-letter code resolves exactly; otherwise the bundled DB is
     searched by city/name. One confident hit -> (airport, []); several plausible ones ->
     (best, others) so the CLI can say what it picked and what else matched. A query with a
     trailing qualifier the DB doesn't carry ("Victoria BC", "Springfield Missouri") retries
-    with trailing words dropped."""
+    with trailing words dropped - and when a dropped word names a country/province/state
+    (_qualifier_country), the retry is filtered to that country before the hub tie-break, so
+    "Victoria BC" can't resolve to Victoria, Texas just because it's the bigger airport."""
     q = (query or "").strip()
     if not q:
         return None, []
@@ -43,16 +87,22 @@ def resolve_airport(query: str) -> tuple[dict | None, list[dict]]:
             return a, []
     best, others = _search_airports(q)
     words = q.split()
+    country = None
     while best is None and len(words) > 1:
+        qc = _qualifier_country(words[-1])
+        if qc:
+            country = qc
         words = words[:-1]
-        best, others = _search_airports(" ".join(words))
+        best, others = _search_airports(" ".join(words), country=country)
     return best, others
 
 
-def _search_airports(q: str) -> tuple[dict | None, list[dict]]:
+def _search_airports(q: str, country: str | None = None) -> tuple[dict | None, list[dict]]:
     ql = q.lower()
     scored = []
     for a in geo.airports():
+        if country and a.get("country") != country:
+            continue
         city = (a.get("city") or "").lower()
         name = (a.get("name") or "").lower()
         if ql == city:
@@ -266,6 +316,11 @@ def selftest() -> int:
     a6, _ = resolve_airport("Victoria BC")
     check("a trailing qualifier the DB doesn't carry is dropped ('Victoria BC' -> Victoria)",
           a6 is not None and (a6.get("city") or "").lower().startswith("victoria"))
+    check("'Victoria BC' resolves to the Canadian Victoria, not Victoria, Texas",
+          a6 is not None and a6["iata"] in ("YYJ", "YWH") and a6["country"] == "CA")
+    a7, _ = resolve_airport("Victoria TX")
+    check("'Victoria TX' still resolves to the US Victoria (region filter isn't one-directional)",
+          a7 is not None and a7["country"] == "US")
 
     # end-to-end offline: the exact pipeline `hopandhaul go` runs, no network
     out = server.plan(a3["lat"], a3["lng"], origin_iata="LHR", fetch_weather=False,

@@ -58,22 +58,64 @@ _I18N_PKG = "hopandhaul.ui.i18n"
 _EN_NOTES = None
 
 
+_EN_CATALOG = None
+
+
+def _en_catalog() -> dict:
+    """The full ui/i18n/en.json catalog (notes.*, mode.*, option.*, basis.*, everything) - read
+    once from the packaged file so both note templates AND {"i18n": "..."} param lookups share
+    one source of truth with what the browser ships."""
+    global _EN_CATALOG
+    if _EN_CATALOG is None:
+        ref = importlib.resources.files(_I18N_PKG) / "en.json"
+        _EN_CATALOG = json.loads(ref.read_text(encoding="utf-8"))
+    return _EN_CATALOG
+
+
 def _en_notes() -> dict:
-    """The 'notes.*' subset of ui/i18n/en.json, keyed without the 'notes.' prefix. Read once
-    from the packaged file (ui/** ships in the wheel - see pyproject.toml) rather than kept as
-    a second hand-maintained table that can drift from what the browser actually shows."""
+    """The 'notes.*' subset of the catalog, keyed without the 'notes.' prefix."""
     global _EN_NOTES
     if _EN_NOTES is None:
-        ref = importlib.resources.files(_I18N_PKG) / "en.json"
-        catalog = json.loads(ref.read_text(encoding="utf-8"))
-        _EN_NOTES = {k[len("notes."):]: v for k, v in catalog.items() if k.startswith("notes.")}
+        _EN_NOTES = {k[len("notes."):]: v for k, v in _en_catalog().items() if k.startswith("notes.")}
     return _EN_NOTES
+
+
+# A note param may be a plain value, or {"i18n": "mode.train"} when the value is itself a word
+# that needs translating (a raw English mode name spliced into every locale's note used to leak
+# untranslated English into all 45 catalogs - see docs/api.md's param-i18n convention). BOTH
+# renderers (this one, and the browser's results.js) resolve it through their language catalog
+# instead of formatting it as a literal string.
+MODE_I18N_KEY = {
+    "fly": "mode.flight", "flight": "mode.flight", "plane": "mode.flight", "air": "mode.flight",
+    "train": "mode.train", "rail": "mode.train",
+    "bus": "mode.bus", "coach": "mode.bus",
+    "shuttle": "mode.shuttle",
+    "drive": "mode.drive", "car": "mode.drive", "taxi": "mode.drive", "uber": "mode.drive",
+    "rideshare": "mode.drive",
+    "rental": "mode.rentalCar",
+    "ferry": "mode.ferry",
+    "ground": "mode.ground",
+}
+
+
+def mode_i18n_param(mode: str) -> dict:
+    """A leg mode string -> {"i18n": "mode.xxx"} note param - see MODE_I18N_KEY above."""
+    return {"i18n": MODE_I18N_KEY.get(mode, "mode.ground")}
 
 
 def note(key: str, **params) -> dict:
     """Build a structured plan() note: {key, params}. Callers push this instead of a hardcoded
     English string - see the module docstring above."""
     return {"key": key, "params": params}
+
+
+def _resolve_param(v):
+    """{"i18n": "mode.train"} -> the EN catalog's word for that key; anything else passes
+    through untouched. Used by render_note() (CLI, always English) - the browser's results.js
+    does the equivalent lookup against whatever language catalog is active."""
+    if isinstance(v, dict) and "i18n" in v:
+        return _en_catalog().get(v["i18n"], v["i18n"])
+    return v
 
 
 def render_note(n: dict) -> str:
@@ -86,7 +128,8 @@ def render_note(n: dict) -> str:
     template = _en_notes().get(short)
     if template is None:
         return key   # a broken deploy (catalog missing a key) should be visible, not silent
-    return template.format(**(n.get("params") or {}))
+    params = {k: _resolve_param(v) for k, v in (n.get("params") or {}).items()}
+    return template.format(**params)
 
 
 # --------------------------------------------------------------------------- clock math
@@ -199,6 +242,67 @@ def flight_provenance_estimate(detail: dict | None, date: str | None) -> str:
     if detail.get("likely_connection"):
         bits.append("fare priced assuming a connecting flight (small/remote airport)")
     return "; ".join(bits)
+
+
+def basis_parts_flight_estimate(detail: dict | None, date: str | None) -> list[dict]:
+    """Structured twin of flight_provenance_estimate(): the SAME facts, as an ARRAY of
+    {key, params} segments under basis.* instead of a hardcoded English sentence, so a locale
+    can word each fact instead of inheriting English grammar wholesale. Both engines emit this
+    (see ui/engine/itinerary.js); the English string stays too, for the CLI and backcompat -
+    see docs/api.md for the full contract."""
+    if not detail:
+        return [{"key": "basis.routeBand", "params": {}}]
+    parts = [{"key": "basis.routeBandDated", "params": {"date": date}} if date
+             else {"key": "basis.routeBand", "params": {}}]
+    if detail.get("regions"):
+        parts.append({"key": "basis.marketMult",
+                      "params": {"region": detail["regions"],
+                                 "mult": round(detail.get("route_mult", 1.0), 2)}})
+    an = detail.get("anchor")
+    if an:
+        parts.append({"key": "basis.anchoredBts",
+                      "params": {"lo": an.get("fare_low"), "hi": an.get("fare_avg"),
+                                 "asof": an.get("asof", "")}})
+    if detail.get("date_mult"):
+        parts.append({"key": "basis.dateAdjusted", "params": {"mult": round(detail["date_mult"], 2)}})
+    if detail.get("likely_connection"):
+        parts.append({"key": "basis.connectingAssumed", "params": {}})
+    return parts
+
+
+def basis_parts_flight_live(live: dict) -> list[dict]:
+    """Structured twin of flight_provenance_live() - see basis_parts_flight_estimate()."""
+    parts = [{"key": "basis.liveDuffel", "params": {"carrier": live.get("carrier") or ""}}]
+    native = live.get("native_price")
+    cur = live.get("currency")
+    if native is not None and cur and cur != "USD":
+        fx_key = ("basis.fxStaticPriced" if live.get("rate_source") == "static"
+                 else "basis.fxLivePriced" if live.get("converted") else "basis.fxNativePriced")
+        parts.append({"key": fx_key, "params": {"native": native, "currency": cur}})
+    return parts
+
+
+def basis_parts_ferry(ferry: dict) -> list[dict]:
+    """Structured twin of ferry_provenance() - see basis_parts_flight_estimate()."""
+    return [{"key": "basis.ferryBand",
+            "params": {"lo": ferry.get("price_usd_lo"), "hi": ferry.get("price_usd_hi"),
+                       "operators": ", ".join(ferry.get("operators") or []) or None,
+                       "asof": ferry.get("price_asof") or ""}}]
+
+
+def basis_parts_ground(gw: dict, road_km: float | None) -> list[dict]:
+    """Structured twin of ground_provenance() - see basis_parts_flight_estimate()."""
+    if gw.get("ferry"):
+        parts = basis_parts_ferry(gw["ferry"])
+    elif gw.get("source") == "curated":
+        parts = [{"key": "basis.curatedGateway", "params": {}}]
+    else:
+        parts = [{"key": "basis.groundEstimate",
+                 "params": {"km": int(road_km) if road_km is not None else None}}]
+    tr = gw.get("transit")
+    if tr and tr.get("line"):
+        parts.append({"key": "basis.transitLive", "params": {"line": tr["line"]}})
+    return parts
 
 
 def flight_provenance_live(live: dict) -> str:
@@ -327,6 +431,7 @@ def build_timeline(legs: list[dict], *, date: str | None = None,
             "checkin_by": checkin_by,
             "cost": leg["cost"],
             "price_basis": leg["price_basis"],
+            "basis_parts": leg.get("basis_parts", []),
             "verify_url": leg["verify_url"],
             "is_live": False,
             "carrier": None,
@@ -375,6 +480,7 @@ def _live_segments_to_rows(leg: dict, segments: list[dict], date: str | None,
             "checkin_by": checkin_by,
             "cost": leg["cost"] if idx == 0 else 0.0,   # the fare covers the whole leg; shown once
             "price_basis": leg["price_basis"],
+            "basis_parts": leg.get("basis_parts", []),
             "verify_url": leg["verify_url"],
             "is_live": True,
             "carrier": seg.get("carrier"),

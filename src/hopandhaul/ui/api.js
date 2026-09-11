@@ -19,6 +19,7 @@ import { searchAirports } from "./engine/search.js";
 import { parsePlanParams, parseDatesParams, parseNearestParams, ValidationError } from "./engine/validate.js";
 import { groundOptions as transitGroundOptions } from "./transit.js";
 import { isOffline } from "./connectivity.js";
+import { currentLangCode } from "./i18n.js";
 
 const SERVER_PROBE_TIMEOUT_MS = 1500;
 
@@ -86,8 +87,27 @@ function probeServer() {
   return _serverProbe;
 }
 
+/** The same-origin server probe, but only when the app actually has a network to probe with.
+ * Forced Offline promises to "skip the network entirely" and auto-detected offline means the
+ * probe would just be a doomed request (or a real one, against a live server, that the visitor
+ * explicitly asked not to use) - every backend-selection call routes through this instead of
+ * calling probeServer() directly so that promise holds everywhere, not just for the two calls
+ * that already checked isOffline() for their own separate reasons (Photon, Transitous). */
+async function backendServer() {
+  if (isOffline()) return null;
+  return probeServer();
+}
+
+/** en/de/fr are the only UI languages Photon's own `lang` param understands - anything else
+ * falls back to Photon's default (still fine, just not localized) rather than sending a code
+ * it would silently ignore anyway. */
+function photonLang() {
+  const code = currentLangCode();
+  return ["en", "de", "fr"].includes(code) ? code : null;
+}
+
 export async function fetchConfig() {
-  const server = await probeServer();
+  const server = await backendServer();
   if (server) return server;
   try {
     await ensureData();
@@ -110,10 +130,12 @@ export async function fetchConfig() {
 }
 
 export async function fetchGeocode(query, signal) {
-  const server = await probeServer();
+  const server = await backendServer();
   if (server && server.has_geocode) {
     try {
       const q = new URLSearchParams({ q: query, limit: "6" });
+      const lang = photonLang();
+      if (lang) q.set("lang", lang);
       return await getJson(`/api/geocode?${q}`, signal);
     } catch {
       // server vanished mid-session (stopped, network blip) - fall back to the local search
@@ -141,8 +163,11 @@ export async function fetchGeocode(query, signal) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 2500);
       if (signal) signal.addEventListener("abort", () => controller.abort(), { once: true });
+      const photonQ = new URLSearchParams({ q: query, limit: "6" });
+      const lang = photonLang();
+      if (lang) photonQ.set("lang", lang);
       const res = await fetch(
-        `https://photon.komoot.io/api/?${new URLSearchParams({ q: query, limit: "6" })}`,
+        `https://photon.komoot.io/api/?${photonQ}`,
         { signal: controller.signal },
       );
       clearTimeout(timer);
@@ -170,7 +195,7 @@ export async function fetchGeocode(query, signal) {
 }
 
 export async function fetchNearest(lat, lng, signal) {
-  const server = await probeServer();
+  const server = await backendServer();
   if (server) {
     try {
       const q = new URLSearchParams({ lat: String(lat), lng: String(lng) });
@@ -203,7 +228,7 @@ let _planToken = 0;
 
 export async function fetchPlan(params) {
   const myToken = ++_planToken;
-  const server = await probeServer();
+  const server = await backendServer();
 
   if (server) {
     if (_planAbort) _planAbort.abort();
@@ -253,19 +278,35 @@ export async function fetchPlan(params) {
 
     // Live-schedule upgrade (browser twin of the server's Transitous enrichment): fetch real
     // timetables for the transit-able gateway legs the offline plan found, then re-run the
-    // engine with the real door-to-door times injected so the ranking uses them too.
+    // engine with the real door-to-door times injected so the ranking uses them too. Both sides
+    // of the split need this, not just the destination side: an origin-side gateway (ground
+    // ORIGIN -> gateway, then fly gateway -> dest) rides a real timetable too, just in the
+    // opposite direction from a dest-side one (ground gateway -> dest).
+    const TRANSIT_MODES = ["train", "bus", "ferry"];
+    const destLookups = out.gateways.filter((g) => TRANSIT_MODES.includes(g.ground_mode));
+    const originLookups = out.origin_gateways.filter((g) => TRANSIT_MODES.includes(g.ground_mode));
     const lookups = isOffline()
       ? [] // effectively offline: skip the whole Transitous batch rather than firing (and
            // catching) a doomed request per gateway - the offline plan's own estimate stands.
-      : out.gateways.filter((g) => ["train", "bus", "ferry"].includes(g.ground_mode));
+      : [
+          ...destLookups.map((g) => ({ g, from: [g.lat, g.lng], to: [parsed.dest_lat, parsed.dest_lng] })),
+          ...originLookups.map((g) => ({ g, from: [out.origin.lat, out.origin.lng], to: [g.lat, g.lng] })),
+        ];
     if (lookups.length) {
-      const settled = await Promise.allSettled(lookups.map((g) => transitGroundOptions(
-        g.lat, g.lng, parsed.dest_lat, parsed.dest_lng, parsed.date, g.ground_mode,
+      const settled = await Promise.allSettled(lookups.map((l) => transitGroundOptions(
+        l.from[0], l.from[1], l.to[0], l.to[1], parsed.date, l.g.ground_mode, l.g.ground_hours,
       )));
       if (myToken !== _planToken) throw superseded("plan");
+      // plan.js's own transitByIata consumption is a single flat map keyed only by IATA code
+      // (see engine/plan.js: `for (const g of [...gws, ...originGws]) { transitByIata[g.iata] }`)
+      // - it does not distinguish which side a gateway sits on, so there is no way to namespace
+      // this map that the engine would actually read. In the rare case the same IATA is a
+      // gateway on both sides of one plan, last-write-wins here (origin-side, since it's mapped
+      // second) - the engine's own contract, not something fixable from this side without a
+      // change to plan.js's consumption of transitByIata.
       const transitByIata = {};
       settled.forEach((s, i) => {
-        if (s.status === "fulfilled" && s.value) transitByIata[lookups[i].iata] = s.value;
+        if (s.status === "fulfilled" && s.value) transitByIata[lookups[i].g.iata] = s.value;
       });
       if (Object.keys(transitByIata).length) {
         out = enginePlan({ ...engineParams, transitByIata });
@@ -297,7 +338,7 @@ let _datesToken = 0;
  * moment its chip is clicked. */
 export async function fetchDates(params) {
   const myToken = ++_datesToken;
-  const server = await probeServer();
+  const server = await backendServer();
 
   if (server) {
     if (_datesAbort) _datesAbort.abort();
