@@ -206,5 +206,6 @@
   "fx.cached": "Kurs: kurs harian ECB yang diambil sebelumnya dalam sesi ini ({date})",
   "card.votReason": "sepadan dengan waktu ekstra sesuai nilai waktu Anda",
   "form.votUsd": "Nilai waktu USD/jam",
-  "form.thresholdUsd": "Kombinasi hemat ≥ USD"
+  "form.thresholdUsd": "Kombinasi hemat ≥ USD",
+  "itin.day": "Hari {n}"
 }

@@ -206,5 +206,6 @@
   "fx.cached": "Kurser: ECBs dagskurs hentet tidligere i denne økten ({date})",
   "card.votReason": "verdt den ekstra tiden ut fra din tidsverdi",
   "form.votUsd": "Tidsverdi USD/t",
-  "form.thresholdUsd": "Deling sparer ≥ USD"
+  "form.thresholdUsd": "Deling sparer ≥ USD",
+  "itin.day": "Dag {n}"
 }

@@ -293,5 +293,42 @@ export function draw(data, rec) {
   // animate:false on this, the fit that actually has to land: an animated fit racing a caller's
   // own pre-emptive setView is exactly how the map used to end up thousands of pixels off-screen
   // (a later move can get dropped mid-animation). This one is never allowed to be dropped.
-  map.fitBounds(L.latLngBounds(pts).pad(0.35), { maxZoom: 8, animate: false });
+  const inset = chromeInsets();
+  map.fitBounds(L.latLngBounds(pts).pad(0.35), {
+    maxZoom: 8, animate: false,
+    paddingTopLeft: [inset.left, inset.top],
+    paddingBottomRight: [inset.right, inset.bottom],
+  });
+}
+
+/** Pixel insets for the UI cards overlaying the map, so fitBounds frames the route inside the
+ * VISIBLE map, not the full viewport. Without this, a north-south route on a phone lands both
+ * pins behind the controls bar and the results sheet - only a thin middle strip of map is real
+ * there. A card anchors to whichever viewport edge it hugs: full-width cards to top or bottom
+ * (the mobile layout), narrower ones to left or right (the desktop side panels). Each inset is
+ * capped so a tall sheet can never squeeze the fit into nothing. */
+function chromeInsets() {
+  const w = window.innerWidth, h = window.innerHeight;
+  const inset = { top: 0, bottom: 0, left: 0, right: 0 };
+  for (const id of ["controls", "results"]) {
+    const el = document.getElementById(id);
+    if (!el || el.hidden) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) continue;
+    if (r.width > 0.8 * w) {
+      if (r.top + r.height / 2 < h / 2) inset.top = Math.max(inset.top, r.bottom);
+      else inset.bottom = Math.max(inset.bottom, h - r.top);
+    } else if (r.left + r.width / 2 < w / 2) {
+      inset.left = Math.max(inset.left, r.right);
+    } else {
+      inset.right = Math.max(inset.right, w - r.left);
+    }
+  }
+  const pad = 16;
+  return {
+    top: Math.min(inset.top + pad, 0.4 * h),
+    bottom: Math.min(inset.bottom + pad, 0.4 * h),
+    left: Math.min(inset.left + pad, 0.4 * w),
+    right: Math.min(inset.right + pad, 0.4 * w),
+  };
 }

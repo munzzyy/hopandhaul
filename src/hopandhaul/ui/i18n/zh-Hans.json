@@ -206,5 +206,6 @@
   "fx.cached": "汇率：本次会话中较早获取的欧洲央行每日汇率（{date}）",
   "card.votReason": "按你的时间价值算，多花的时间值得",
   "form.votUsd": "时间价值 USD/小时",
-  "form.thresholdUsd": "换乘节省 ≥ USD"
+  "form.thresholdUsd": "换乘节省 ≥ USD",
+  "itin.day": "第{n}天"
 }

@@ -206,5 +206,6 @@
   "fx.cached": "Rates: ECB daily rate fetched earlier this session ({date})",
   "card.votReason": "worth the extra time at your value of time",
   "form.votUsd": "Value of time USD/hr",
-  "form.thresholdUsd": "Split saves ≥ USD"
+  "form.thresholdUsd": "Split saves ≥ USD",
+  "itin.day": "Day {n}"
 }

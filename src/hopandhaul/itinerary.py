@@ -418,7 +418,10 @@ def build_timeline(legs: list[dict], *, date: str | None = None,
         checkin_by = None
         if is_flight:
             checkin_clock, checkin_day = _min_to_hhmm(clock_min - round(airport_buffer_h * 60))
-            checkin_by = {"clock": checkin_clock, "day": _day_label(checkin_day, date)}
+            # day_n rides along so the browser can localize "Day N" via its catalog - the
+            # string form stays for the CLI. None when a real date made the label an ISO date.
+            checkin_by = {"clock": checkin_clock, "day": _day_label(checkin_day, date),
+                          "day_n": None if date else checkin_day + 1}
         arrive_min = clock_min + round(leg["hours"] * 60)
         arrive_clock, arr_day = _min_to_hhmm(arrive_min)
         rows.append({
@@ -426,7 +429,9 @@ def build_timeline(legs: list[dict], *, date: str | None = None,
             "from": _airport_label(leg["from"]),
             "to": _airport_label(leg["to"]),
             "depart_clock": depart_clock, "depart_day": _day_label(dep_day, date),
+            "depart_day_n": None if date else dep_day + 1,
             "arrive_clock": arrive_clock, "arrive_day": _day_label(arr_day, date),
+            "arrive_day_n": None if date else arr_day + 1,
             "duration_h": round(leg["hours"], 2),
             "checkin_by": checkin_by,
             "cost": leg["cost"],
@@ -469,13 +474,16 @@ def _live_segments_to_rows(leg: dict, segments: list[dict], date: str | None,
         if add_checkin and idx == 0:
             checkin_dt = dep_dt - datetime.timedelta(hours=airport_buffer_h)
             checkin_day = (checkin_dt.date() - anchor).days if anchor else 0
-            checkin_by = {"clock": checkin_dt.strftime("%H:%M"), "day": _day_label(checkin_day, date)}
+            checkin_by = {"clock": checkin_dt.strftime("%H:%M"), "day": _day_label(checkin_day, date),
+                          "day_n": None if date else checkin_day + 1}
         rows.append({
             "mode": "fly",
             "from": _airport_label(seg["from"]),
             "to": _airport_label(seg["to"]),
             "depart_clock": dep_dt.strftime("%H:%M"), "depart_day": _day_label(dep_day, date),
+            "depart_day_n": None if date else dep_day + 1,
             "arrive_clock": arr_dt.strftime("%H:%M"), "arrive_day": _day_label(arr_day, date),
+            "arrive_day_n": None if date else arr_day + 1,
             "duration_h": round((arr_dt - dep_dt).total_seconds() / 3600.0, 2),
             "checkin_by": checkin_by,
             "cost": leg["cost"] if idx == 0 else 0.0,   # the fare covers the whole leg; shown once

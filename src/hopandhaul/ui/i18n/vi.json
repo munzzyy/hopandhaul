@@ -206,5 +206,6 @@
   "fx.cached": "Tỷ giá: tỷ giá hằng ngày của ECB đã lấy trước đó trong phiên này ({date})",
   "card.votReason": "đáng giá với thời gian thêm theo giá trị thời gian của bạn",
   "form.votUsd": "Giá trị thời gian USD/giờ",
-  "form.thresholdUsd": "Tách chặng tiết kiệm ≥ USD"
+  "form.thresholdUsd": "Tách chặng tiết kiệm ≥ USD",
+  "itin.day": "Ngày {n}"
 }

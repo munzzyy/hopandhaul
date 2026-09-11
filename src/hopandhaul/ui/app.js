@@ -190,8 +190,10 @@ async function planTo(lat, lng) {
   lastPlanData = data;
   const R = data.result;
   const rec = R.options.find((o) => o.name === R.recommended);
-  draw(data, rec);
+  // Results first, map second: draw()'s fitBounds measures the on-screen cards to keep the
+  // route inside the VISIBLE map, so the results panel has to exist before the fit runs.
   renderPlan(data, lastPlaceLabel, true);
+  draw(data, rec);
   syncUrl();
 
   const isDirect = rec.name === R.options.find((o) => o.status === "baseline").name;

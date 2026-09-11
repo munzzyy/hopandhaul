@@ -297,7 +297,10 @@ export function buildTimeline(legs, {
     let checkinBy = null;
     if (isFlight) {
       const [checkinClock, checkinDay] = minToHhmm(clockMin - Math.round(airportBufferH * 60));
-      checkinBy = { clock: checkinClock, day: dayLabel(checkinDay, date) };
+      // day_n rides along so the UI can localize "Day N" via t() - the string form stays for
+      // parity with the CLI's English output. null when a real date made the label an ISO date.
+      checkinBy = { clock: checkinClock, day: dayLabel(checkinDay, date),
+                    day_n: date ? null : checkinDay + 1 };
     }
     const arriveMin = clockMin + Math.round(leg.hours * 60);
     const [arriveClock, arrDay] = minToHhmm(arriveMin);
@@ -306,7 +309,9 @@ export function buildTimeline(legs, {
       from: airportLabel(leg.from),
       to: airportLabel(leg.to),
       depart_clock: departClock, depart_day: dayLabel(depDay, date),
+      depart_day_n: date ? null : depDay + 1,
       arrive_clock: arriveClock, arrive_day: dayLabel(arrDay, date),
+      arrive_day_n: date ? null : arrDay + 1,
       duration_h: pyRound(leg.hours, 2),
       checkin_by: checkinBy,
       cost: leg.cost,

@@ -206,5 +206,6 @@
   "fx.cached": "Kurlar: bu oturumda daha önce alınan günlük ECB kuru ({date})",
   "card.votReason": "zamanının değerine göre ekstra süreye değer",
   "form.votUsd": "Zamanının değeri USD/sa",
-  "form.thresholdUsd": "Bölme için asgari tasarruf ≥ USD"
+  "form.thresholdUsd": "Bölme için asgari tasarruf ≥ USD",
+  "itin.day": "{n}. gün"
 }

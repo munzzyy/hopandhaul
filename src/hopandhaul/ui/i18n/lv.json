@@ -206,5 +206,6 @@
   "fx.cached": "Kursi: ECB dienas kurss, kas iegūts agrāk šajā sesijā ({date})",
   "card.votReason": "papildu laiks atmaksājas, ņemot vērā jūsu laika vērtību",
   "form.votUsd": "Laika vērtība USD/h",
-  "form.thresholdUsd": "Sadalījums ietaupa ≥ USD"
+  "form.thresholdUsd": "Sadalījums ietaupa ≥ USD",
+  "itin.day": "{n}. diena"
 }

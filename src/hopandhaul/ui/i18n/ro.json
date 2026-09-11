@@ -206,5 +206,6 @@
   "fx.cached": "Cursuri: cursul zilnic BCE preluat mai devreme în această sesiune ({date})",
   "card.votReason": "merită timpul suplimentar la valoarea timpului tău",
   "form.votUsd": "Valoarea timpului USD/oră",
-  "form.thresholdUsd": "Împărțirea merită de la USD"
+  "form.thresholdUsd": "Împărțirea merită de la USD",
+  "itin.day": "Ziua {n}"
 }

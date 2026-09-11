@@ -206,5 +206,6 @@
   "fx.cached": "שערים: שער יומי של הבנק המרכזי האירופי שנשלף מוקדם יותר בפעילות זו ({date})",
   "card.votReason": "שווה את הזמן הנוסף לפי שווי הזמן שלכם",
   "form.votUsd": "שווי הזמן שלכם USD/שעה",
-  "form.thresholdUsd": "הפיצול חוסך ≥ USD"
+  "form.thresholdUsd": "הפיצול חוסך ≥ USD",
+  "itin.day": "יום {n}"
 }

@@ -221,9 +221,22 @@ function itineraryLegRow(leg) {
     + (a.city && a.city !== a.name ? ", " + esc(a.city) : "");
   const fromLabel = apLabel(leg.from);
   const toLabel = apLabel(leg.to);
+  // "Day N" localizes via itin.day; an ISO date label localizes via Intl. The raw engine
+  // string is the fallback so an old payload shape still renders.
+  const dayText = (label, n) => {
+    if (n != null) return t("itin.day", { n });
+    if (/^\d{4}-\d{2}-\d{2}$/.test(label || "")) {
+      try {
+        return new Intl.DateTimeFormat(currentLangCode(), {
+          weekday: "short", month: "short", day: "numeric", timeZone: "UTC",
+        }).format(new Date(label + "T00:00:00Z"));
+      } catch { /* unknown locale tag - fall through to the raw ISO label */ }
+    }
+    return label;
+  };
   const checkin = leg.checkin_by
     ? "<div class=\"itin-checkin\">" + esc(t("itin.checkinBy",
-        { day: leg.checkin_by.day, clock: leg.checkin_by.clock })) + "</div>\n"
+        { day: dayText(leg.checkin_by.day, leg.checkin_by.day_n), clock: leg.checkin_by.clock })) + "</div>\n"
     : "";
   return "\n"
     + "      <li class=\"itin-leg\">\n"
@@ -232,9 +245,9 @@ function itineraryLegRow(leg) {
     + "<bdi dir=\"ltr\">" + fromLabel
     + " <svg class=\"icon icon--arrow\" aria-hidden=\"true\"><use href=\"#i-arrow\"/></svg> "
     + toLabel + "</bdi> " + tag + carrier + "</div>\n"
-    + "        <div class=\"itin-leg-time\"><bdi dir=\"ltr\">" + esc(leg.depart_day) + " "
+    + "        <div class=\"itin-leg-time\"><bdi dir=\"ltr\">" + esc(dayText(leg.depart_day, leg.depart_day_n)) + " "
     + esc(leg.depart_clock) + " <svg class=\"icon icon--arrow\" aria-hidden=\"true\">"
-    + "<use href=\"#i-arrow\"/></svg> " + esc(leg.arrive_day) + " " + esc(leg.arrive_clock)
+    + "<use href=\"#i-arrow\"/></svg> " + esc(dayText(leg.arrive_day, leg.arrive_day_n)) + " " + esc(leg.arrive_clock)
     + "</bdi> &middot; " + esc(fmtH(leg.duration_h)) + "</div>\n"
     + checkin
     + "        <div class=\"itin-leg-price\">" + fmtMoney(leg.cost) + " &middot; "

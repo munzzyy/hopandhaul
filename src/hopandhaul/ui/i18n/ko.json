@@ -206,5 +206,6 @@
   "fx.cached": "환율: 이번 세션 중 이전에 가져온 ECB 일일 환율 ({date})",
   "card.votReason": "당신의 시간 가치를 고려하면 추가 시간이 아깝지 않음",
   "form.votUsd": "시간 가치 USD/시간",
-  "form.thresholdUsd": "환승 절약액 ≥ USD"
+  "form.thresholdUsd": "환승 절약액 ≥ USD",
+  "itin.day": "{n}일차"
 }

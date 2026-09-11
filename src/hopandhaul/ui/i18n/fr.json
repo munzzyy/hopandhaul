@@ -206,5 +206,6 @@
   "fx.cached": "Taux : taux quotidien de la BCE récupéré plus tôt dans cette session ({date})",
   "card.votReason": "le temps supplémentaire vaut le coup à la valeur de votre temps",
   "form.votUsd": "Valeur de votre temps USD/h",
-  "form.thresholdUsd": "Économie minimale pour scinder ≥ USD"
+  "form.thresholdUsd": "Économie minimale pour scinder ≥ USD",
+  "itin.day": "Jour {n}"
 }

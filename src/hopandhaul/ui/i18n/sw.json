@@ -206,5 +206,6 @@
   "fx.cached": "Viwango: kiwango cha kila siku cha ECB kilichopatikana mapema katika kipindi hiki ({date})",
   "card.votReason": "muda wa ziada unafaa kulingana na thamani ya muda wako",
   "form.votUsd": "Thamani ya muda wako USD/saa",
-  "form.thresholdUsd": "Mgawanyo uokoe angalau USD"
+  "form.thresholdUsd": "Mgawanyo uokoe angalau USD",
+  "itin.day": "Siku ya {n}"
 }

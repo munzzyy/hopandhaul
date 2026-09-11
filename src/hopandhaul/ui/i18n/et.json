@@ -206,5 +206,6 @@
   "fx.cached": "Kursid: EKP päevakurss, mis toodi selle seansi jooksul varem ({date})",
   "card.votReason": "lisaaeg tasub end sinu aja väärtuse juures ära",
   "form.votUsd": "Aja väärtus USD/h",
-  "form.thresholdUsd": "Jagamine hoiab kokku ≥ USD"
+  "form.thresholdUsd": "Jagamine hoiab kokku ≥ USD",
+  "itin.day": "{n}. päev"
 }

@@ -206,5 +206,6 @@
   "fx.cached": "レート：このセッション内で以前に取得したECB日次レート（{date}）",
   "card.votReason": "あなたの時間の価値を考えれば追加の時間に見合う",
   "form.votUsd": "時間の価値 USD/時",
-  "form.thresholdUsd": "乗り継ぎで節約 ≥ USD"
+  "form.thresholdUsd": "乗り継ぎで節約 ≥ USD",
+  "itin.day": "{n}日目"
 }

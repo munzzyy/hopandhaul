@@ -206,5 +206,6 @@
   "fx.cached": "Rate: kinuha ang araw-araw na rate ng ECB kanina sa session na ito ({date})",
   "card.votReason": "sulit ang karagdagang oras base sa halaga ng oras mo",
   "form.votUsd": "Halaga ng oras USD/oras",
-  "form.thresholdUsd": "Matipid ang split ≥ USD"
+  "form.thresholdUsd": "Matipid ang split ≥ USD",
+  "itin.day": "Araw {n}"
 }

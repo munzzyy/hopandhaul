@@ -206,5 +206,6 @@
   "fx.cached": "Kursy: dzienny kurs EBC pobrany wcześniej w tej sesji ({date})",
   "card.votReason": "dodatkowy czas opłaca się przy wartości twojego czasu",
   "form.votUsd": "Wartość czasu USD/godz",
-  "form.thresholdUsd": "Podział opłaca się od USD"
+  "form.thresholdUsd": "Podział opłaca się od USD",
+  "itin.day": "Dzień {n}"
 }

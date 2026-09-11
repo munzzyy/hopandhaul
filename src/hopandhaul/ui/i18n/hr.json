@@ -206,5 +206,6 @@
   "fx.cached": "Tečajevi: dnevni tečaj ESB-a dohvaćen ranije u ovoj sesiji ({date})",
   "card.votReason": "isplati se dodatno vrijeme prema vrijednosti vašeg vremena",
   "form.votUsd": "Vrijednost vremena USD/h",
-  "form.thresholdUsd": "Podjela se isplati od USD"
+  "form.thresholdUsd": "Podjela se isplati od USD",
+  "itin.day": "Dan {n}"
 }

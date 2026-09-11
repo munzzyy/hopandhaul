@@ -206,5 +206,6 @@
   "fx.cached": "Kurser: ECB:s dagskurs hämtad tidigare i den här sessionen ({date})",
   "card.votReason": "den extra tiden är värd det för ditt tidsvärde",
   "form.votUsd": "Tidsvärde USD/tim",
-  "form.thresholdUsd": "Uppdelning sparar ≥ USD"
+  "form.thresholdUsd": "Uppdelning sparar ≥ USD",
+  "itin.day": "Dag {n}"
 }

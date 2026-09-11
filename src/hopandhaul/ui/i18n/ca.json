@@ -206,5 +206,6 @@
   "fx.cached": "Tipus de canvi: tipus diari del BCE obtingut abans en aquesta sessió ({date})",
   "card.votReason": "val la pena el temps extra segons el valor del teu temps",
   "form.votUsd": "Valor del teu temps USD/h",
-  "form.thresholdUsd": "Estalvi mínim per dividir ≥ USD"
+  "form.thresholdUsd": "Estalvi mínim per dividir ≥ USD",
+  "itin.day": "Dia {n}"
 }

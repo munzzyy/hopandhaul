@@ -206,5 +206,6 @@
   "fx.cached": "匯率：本次工作階段中較早取得的歐洲央行每日匯率（{date}）",
   "card.votReason": "依你的時間價值計算，多花的時間值得",
   "form.votUsd": "時間價值 USD/小時",
-  "form.thresholdUsd": "轉乘省下 ≥ USD"
+  "form.thresholdUsd": "轉乘省下 ≥ USD",
+  "itin.day": "第{n}天"
 }

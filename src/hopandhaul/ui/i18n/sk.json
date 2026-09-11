@@ -206,5 +206,6 @@
   "fx.cached": "Kurzy: denný kurz ECB načítaný skôr v tomto sedení ({date})",
   "card.votReason": "oplatí sa navyše strávený čas vzhľadom na hodnotu vášho času",
   "form.votUsd": "Hodnota času USD/h",
-  "form.thresholdUsd": "Rozdelenie sa oplatí od USD"
+  "form.thresholdUsd": "Rozdelenie sa oplatí od USD",
+  "itin.day": "Deň {n}"
 }

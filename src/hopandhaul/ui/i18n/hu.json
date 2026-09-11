@@ -206,5 +206,6 @@
   "fx.cached": "Árfolyamok: az EKB napi árfolyama, amelyet korábban kértünk le ebben a munkamenetben ({date})",
   "card.votReason": "megéri a plusz időt az időd értéke mellett",
   "form.votUsd": "Időd értéke USD/óra",
-  "form.thresholdUsd": "A felosztás akkor éri meg, ha ≥ USD"
+  "form.thresholdUsd": "A felosztás akkor éri meg, ha ≥ USD",
+  "itin.day": "{n}. nap"
 }

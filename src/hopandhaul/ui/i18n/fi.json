@@ -206,5 +206,6 @@
   "fx.cached": "Kurssit: tämän istunnon aiemmin haettu EKP:n päiväkurssi ({date})",
   "card.votReason": "lisäaika kannattaa ajan arvosi huomioiden",
   "form.votUsd": "Ajan arvo USD/h",
-  "form.thresholdUsd": "Reitin jako säästää ≥ USD"
+  "form.thresholdUsd": "Reitin jako säästää ≥ USD",
+  "itin.day": "Päivä {n}"
 }

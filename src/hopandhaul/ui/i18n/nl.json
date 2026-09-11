@@ -206,5 +206,6 @@
   "fx.cached": "Koersen: dagkoers van de ECB, eerder opgehaald in deze sessie ({date})",
   "card.votReason": "de extra tijd is het waard tegen de waarde van je tijd",
   "form.votUsd": "Waarde van je tijd USD/u",
-  "form.thresholdUsd": "Splitsen loont bij besparing ≥ USD"
+  "form.thresholdUsd": "Splitsen loont bij besparing ≥ USD",
+  "itin.day": "Dag {n}"
 }

@@ -206,5 +206,6 @@
   "fx.cached": "Tečaji: dnevni tečaj ECB, pridobljen prej v tej seji ({date})",
   "card.votReason": "dodaten čas se izplača glede na vrednost tvojega časa",
   "form.votUsd": "Vrednost časa USD/h",
-  "form.thresholdUsd": "Delitev se splača od USD"
+  "form.thresholdUsd": "Delitev se splača od USD",
+  "itin.day": "Dan {n}"
 }

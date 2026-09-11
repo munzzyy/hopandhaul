@@ -206,5 +206,6 @@
   "fx.cached": "Gengi: dagsgengi Seðlabanka Evrópu sótt fyrr í þessari lotu ({date})",
   "card.votReason": "aukatíminn borgar sig miðað við verðmæti tíma þíns",
   "form.votUsd": "Verðmæti tíma USD/klst",
-  "form.thresholdUsd": "Skipting sparar ≥ USD"
+  "form.thresholdUsd": "Skipting sparar ≥ USD",
+  "itin.day": "Dagur {n}"
 }

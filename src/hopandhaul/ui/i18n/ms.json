@@ -206,5 +206,6 @@
   "fx.cached": "Kadar: kadar harian ECB yang diambil lebih awal dalam sesi ini ({date})",
   "card.votReason": "berbaloi dengan masa tambahan berdasarkan nilai masa anda",
   "form.votUsd": "Nilai masa USD/jam",
-  "form.thresholdUsd": "Sambungan jimat ≥ USD"
+  "form.thresholdUsd": "Sambungan jimat ≥ USD",
+  "itin.day": "Hari {n}"
 }

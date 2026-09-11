@@ -206,5 +206,6 @@
   "fx.cached": "Kurse: täglicher EZB-Kurs, früher in dieser Sitzung abgerufen ({date})",
   "card.votReason": "die zusätzliche Zeit lohnt sich beim Wert deiner Zeit",
   "form.votUsd": "Wert deiner Zeit USD/Std.",
-  "form.thresholdUsd": "Aufteilung lohnt ab ≥ USD"
+  "form.thresholdUsd": "Aufteilung lohnt ab ≥ USD",
+  "itin.day": "Tag {n}"
 }

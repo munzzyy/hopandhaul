@@ -206,5 +206,6 @@
   "fx.cached": "Taxas: taxa diária do BCE obtida antes nesta sessão ({date})",
   "card.votReason": "vale o tempo extra pelo valor do seu tempo",
   "form.votUsd": "Valor do seu tempo USD/h",
-  "form.thresholdUsd": "Economia mínima para dividir ≥ USD"
+  "form.thresholdUsd": "Economia mínima para dividir ≥ USD",
+  "itin.day": "Dia {n}"
 }
