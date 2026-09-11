@@ -102,3 +102,13 @@ export function loadLangPref() {
 export function saveLangPref(code) {
   writePref(LANG_KEY, code);
 }
+
+const CURRENCY_KEY = "hopandhaul:currency";
+
+export function loadCurrencyPref() {
+  return readPref(CURRENCY_KEY);
+}
+
+export function saveCurrencyPref(code) {
+  writePref(CURRENCY_KEY, code);
+}
