@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="dark light" />
 <meta name="theme-color" content="#0c1519" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://a.basemaps.cartocdn.com https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com https://d.basemaps.cartocdn.com; font-src 'self'; connect-src 'self' https://api.transitous.org https://photon.komoot.io; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://a.basemaps.cartocdn.com https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com https://d.basemaps.cartocdn.com; font-src 'self'; connect-src 'self' https://api.transitous.org https://photon.komoot.io https://api.frankfurter.dev; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" />
 <title data-i18n="app.title">Hop and Haul — fly cheap, haul the rest</title>
 <meta name="description" content="Flies you into the airport that's actually cheap, then tells you honestly whether the train ride from there is worth it." data-i18n-attr="content:meta.description" />
 <meta property="og:title" content="Hop and Haul — fly cheap, haul the rest" />
@@ -128,7 +128,11 @@
 
   <div class="row">
     <label for="origin"><span data-i18n="form.origin">From (airport code)</span>
-      <input id="origin" class="field-input" value="JFK" maxlength="4" autocomplete="off" autocapitalize="characters" />
+      <div class="search search--origin">
+        <input id="origin" type="text" class="field-input" value="JFK" maxlength="4" autocomplete="off" autocapitalize="characters"
+          role="combobox" aria-expanded="false" aria-controls="origin-aclist" aria-autocomplete="list" />
+        <ul id="origin-aclist" class="aclist" role="listbox" aria-label="Origin airport suggestions" data-i18n-attr="aria-label:search.originSuggestions" hidden></ul>
+      </div>
     </label>
     <label for="travelers"><span data-i18n="form.travelers">Travelers</span>
       <input id="travelers" class="field-input" type="number" min="1" max="9" step="1" value="1" />
@@ -168,6 +172,16 @@
   <p class="hint">
     <span data-i18n="form.pricing">Pricing:</span> <span id="srcbadge" class="badge badge--est" data-i18n="badge.estimate">estimate</span>
     <span id="srcnote"></span>
+    <label for="currency" class="sr-only" data-i18n="currency.label">Display currency</label>
+    <select id="currency" class="field-input currency-select"></select>
+    <span id="fx-note" class="hint-fx"></span>
+    <span class="net-picker">
+      <button type="button" id="net-toggle" class="net-chip" aria-haspopup="listbox" aria-expanded="false"
+        aria-controls="net-list" aria-label="Connection mode" data-i18n-attr="aria-label:net.buttonAria">
+        <span id="net-dot" class="net-dot" aria-hidden="true"></span> <span id="net-label">Online</span>
+      </button>
+      <ul id="net-list" class="theme-list" role="listbox" aria-label="Connection mode" data-i18n-attr="aria-label:net.title" hidden></ul>
+    </span>
   </p>
 </section>
 

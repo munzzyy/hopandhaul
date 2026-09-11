@@ -387,7 +387,37 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
   background: color-mix(in srgb, var(--good) 12%, var(--panel));
 }
 
-.hint { font-size: var(--fs-sm); color: var(--dim); margin-top: var(--space-2); border-top: 1px solid var(--line); padding-top: var(--space-2); }
+.hint { font-size: var(--fs-sm); color: var(--dim); margin-top: var(--space-2); border-top: 1px solid var(--line); padding-top: var(--space-2); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.hint-fx { flex-basis: 100%; font-size: var(--fs-xs); }
+
+/* connectivity chip + its menu - a distinct concept from the pricing badge above it (that one
+   says where FARE numbers came from; this one says whether the app can reach the network at
+   all), so a separate control rather than folding a third state into the existing badge. Reuses
+   the theme picker's own listbox pattern/markup (.theme-list/.theme-item) rather than a second
+   copy of the same CSS. */
+.net-picker { position: relative; margin-inline-start: auto; }
+.net-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: inherit; font-size: var(--fs-xs); font-weight: 600; cursor: pointer;
+  border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink);
+  padding: 3px 9px 3px 7px;
+}
+@media (hover: hover) {
+  .net-chip:hover { background: var(--line); }
+}
+.net-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); flex: none; }
+.net-chip--offline .net-dot { background: var(--warn); }
+.net-item-desc { white-space: normal; }
+@media (pointer: coarse) {
+  .net-chip { min-height: 44px; padding-inline: 12px; }
+}
+
+/* currency selector - a plain native <select> gets full a11y/keyboard support for free and
+   matches the .field-input look already used everywhere else in the controls card. */
+.currency-select { width: auto; min-width: 5.5rem; font-size: var(--fs-xs); padding: 3px 6px; }
+@media (pointer: coarse) {
+  .currency-select { min-height: 44px; }
+}
 
 /* button system */
 .btn {
@@ -412,6 +442,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
   .btn--icon { min-width: 44px; justify-content: center; }
   .check { min-height: 44px; }
   .check input { width: 20px; height: 20px; }
+  /* Same 44px floor as every other interactive control on a coarse pointer - these two measured
+     22.5px and 16.5px respectively, well under it, with nothing else on the page marking them
+     as an exception. */
+  .itin > summary { min-height: 44px; display: flex; align-items: center; }
+  .itin-leg-verify { min-height: 44px; padding-block: 4px; }
 }
 
 /* ---------------------------------------------------------------- language picker modal */
@@ -609,7 +644,24 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
    option list clean out of the mobile sheet's peek height, and being visible inside that peek
    is the entire reason it mounts here. Mirrors under RTL for free - flex row starts at the
    inline-start edge, and the padding/border below are all logical properties. */
-.date-strip { margin: 0 0 var(--space-3); }
+.date-strip { position: relative; margin: 0 0 var(--space-3); }
+/* Edge-fade scroll affordance: only shown on whichever side actually has more chips to reveal
+   (toggled in results.js's updateDateStripFades), so a strip that already fits everything shows
+   no fade at all, but a strip that scrolls is obviously scrollable instead of looking like a
+   fixed row that happens to clip its last chip. */
+.date-strip::before, .date-strip::after {
+  content: ""; position: absolute; top: 0; bottom: 8px; width: 22px; pointer-events: none;
+  z-index: 1; opacity: 0; transition: opacity .15s var(--ease);
+}
+.date-strip::before { inset-inline-start: 0; background: linear-gradient(to right, var(--panel), transparent); }
+.date-strip::after { inset-inline-end: 0; background: linear-gradient(to left, var(--panel), transparent); }
+[dir="rtl"] .date-strip::before { background: linear-gradient(to left, var(--panel), transparent); }
+[dir="rtl"] .date-strip::after { background: linear-gradient(to right, var(--panel), transparent); }
+.date-strip--fade-start::before { opacity: 1; }
+.date-strip--fade-end::after { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .date-strip::before, .date-strip::after { transition: none; }
+}
 .date-strip-head {
   font-size: var(--fs-sm); color: var(--dim); margin: 0 0 6px;
   text-transform: uppercase; letter-spacing: .7px;
@@ -825,6 +877,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 .search input:focus { outline: none; }
 .search input:focus-visible { border-color: var(--accent); }
 .search .mag { position: absolute; inset-inline-end: 9px; top: 8px; color: var(--dim); font-size: var(--fs-md); pointer-events: none; }
+.search--origin input { padding-inline-end: 10px; }
 
 .aclist {
   position: absolute; inset-inline: 0; top: calc(100% + 4px); z-index: 1200;

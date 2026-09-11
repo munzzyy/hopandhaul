@@ -46,6 +46,15 @@ jobs:
           cp src/hopandhaul/data/airports.json src/hopandhaul/data/gateways.json \
              src/hopandhaul/data/ferries.json src/hopandhaul/data/landgrid.json \
              src/hopandhaul/data/fareanchors.json src/hopandhaul/ui/data/
+      - name: Stamp sw.js's cache version with this deploy's commit SHA
+        # A forgotten manual CACHE_VERSION bump would otherwise serve a stale offline shell
+        # forever - the SW never re-checks itself, only the browser's own periodic SW update
+        # check does, and that compares byte-for-byte against whatever this step ships. Only the
+        # published copy is touched; the string in the repo stays a plain local-dev value.
+        run: |
+          sed -i "s/const CACHE_VERSION = \"[^\"]*\";/const CACHE_VERSION = \"hopandhaul-shell-${GITHUB_SHA}\";/" \
+            src/hopandhaul/ui/sw.js
+          grep -F "${GITHUB_SHA}" src/hopandhaul/ui/sw.js
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

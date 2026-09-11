@@ -2,15 +2,19 @@
 // together. `rec` (the recommended option) is computed once here and passed to both draw()
 // and the results render - no more independent recomputation in two places.
 import { fetchConfig, fetchDates, fetchNearest, fetchPlan } from "./api.js";
-import { readUrlState, writeUrlState, shareUrl, loadLangPref, saveLangPref } from "./state.js";
+import { readUrlState, writeUrlState, shareUrl, loadLangPref, saveLangPref,
+         loadCurrencyPref, saveCurrencyPref } from "./state.js";
 import { initMap, markOrigin, draw, clearMap, redrawLastPlan, renderGeoLabels } from "./map.js";
-import { initSearch } from "./search.js";
+import { initSearch, initOriginSearch } from "./search.js";
 import { renderPlan, renderError, renderEmpty, renderLoading, toggleSheet,
          renderDateStrip, renderDateStripLoading, renderDateStripError, clearDateStrip } from "./results.js";
 import { initTheme, refreshThemeLabel } from "./theme.js";
 import { loadLang, detectLang, t } from "./i18n.js";
 import { initLangPicker, updateLauncherAfterInit } from "./lang.js";
-import { esc } from "./format.js";
+import { esc, setDisplayCurrency, currentCurrency } from "./format.js";
+import { initConnectivity, isOffline, onNetChange } from "./connectivity.js";
+import { initNetChip, refreshNetLabel } from "./netchip.js";
+import { CURRENCY_OPTIONS, FX_AS_OF, ensureLiveRates, rateSourceFor, liveRatesDate } from "./fx.js";
 
 const $ = (sel) => document.querySelector(sel);
 const spinner = $("#spinner");
@@ -317,6 +321,68 @@ async function onCopyLink() {
   }
 }
 
+// -------------------------------------------------------------------- display currency
+function populateCurrencySelect() {
+  const sel = $("#currency");
+  sel.innerHTML = CURRENCY_OPTIONS.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+}
+
+/** "Rates: live (2026-09-10)" / "Rates: approximate table (as of 2026-07-04)" - which source
+ * actually priced the currency on screen right now, so a converted number never LOOKS as
+ * authoritative as a live one when it isn't. Blank for USD (native, no conversion happened) and
+ * for an unknown code (shouldn't happen - the picker only offers currencies fx.js can price). */
+function updateFxNote() {
+  const note = $("#fx-note");
+  const cur = currentCurrency();
+  const src = rateSourceFor(cur);
+  if (src === "live") note.textContent = t("fx.live", { date: liveRatesDate() || "" });
+  else if (src === "static") note.textContent = t("fx.static", { date: FX_AS_OF });
+  else note.textContent = "";
+}
+
+function applyCurrency(code) {
+  setDisplayCurrency(code);
+  if ($("#currency").value !== code) $("#currency").value = code;
+  updateFxNote();
+  rerenderCurrent(); // every price flows through fmtMoney() - no refetch needed, just repaint
+  redrawLastPlan(); // map popups call fmtMoney() at draw time too
+}
+
+function wireCurrency() {
+  populateCurrencySelect();
+  applyCurrency(loadCurrencyPref() || "USD");
+  $("#currency").addEventListener("change", (e) => {
+    saveCurrencyPref(e.target.value);
+    applyCurrency(e.target.value);
+  });
+}
+
+// -------------------------------------------------------------------- connectivity
+function wireConnectivity() {
+  initConnectivity();
+  initNetChip();
+  // Upgrade static->live FX the moment the app is actually online, whether that's true at boot
+  // or only becomes true later (auto mode regaining a connection, or the visitor picking
+  // "Online" by hand) - either way, re-paint the fx note once the fetch settles.
+  if (!isOffline()) ensureLiveRates().finally(updateFxNote);
+  onNetChange(({ offline }) => {
+    if (!offline) ensureLiveRates().finally(updateFxNote);
+  });
+}
+
+// -------------------------------------------------------------------- skip link
+// Before a plan exists (or while one is loading/errored), #results has no focusable content -
+// activating the skip link then strands keyboard focus with nowhere useful to go next. Point it
+// at the search field instead in that case; once a real plan is on screen, #results itself (its
+// tabindex="-1") is a perfectly good landing spot, so leave the default anchor jump alone.
+function wireSkipLink() {
+  document.querySelector(".skip-link")?.addEventListener("click", (e) => {
+    if (lastPlanData) return;
+    e.preventDefault();
+    fields.place.focus();
+  });
+}
+
 function wireModeToggle() {
   const group = $("#mode-toggle");
   group.addEventListener("click", (e) => {
@@ -413,7 +479,10 @@ async function applyConfig() {
       originIata = c.default_origin || "JFK";
       fields.origin.value = originIata;
     }
-    if (!readUrlState().threshold) {
+    // readUrlState().threshold is a NUMBER, so a bare falsy check treats a legal ?threshold=0
+    // exactly like no threshold at all and silently reverts the form to 200 on first load,
+    // flipping the recommendation the visitor's shared link actually meant to show.
+    if (readUrlState().threshold == null) {
       fields.threshold.value = c.default_threshold ?? 200;
     }
     applyConfigBadge(c);
@@ -424,12 +493,35 @@ async function applyConfig() {
   }
 }
 
+/** Today, in the visitor's own local timezone, as YYYY-MM-DD - string-comparable against a
+ * restored date because both are zero-padded ISO. Mirrors lockDatesToFuture()'s own floor and
+ * results.js's localTodayIso(). */
+function todayIso() {
+  const now = new Date();
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 function restoreFromUrl() {
   const s = readUrlState();
+  const today = todayIso();
   if (s.origin) { originIata = s.origin; fields.origin.value = originIata; }
-  if (s.date) fields.date.value = s.date;
-  if (s.ret) { fields.ret.value = s.ret; fields.round.checked = true; }
-  if (s.travelers) fields.travelers.value = String(s.travelers);
+  // A shared link's depart/return date can be in the past by the time it's opened - the fare
+  // engine has no lead-time curve for a date that's already gone (it prices it exactly like no
+  // date at all), and the picker itself would never let a visitor choose one (lockDatesToFuture
+  // floors both fields at today). Restoring it anyway would silently produce a baseline-priced
+  // plan with a stale date still sitting in the field, so drop it instead of pre-filling.
+  if (s.date && s.date >= today) fields.date.value = s.date;
+  if (s.ret && s.ret >= (fields.date.value || today)) {
+    fields.ret.value = s.ret;
+    fields.round.checked = true;
+  }
+  // s.travelers is a NUMBER (or null) from readUrlState() - `if (s.travelers)` would treat a
+  // literal ?travelers=0 exactly like it was never in the URL at all.
+  if (s.travelers != null) fields.travelers.value = String(s.travelers);
   if (s.vot != null) fields.vot.value = String(s.vot);
   if (s.threshold != null) fields.threshold.value = String(s.threshold);
   if (s.maxg != null) fields.maxg.value = String(s.maxg);
@@ -470,6 +562,8 @@ async function main() {
   initLangPicker(() => {
     applyStatic();
     refreshThemeLabel();
+    refreshNetLabel();
+    updateFxNote();
     if (lastConfig) applyConfigBadge(lastConfig);
     // applyStatic() only touches data-i18n(-attr) elements - the disabled search's placeholder
     // was set imperatively by search.disable(), so it needs its own re-localize here.
@@ -481,11 +575,21 @@ async function main() {
   wireModeToggle();
   wireForm();
   wireMap(map);
+  wireCurrency();
+  wireConnectivity();
+  wireSkipLink();
   search = initSearch({
     onChoose(r) {
       lastPlaceLabel = r.label;
       map.setView([r.lat, r.lng], 7);
       planTo(r.lat, r.lng);
+    },
+  });
+  initOriginSearch({
+    onChoose(r) {
+      originIata = r.iata;
+      fields.origin.value = originIata; // search.js's choose() fills the descriptive label first
+      if (lastClick) planTo(lastClick.lat, lastClick.lng);
     },
   });
 

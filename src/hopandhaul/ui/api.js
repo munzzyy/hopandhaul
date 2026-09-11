@@ -18,6 +18,7 @@ import { nearestAirport } from "./engine/geo.js";
 import { searchAirports } from "./engine/search.js";
 import { parsePlanParams, parseDatesParams, parseNearestParams, ValidationError } from "./engine/validate.js";
 import { groundOptions as transitGroundOptions } from "./transit.js";
+import { isOffline } from "./connectivity.js";
 
 const SERVER_PROBE_TIMEOUT_MS = 1500;
 
@@ -128,6 +129,13 @@ export async function fetchGeocode(query, signal) {
   // anything the airport DB can't answer (an address, a village, a landmark), Photon
   // (photon.komoot.io - keyless, CORS-open, OSM data) turns the static build's search box
   // into a real geocoder. Best-effort: any failure falls back to the local matches.
+  //
+  // Effectively offline: don't even try - firing it just means a doomed request and, worse,
+  // an empty local result would otherwise look IDENTICAL to a real "no matches" typo. Flag it
+  // as extendedSkipped so search.js can tell the visitor the truth instead.
+  if (!local.length && isOffline()) {
+    return { ok: true, results: local, extendedSkipped: true };
+  }
   if (!local.length && String(query || "").trim().length >= 3) {
     try {
       const controller = new AbortController();
@@ -152,7 +160,10 @@ export async function fetchGeocode(query, signal) {
         if (results.length) return { ok: true, results };
       }
     } catch {
-      // offline, blocked, or slow - the local airport search below still answers
+      // offline, blocked, or slow - the local airport search below still answers, but flag it
+      // so a genuinely empty result still reads as "extended search couldn't run", not as a
+      // typo-shaped "no matches" (see the isOffline() early return above for the common case).
+      return { ok: true, results: local, extendedSkipped: true };
     }
   }
   return { ok: true, results: local };
@@ -243,7 +254,10 @@ export async function fetchPlan(params) {
     // Live-schedule upgrade (browser twin of the server's Transitous enrichment): fetch real
     // timetables for the transit-able gateway legs the offline plan found, then re-run the
     // engine with the real door-to-door times injected so the ranking uses them too.
-    const lookups = out.gateways.filter((g) => ["train", "bus", "ferry"].includes(g.ground_mode));
+    const lookups = isOffline()
+      ? [] // effectively offline: skip the whole Transitous batch rather than firing (and
+           // catching) a doomed request per gateway - the offline plan's own estimate stands.
+      : out.gateways.filter((g) => ["train", "bus", "ferry"].includes(g.ground_mode));
     if (lookups.length) {
       const settled = await Promise.allSettled(lookups.map((g) => transitGroundOptions(
         g.lat, g.lng, parsed.dest_lat, parsed.dest_lng, parsed.date, g.ground_mode,
