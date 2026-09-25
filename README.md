@@ -5,7 +5,7 @@ train ride from there is worth it.**
 
 [![CI](https://github.com/munzzyy/hopandhaul/actions/workflows/ci.yml/badge.svg)](https://github.com/munzzyy/hopandhaul/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/hopandhaul)](https://pypi.org/project/hopandhaul/)
-[![License: Prosperity 3.0.0](https://img.shields.io/badge/license-Prosperity--3.0.0-blue.svg)](LICENSE)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 ![zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 
 > **Try it live:** [munzzyy.github.io/hopandhaul](https://munzzyy.github.io/hopandhaul/).
@@ -387,8 +387,11 @@ The bundled datasets and keyless services this tool leans on, with licenses:
 ## Contributing / License / Security
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to run tests and the code-style/voice
-expectations, [LICENSE](LICENSE) (Prosperity Public License, free for noncommercial use), and [SECURITY.md](SECURITY.md) for the security
-posture and how to report a vulnerability.
+expectations, and [SECURITY.md](SECURITY.md) for the security posture and how to report a vulnerability.
+
+Licensed [GPL-3.0-or-later](LICENSE): use, study, change and share it, but a copy or modified
+version you distribute has to stay under the GPL and come with its source. Releases up to v0.9.1
+were under the Prosperity Public License 3.0.0.
 
 ## Support
 
