@@ -8,7 +8,7 @@ train ride from there is worth it.**
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 ![zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 
-> **Try it live:** [munzzyy.github.io/hopandhaul](https://munzzyy.github.io/hopandhaul/).
+> **Try it live:** [hopandhaul.munzzyy.dev](https://hopandhaul.munzzyy.dev/).
 > No install, no keys, runs entirely in your browser.
 
 ![Click a destination and the recommendation card answers with the math: cost, time, CO2 per option, the $200 rule applied, on a self-drawn offline map](docs/media/app-dark.png)
@@ -55,7 +55,7 @@ you can read in `trip.py`, not a model's guess.
 
 ## Try it in your browser
 
-**[munzzyy.github.io/hopandhaul](https://munzzyy.github.io/hopandhaul/)** is the whole app,
+**[hopandhaul.munzzyy.dev](https://hopandhaul.munzzyy.dev/)** is the whole app,
 running client-side on GitHub Pages. Nothing to install, no keys, no server. It's the same
 estimate engine ported to JS, and CI holds the port to exact numeric agreement with the
 Python one.
