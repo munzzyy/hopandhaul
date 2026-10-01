@@ -462,12 +462,13 @@ def _price_flight_cli(origin_a, dest_a, date, adults, cabin, nonstop, return_dat
             "rate_source": "native", "native_price": None, "carrier": None, "segments": []}
 
 
-def _flight_leg_spec_cli(origin_a, dest_a, f, date):
+def _flight_leg_spec_cli(origin_a, dest_a, f, date, return_date=None):
     """itinerary.py leg spec for a duffel.py CLI flight leg - live (real Duffel offer, real
     segment schedule) when _price_flight_cli() found one, else a distance ESTIMATE. Mirrors
     server.py's _flight_leg_spec(). `f["segments"]` is duffel.py's own raw per-hop schedule
     (see _parse_segments) - resolved to full airport records here so the itinerary shows the
-    real departure/arrival clock and carrier instead of a synthetic example."""
+    real departure/arrival clock and carrier instead of a synthetic example. `return_date`
+    only changes the verify link, so a round-trip price is checked against a round-trip search."""
     is_live = f.get("source") != "estimate"
     segments = None
     if is_live and f.get("segments"):
@@ -482,7 +483,7 @@ def _flight_leg_spec_cli(origin_a, dest_a, f, date):
     return {
         "mode": "fly", "cost": f["price"], "hours": f["hours"], "from": origin_a, "to": dest_a,
         "price_basis": price_basis,
-        "verify_url": itinerary.verify_link("fly", origin_a, dest_a, date),
+        "verify_url": itinerary.verify_link("fly", origin_a, dest_a, date, return_date),
         "is_live": is_live, "segments": segments,
     }
 
@@ -537,7 +538,8 @@ def build_and_evaluate(origin, dest, date, gateways, adults, cabin, nonstop,
     direct_name = f"Fly direct to {dest.upper()}"
     options.append(trip.parse_option(
         f"{direct_name} | fly {direct['price']} {direct['hours']}"))
-    leg_specs_by_name[direct_name] = [_flight_leg_spec_cli(origin_a, dest_a, direct, date)]
+    leg_specs_by_name[direct_name] = [
+        _flight_leg_spec_cli(origin_a, dest_a, direct, date, return_date)]
     if direct["source"] == "estimate":
         warnings.append(f"No live Duffel offer {origin}->{dest}; priced with a distance ESTIMATE.")
     else:
@@ -561,7 +563,7 @@ def build_and_evaluate(origin, dest, date, gateways, adults, cabin, nonstop,
             f"{name} | fly {fly['price']} {fly['hours']} ; "
             f"{g['ground_mode']} {ground_cost} {g['ground_hours']}"))
         leg_specs_by_name[name] = [
-            _flight_leg_spec_cli(origin_a, gw_a, fly, date),
+            _flight_leg_spec_cli(origin_a, gw_a, fly, date, return_date),
             _ground_leg_spec_cli(gw_a, dest_a, g["ground_mode"], ground_cost, g["ground_hours"]),
         ]
 
@@ -1013,6 +1015,12 @@ def selftest():
     rc_ow, ow_text = _cli_text(trip_argv)
     check("a one-way report still carries the 'one direction' caution",
           rc_ow == 0 and "This is one direction" in ow_text)
+    rt_links = [ln for ln in rt_text.splitlines() if "google.com/travel/flights" in ln]
+    ow_links = [ln for ln in ow_text.splitlines() if "google.com/travel/flights" in ln]
+    check("round-trip flight verify links search the round trip, not one way",
+          rt_links and all(f"through+{_d(77)}" in ln and "one+way" not in ln for ln in rt_links))
+    check("one-way flight verify links still say one way",
+          ow_links and all("one+way" in ln and "through" not in ln for ln in ow_links))
 
     # _fx_warning: a STATIC-table conversion gets its own explicit call-out, distinct from a
     # live-ECB-rate conversion (which needs no extra scrutiny) and from a currency with no
