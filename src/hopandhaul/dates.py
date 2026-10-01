@@ -267,6 +267,15 @@ def main(argv=None):
     if not (args.origin and args.dest and args.date):
         p.error("--from, --to and --date are required")
 
+    from . import server
+    try:
+        server.check_cli_flags({"--adults": args.adults, "--vot": args.vot,
+                                "--threshold": args.threshold,
+                                "--transfer-buffer": args.transfer_buffer})
+    except server.ValidationError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
     if not duffel.have_keys():
         print("(No DUFFEL_API_KEY configured, so every date below is priced with distance "
               "ESTIMATES, same as `hopandhaul duffel` with no key. See README.md.)\n")
@@ -440,6 +449,16 @@ def selftest():
                       "--currency", "ZZZ"])
     check("dates' CLI --currency falls back an unrecognized code to USD with a stderr note",
           rc_unk == 0 and "$" in out_buf.getvalue() and "no FX rate" in err_buf.getvalue())
+
+    for flag, bad in (("--vot", "-1"), ("--threshold", "-1"), ("--transfer-buffer", "-1"),
+                      ("--adults", "0"), ("--adults", "10")):
+        err_bad, calls_before = io.StringIO(), len(calls)
+        with _mock.patch.object(duffel, "build_and_evaluate", side_effect=_fake_build_and_evaluate), \
+             contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err_bad):
+            rc_bad = main(["--from", "JFK", "--to", "ASE", "--date", "2030-06-15", "--window", "0",
+                           flag, bad])
+        check(f"{flag} {bad} exits 2 with a 'must be' message, before any date is priced",
+              rc_bad == 2 and "must be" in err_bad.getvalue() and len(calls) == calls_before)
 
     # return-date shifting: the trip LENGTH (7 nights) must stay fixed while the departure
     # date moves across the window, not the absolute return date.

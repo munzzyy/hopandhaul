@@ -126,6 +126,27 @@ MIN_BUFFER_H = 0.0
 MAX_BUFFER_H = 24.0
 MAX_VOT = 10_000.0
 
+_CLI_BOUNDS = {
+    "--vot": (0.0, MAX_VOT),
+    "--threshold": (MIN_THRESHOLD, MAX_THRESHOLD),
+    "--max-ground-hours": (MIN_GROUND_H, MAX_GROUND_H),
+    "--transfer-buffer": (MIN_BUFFER_H, MAX_BUFFER_H),
+    "--travelers": (1, MAX_TRAVELERS),
+    "--adults": (1, MAX_TRAVELERS),
+}
+
+
+def check_cli_flags(values: dict) -> None:
+    """The HTTP API's bounds, applied to the numeric flags of the go/duffel/dates/multicity
+    CLIs ({"--vot": args.vot, ...}; None means the flag wasn't given). Raises ValidationError
+    naming the first flag out of range. NaN fails every comparison, so it's rejected too."""
+    for flag, v in values.items():
+        if v is None:
+            continue
+        lo, hi = _CLI_BOUNDS[flag]
+        if not (lo <= v <= hi):
+            raise ValidationError(f"{flag} must be between {lo:g} and {hi:g}")
+
 
 def _require(q: dict, name: str) -> str:
     vals = q.get(name)

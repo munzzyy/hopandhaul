@@ -217,9 +217,9 @@ def main(argv=None) -> int:
             args.ret = server._v_date(args.ret, "return date")
         if args.date and args.ret and args.ret < args.date:
             raise server.ValidationError("return date must be on or after the depart date")
-        if not (1 <= args.travelers <= server.MAX_TRAVELERS):
-            raise server.ValidationError(
-                f"travelers must be between 1 and {server.MAX_TRAVELERS}")
+        server.check_cli_flags({"--travelers": args.travelers, "--vot": args.vot,
+                                "--threshold": args.threshold,
+                                "--max-ground-hours": args.max_ground_h})
     except server.ValidationError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
@@ -388,6 +388,17 @@ def selftest() -> int:
     check("a return date before the departure date is rejected",
           main(["JFK", "ASE", "--date", "2026-08-15", "--return-date", "2026-08-01",
                 "--offline"]) == 2)
+    # the server's bounds: a negative --vot used to flip the recommendation at "-$50/hr"
+    for flag in ("--vot", "--threshold", "--max-ground-hours"):
+        err_bad = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err_bad):
+            rc_bad = main(["JFK", "ASE", "--offline", flag, "-1"])
+        check(f"{flag} -1 exits 2 with a 'must be' message",
+              rc_bad == 2 and "must be" in err_bad.getvalue())
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        rc_zero = (main(["JFK", "ASE", "--offline", "--vot", "0"]),
+                   main(["JFK", "ASE", "--offline", "--threshold", "0"]))
+    check("--vot 0 and --threshold 0 are still accepted", rc_zero == (0, 0))
 
     # --currency: a final-render conversion only - the $200 rule and every internal number
     # stay USD, but a known code renders the report in its own symbol, no stderr note.

@@ -714,6 +714,9 @@ def main(argv=None):
             args.return_date = server._v_date(args.return_date, "return date")
         if args.date and args.return_date and args.return_date < args.date:
             raise server.ValidationError("return date must be on or after the depart date")
+        server.check_cli_flags({"--adults": args.adults, "--vot": args.vot,
+                                "--threshold": args.threshold,
+                                "--transfer-buffer": args.transfer_buffer})
     except server.ValidationError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
@@ -1015,6 +1018,14 @@ def selftest():
     rc_ow, ow_text = _cli_text(trip_argv)
     check("a one-way report still carries the 'one direction' caution",
           rc_ow == 0 and "This is one direction" in ow_text)
+    for flag, bad in (("--vot", "-1"), ("--threshold", "-1"), ("--transfer-buffer", "-1"),
+                      ("--adults", "0"), ("--adults", "10")):
+        err_bad = io.StringIO()
+        with _mock.patch.object(_this_module, "have_keys", return_value=False), \
+             contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err_bad):
+            rc_bad = main([*trip_argv, flag, bad])
+        check(f"{flag} {bad} exits 2 with a 'must be' message",
+              rc_bad == 2 and "must be" in err_bad.getvalue())
     rt_links = [ln for ln in rt_text.splitlines() if "google.com/travel/flights" in ln]
     ow_links = [ln for ln in ow_text.splitlines() if "google.com/travel/flights" in ln]
     check("round-trip flight verify links search the round trip, not one way",

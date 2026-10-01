@@ -35,7 +35,7 @@ import json
 import math
 import sys
 
-from . import duffel, geo, go, trip
+from . import duffel, geo, go, server, trip
 
 EXACT_LIMIT = 9   # cities to visit (home excluded) - Held-Karp above this gets slow fast
 
@@ -394,10 +394,15 @@ def main(argv=None) -> int:
         p.error("give --home and at least two --visit cities")
 
     try:
-        if args.travelers < 1:
-            raise ValueError("--travelers must be >= 1")
-        if args.threshold < 0:
-            raise ValueError("--threshold must be >= 0")
+        server.check_cli_flags({"--travelers": args.travelers, "--vot": args.vot,
+                                "--threshold": args.threshold,
+                                "--transfer-buffer": args.transfer_buffer,
+                                "--max-ground-hours": args.max_ground_h})
+    except server.ValidationError as e:
+        print(f"multicity: {e}", file=sys.stderr)
+        return 2
+
+    try:
         res = plan_multicity(
             args.home, visits, round_trip=not args.open, travelers=args.travelers,
             threshold=args.threshold, vot=args.vot, transfer_buffer=args.transfer_buffer,
@@ -600,7 +605,16 @@ def selftest() -> int:
     check("an unrecognized --currency still succeeds, falling back to USD with a stderr note",
           rc_unk == 0 and "$" in out_buf2.getvalue() and "no FX rate" in err_buf2.getvalue())
 
-    print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (12 cases)")
+    # Case 13: every numeric flag gets the HTTP API's bounds, before any pricing runs.
+    for flag, bad in (("--vot", "-1"), ("--transfer-buffer", "-1"), ("--max-ground-hours", "-1"),
+                      ("--travelers", "10")):
+        err_buf3 = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err_buf3):
+            rc_bad = main(["--home", "JFK", "--visit", "Aspen,Boston", flag, bad])
+        check(f"{flag} {bad} exits 2 with a 'must be' message",
+              rc_bad == 2 and "must be" in err_buf3.getvalue())
+
+    print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (13 cases)")
     return 1 if fails else 0
 
 
