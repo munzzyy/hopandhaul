@@ -399,11 +399,15 @@ def _fmt_hours(h: float) -> str:
     return f"{hh}h{mm:02d}" if mm else f"{hh}h"
 
 
-def format_report(res: dict, origin: str | None, dest: str | None, money_fmt=None) -> str:
+def format_report(res: dict, origin: str | None, dest: str | None, money_fmt=None,
+                  roundtrip: bool = False) -> str:
     """money_fmt, when given, replaces the default $ formatting for every dollar figure in
     the report - go.py/duffel.py's --currency flag renders the same USD numbers evaluate()
     already computed in another currency this way, without evaluate()'s own math (or the
-    JS-parity-tested numeric output) ever seeing a currency other than USD."""
+    JS-parity-tested numeric output) ever seeing a currency other than USD.
+
+    roundtrip says the prices already cover both directions; evaluate() results don't carry
+    that, so the caller passes it and the "one direction" caution is left out."""
     money = money_fmt or _fmt_money
     L = []
     where = f"{origin} → {dest}" if origin and dest else (dest or origin or "trip")
@@ -496,7 +500,9 @@ def format_report(res: dict, origin: str | None, dest: str | None, money_fmt=Non
         L.append("  • Split legs booked separately are NOT protected: a delayed flight can forfeit a")
         L.append("    non-refundable train/bus. Leave a real buffer, or book a flexible ground fare.")
     L.append("  • Prices/times are the inputs supplied; re-verify live before booking (fares move fast).")
-    L.append("  • This is one direction, so run the return separately; round-trip fares can flip the math.")
+    if not roundtrip:
+        L.append("  • This is one direction, so run the return separately; "
+                 "round-trip fares can flip the math.")
     return "\n".join(L)
 
 
@@ -860,7 +866,16 @@ def selftest():
     check("that split is tagged cheaper_below_threshold, not a phantom win off a broken baseline",
           split_row20c["status"] == "cheaper_below_threshold")
 
-    n_cases = 21
+    # Case 22: a round-trip report already prices both directions, so it must not tell the
+    # reader to go run the return separately.
+    one_way = format_report(r, "JFK", "ASE")
+    round_trip = format_report(r, "JFK", "ASE", roundtrip=True)
+    check("a one-way report keeps the 'one direction' caution", "This is one direction" in one_way)
+    check("a round-trip report drops it and keeps every other caution",
+          "This is one direction" not in round_trip and "re-verify live" in round_trip
+          and "NOT protected" in round_trip)
+
+    n_cases = 22
     print(f"\n{'ALL PASS' if not failures else str(len(failures)) + ' FAILED'} "
           f"({n_cases} cases)")
     return 1 if failures else 0

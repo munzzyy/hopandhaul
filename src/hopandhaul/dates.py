@@ -181,9 +181,13 @@ def format_sweep(out: dict, origin: str, dest: str, money_fmt=None) -> str:
     --currency flag `hopandhaul duffel`/`hopandhaul go` take, threaded through here so a date
     sweep doesn't quote USD when the rest of a session's output does not."""
     money = money_fmt or _fmt_money
+    roundtrip = any(r.get("return_date") for r in out["dates"])
     L = [f"CHEAPEST DATE SWEEP: {origin.upper()} -> {dest.upper()}",
         f"anchor {out['anchor_date']} +/- {out['window']} day(s) "
-        f"({len(out['dates'])} date(s) checked; dates already past are skipped)", ""]
+        f"({len(out['dates'])} date(s) checked; dates already past are skipped)"]
+    if roundtrip:
+        L.append("round trip: prices cover both directions, hours are for the outbound leg")
+    L.append("")
     for r in out["dates"]:
         if "error" in r:
             L.append(f"   {r['date']}   -- lookup failed: {r['error']}")
@@ -202,7 +206,7 @@ def format_sweep(out: dict, origin: str, dest: str, money_fmt=None) -> str:
     L.append("")
     L.append("Full report for the cheapest date:")
     L.append("")
-    L.append(trip.format_report(b["result"], origin, dest, money_fmt=money_fmt))
+    L.append(trip.format_report(b["result"], origin, dest, money_fmt=money_fmt, roundtrip=roundtrip))
     itin = duffel.format_itineraries(b["result"], money_fmt=money_fmt)
     if itin:
         L.append("")
@@ -445,6 +449,12 @@ def selftest():
     check("return-date shifts with its departure date, preserving a 7-night trip",
           rows_by_date["2030-06-14"]["return_date"] == "2030-06-21"
           and rows_by_date["2030-06-16"]["return_date"] == "2030-06-23")
+    rt_sweep = format_sweep(out_rt, "JFK", "ASE")
+    check("a round-trip sweep says prices cover both directions and drops the one-way caution",
+          "cover both directions" in rt_sweep and "This is one direction" not in rt_sweep)
+    check("a one-way sweep keeps the caution and has no round-trip line",
+          "This is one direction" in format_sweep(out, "JFK", "ASE")
+          and "cover both directions" not in format_sweep(out, "JFK", "ASE"))
     try:
         sweep("JFK", "ASE", "2030-06-15", [], return_date="2030-06-01")
         check("--return-date before --date is rejected", False)

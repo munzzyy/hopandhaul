@@ -772,7 +772,8 @@ def main(argv=None):
         print(json.dumps({k: v for k, v in res.items() if not k.startswith("_")}, indent=2))
     else:
         money_fmt = functools.partial(format_money, currency=cur) if cur != "USD" else None
-        print(trip.format_report(res, args.origin, args.dest, money_fmt=money_fmt))
+        print(trip.format_report(res, args.origin, args.dest, money_fmt=money_fmt,
+                                 roundtrip=bool(args.return_date)))
         print()
         itin_block = format_itineraries(res, money_fmt=money_fmt)
         if itin_block:
@@ -997,6 +998,21 @@ def selftest():
           "$" in plain_report and "€" not in plain_report)
     eur_itin = format_itineraries(res_cli, money_fmt=eur_fmt)
     check("format_itineraries renders leg costs with the given money_fmt too", "€" in eur_itin)
+
+    def _cli_text(argv):
+        buf = io.StringIO()
+        with _mock.patch.object(_this_module, "have_keys", return_value=False), \
+             contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+            rc = main(argv)
+        return rc, buf.getvalue()
+
+    trip_argv = ["--from", "JFK", "--to", "ASE", "--date", _d(70), "--auto-gateways"]
+    rc_rt, rt_text = _cli_text([*trip_argv, "--return-date", _d(77)])
+    check("a --return-date report says round trip and drops the 'one direction' caution",
+          rc_rt == 0 and "ROUND-TRIP fares" in rt_text and "This is one direction" not in rt_text)
+    rc_ow, ow_text = _cli_text(trip_argv)
+    check("a one-way report still carries the 'one direction' caution",
+          rc_ow == 0 and "This is one direction" in ow_text)
 
     # _fx_warning: a STATIC-table conversion gets its own explicit call-out, distinct from a
     # live-ECB-rate conversion (which needs no extra scrutiny) and from a currency with no

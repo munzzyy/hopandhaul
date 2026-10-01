@@ -293,7 +293,8 @@ def main(argv=None) -> int:
     d_lbl = f"{out['dest']['iata']} {out['dest'].get('city') or ''}".strip()
     cur = duffel.resolve_display_currency(args.currency)
     money_fmt = functools.partial(duffel.format_money, currency=cur) if cur != "USD" else None
-    print(trip.format_report(_with_private_rows(out["result"]), o_lbl, d_lbl, money_fmt=money_fmt))
+    print(trip.format_report(_with_private_rows(out["result"]), o_lbl, d_lbl, money_fmt=money_fmt,
+                             roundtrip=bool(out.get("roundtrip"))))
     itin = duffel.format_itineraries(out["result"], money_fmt=money_fmt)
     if itin:
         print()
@@ -403,6 +404,13 @@ def selftest() -> int:
         rc_unk = main(["JFK", "ASE", "--offline", "--currency", "ZZZ"])
     check("an unrecognized --currency still succeeds, falling back to USD with a stderr note",
           rc_unk == 0 and "$" in out_buf2.getvalue() and "no FX rate" in err_buf2.getvalue())
+
+    rt_buf = io.StringIO()
+    with contextlib.redirect_stdout(rt_buf), contextlib.redirect_stderr(io.StringIO()):
+        rc_rt = main(["JFK", "ASE", "--date", "2030-06-15", "--return-date", "2030-06-22", "--offline"])
+    check("a round-trip go report keeps the outbound-times note and drops the one-direction caution",
+          rc_rt == 0 and "Times shown are for the outbound leg" in rt_buf.getvalue()
+          and "This is one direction" not in rt_buf.getvalue())
 
     # typo tolerance: substring search misses entirely, difflib fallback should still suggest
     # the right airport instead of a flat "no match".
