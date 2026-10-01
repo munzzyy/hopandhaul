@@ -433,7 +433,7 @@ export function plan({
     origin_gateways: originGws.map(gw),
     direct: df,
     result: clean,
-    weather: null, // no OpenWeather key on Pages - the UI already treats a null weather block as "no data"
+    weather: null, // api.js fills this from ui/weather.js; the engine itself never fetches
     notes,
   };
 }

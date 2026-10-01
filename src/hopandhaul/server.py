@@ -1239,9 +1239,9 @@ class Handler(BaseHTTPRequestHandler):
             "font-src 'self'; manifest-src 'self'; "
             # Browsers enforce the INTERSECTION of this header and index.html's meta CSP, so
             # the external hosts the client calls directly even in server mode (live FX, the
-            # opt-in OSM detail tiles, Photon/Transitous fallbacks) must appear in both.
+            # opt-in OSM detail tiles, Photon/Transitous/Open-Meteo fallbacks) must appear in both.
             "connect-src 'self' https://api.transitous.org https://photon.komoot.io "
-            "https://api.frankfurter.dev; frame-ancestors 'none'")
+            "https://api.frankfurter.dev https://api.open-meteo.com; frame-ancestors 'none'")
         self.end_headers()
         self.wfile.write(data)
 

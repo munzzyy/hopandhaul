@@ -3,6 +3,7 @@
 // screen readers land on and read the new content instead of staying on the search field.
 import { esc, fmtMoney, fmtH, fmtCo2, modeIcon, modeLabel, statusLabel } from "./format.js";
 import { t, currentLangCode } from "./i18n.js";
+import { describe as describeWeather, FORECAST_DAYS } from "./weather.js";
 
 const panel = () => document.getElementById("results");
 
@@ -96,23 +97,38 @@ function basisText(leg) {
   return leg.price_basis || "";
 }
 
+// Falls back to the payload's English desc for a code the catalogs don't cover.
+function weatherDesc(w) {
+  const desc = describeWeather(w.code, t);
+  if (!desc) return w.desc || "";
+  return w.precip != null ? t("wx.precip", { desc, pct: w.precip }) : desc;
+}
+
+const OPEN_METEO_TOKEN = "@@OPENMETEO@@";
+
 function weatherChip(w) {
   if (!w) return "";
   const u = esc(w.units || "°");
   const feels = w.feels != null
     ? " <span class=\"wx-feels\">" + esc(t("wx.feels", { temp: w.feels, units: w.units || "°" })) + "</span>"
     : "";
+  const fcNote = w.forecast_note ? t("wx.beyondForecast", { days: w.forecast_days || FORECAST_DAYS }) : "";
   const fc = w.forecast
     ? "<div class=\"wx-fc\">" + esc(w.forecast.emoji) + " " + esc(w.forecast.temp) + esc(w.forecast.units)
-      + " &middot; " + esc(w.forecast.date) + "<br>" + esc(w.forecast.desc || "") + "</div>"
-    : (w.forecast_note ? "<div class=\"wx-fc\">" + esc(w.forecast_note) + "</div>" : "");
+      + " &middot; " + esc(w.forecast.date) + "<br>" + esc(weatherDesc(w.forecast)) + "</div>"
+    : (fcNote ? "<div class=\"wx-fc\">" + esc(fcNote) + "</div>" : "");
+  const attribution = "<div class=\"wx-attr\">" + spliceToken(
+    esc(t("wx.attribution", { link: OPEN_METEO_TOKEN })),
+    OPEN_METEO_TOKEN,
+    "<a href=\"https://open-meteo.com/\" target=\"_blank\" rel=\"noopener noreferrer\">Open-Meteo.com</a>",
+  ) + "</div>";
   // the weather glyph is the one emoji left in the product - it arrives in the server
   // payload, not authored in UI code, so it's out of scope for the icon-sprite swap.
   return "<div class=\"wx\">"
     + "<span class=\"wx-ico\" aria-hidden=\"true\">" + esc(w.emoji || "\u{1F321}️") + "</span>"
     + "<div class=\"wx-main\"><div class=\"wx-temp\">" + (w.temp != null ? esc(w.temp) + u : "") + feels + "</div>"
-    + "<div class=\"wx-desc\">" + esc(w.desc || "") + (w.place ? " &middot; " + esc(w.place) : "") + "</div></div>"
-    + fc + "</div>";
+    + "<div class=\"wx-desc\">" + esc(weatherDesc(w)) + (w.place ? " &middot; " + esc(w.place) : "") + "</div></div>"
+    + fc + attribution + "</div>";
 }
 
 function legLabel(l) {
