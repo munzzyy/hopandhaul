@@ -810,6 +810,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 .itin-leg-route .icon--arrow { margin-inline: 3px; }
 .itin-leg-time { color: var(--dim); margin-top: 2px; font-family: var(--font-num); }
 .itin-checkin { color: var(--dim); margin-top: 2px; }
+.itin-bags { color: var(--dim); margin-top: 2px; }
 .itin-leg-price { margin-top: 2px; }
 .itin-leg-verify {
   display: inline-flex; align-items: center; gap: 3px; margin-top: 4px;

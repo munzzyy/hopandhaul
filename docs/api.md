@@ -207,8 +207,8 @@ applies the $200 rule to recommend one.
   `fxStatic`, `fxLive`, `fxUnknown`, `groupTotals`, `roundtripReal`,
   `roundtripEstimatedSeparate`, `roundtripEstimated2x`, `ferryRealCorridor`,
   `transitLiveSchedule`, `lastMileGap`, `finalLeg`, `co2eEstimate`, `originSuspended`,
-  `airportSuspended`, `legLikelyConnecting`, `liveBaggageCaveat`, `groundCrossingRestricted`,
-  `airportClosedNearby` (all under the `notes.` prefix). Read the notes before trusting the number.
+  `airportSuspended`, `legLikelyConnecting`, `liveBaggageCaveat`, `liveNoCheckedBag`,
+  `groundCrossingRestricted`, `airportClosedNearby` (all under the `notes.` prefix). Read the notes before trusting the number.
   - `notes.finalLeg`, `notes.groundCrossingRestricted`, and `notes.lastMileGap` are mutually
     exclusive and cover every case where the resolved destination airport is more than 12km
     (`geo.FINAL_LEG_MIN_KM`) from the clicked point: `finalLeg` fires when an honest last-mile
@@ -225,9 +225,12 @@ applies the $200 rule to recommend one.
     looks like a coincidence.
   - `notes.legLikelyConnecting` never appears at the top level - it rides inside a flight leg's
     own `label` field (see "Itinerary..." below), not in the response's top-level `notes` array.
-  - `notes.liveBaggageCaveat` is server-only: it appears whenever any leg in the plan priced off
-    a real Duffel fare. The browser engine (`ui/engine/plan.js`) has no live-fare code path at
-    all, so it can never emit this key - not a parity gap, just a branch that literally can't be
+  - `notes.liveBaggageCaveat` and `notes.liveNoCheckedBag` are server-only and depend on the
+    checked-bag data on the plan's live Duffel fares. `liveNoCheckedBag` appears when at least
+    one live fare includes no checked bag. `liveBaggageCaveat` appears when at least one live
+    fare came without baggage data. When every live fare includes one or more checked bags,
+    neither appears. The browser engine (`ui/engine/plan.js`) has no live-fare code path at all,
+    so it can never emit either key. That is not a parity gap, just a branch that is never
     reached client-side.
 
 ### The last-mile leg
@@ -354,6 +357,12 @@ checkable schedule:
   (`/map/{from}/{to}`) for a ground leg.
 - `is_live` / `carrier` / `flight_number`: only real (not invented), and `null`/`false` on every
   estimate leg.
+- `checked_bags_included` / `refundable` / `changeable`: present only on the first row of a
+  flight leg priced from a live Duffel offer, and absent from every estimate leg.
+  `checked_bags_included` is the fewest checked bags any passenger gets on the outbound slice,
+  or `null` when Duffel returned no baggage data. `refundable` and `changeable` are `true`
+  only when the offer's conditions say so before departure; `false` covers both "not allowed"
+  and "not stated".
 - `label`: `null` on almost every leg. On a flight leg whose fare was priced ASSUMING a
   connection (the small/remote-airport pricing path in `geo.estimate_flight` -
   `likely_connection`), this carries `{"key": "notes.legLikelyConnecting", "params": {}}` -

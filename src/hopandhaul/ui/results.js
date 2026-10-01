@@ -245,6 +245,12 @@ function itineraryLegRow(leg) {
     ? "<div class=\"itin-checkin\">" + esc(t("itin.checkinBy",
         { day: dayText(leg.checkin_by.day, leg.checkin_by.day_n), clock: leg.checkin_by.clock })) + "</div>\n"
     : "";
+  // Only live fares carry the key; null means Duffel sent no baggage data (notes cover that).
+  const bagCount = leg.checked_bags_included;
+  const bags = bagCount != null
+    ? "<div class=\"itin-bags\">" + esc(bagCount === 0 ? t("itin.noCheckedBag")
+      : t("itin.checkedBags", { n: bagCount })) + "</div>\n"
+    : "";
   return "\n"
     + "      <li class=\"itin-leg\">\n"
     + "        <div class=\"itin-leg-route\">" + modeIcon(leg.mode)
@@ -257,6 +263,7 @@ function itineraryLegRow(leg) {
     + "<use href=\"#i-arrow\"/></svg> " + esc(dayText(leg.arrive_day, leg.arrive_day_n)) + " " + esc(leg.arrive_clock)
     + "</bdi> &middot; " + esc(fmtH(leg.duration_h)) + "</div>\n"
     + checkin
+    + bags
     + "        <div class=\"itin-leg-price\">" + fmtMoney(leg.cost) + " &middot; "
     + esc(basisText(leg)) + "</div>\n"
     + "        <a class=\"itin-leg-verify\" href=\"" + esc(leg.verify_url)

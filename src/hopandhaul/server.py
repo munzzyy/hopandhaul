@@ -434,7 +434,8 @@ def _price_flight(origin, dest, date, ret, travelers, session, ctx, deadline):
                         "segments": live.get("segments", []), "carrier": live.get("carrier"),
                         "native_price": live.get("native_price"), "currency": live.get("currency"),
                         "converted": live.get("converted", False),
-                        "rate_source": live.get("rate_source", "native")}
+                        "rate_source": live.get("rate_source", "native"),
+                        **itinerary.fare_facts(live)}
         # network/HTTP-shaped failures only - a real bug in the normalization code should
         # surface as a crash, not silently and permanently masquerade as "provider is down".
         # net.FetchError is what fetch_json() raises for every wrapped provider failure
@@ -527,12 +528,15 @@ def _flight_leg_spec(origin, dest, f, cost, date, ret=None):
         price_basis = itinerary.flight_provenance_estimate(detail, date)
         basis_parts = itinerary.basis_parts_flight_estimate(detail, date)
         likely_connection = bool(detail and detail.get("likely_connection"))
-    return {
+    spec = {
         "mode": "fly", "cost": round(cost, 2), "hours": f["hours"],
         "from": origin, "to": dest, "price_basis": price_basis, "basis_parts": basis_parts,
         "verify_url": itinerary.verify_link("fly", origin, dest, date, ret),
         "is_live": is_live, "segments": segments, "likely_connection": likely_connection,
     }
+    if is_live:
+        spec.update(itinerary.fare_facts(f))
+    return spec
 
 
 def _ground_leg_spec(g, dest, cost, road_km, frm=None):
@@ -712,6 +716,8 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         for k, v in local.items():
             if v:
                 ctx[k] = v
+    live_bags = [pr.get("checked_bags_included") for pr, _ in priced
+                 if pr.get("source") not in (None, "estimate")]
 
     options, geo_by_name, emissions_legs_by_name, leg_specs_by_name, notes = [], {}, {}, {}, []
     # structured option-name contract (see docs/api.md): name_key/name_params alongside the
@@ -963,9 +969,11 @@ def plan(dest_lat, dest_lng, origin_iata="JFK", date=None, vot=None, threshold=2
         notes.append(itinerary.note("notes.lastMileGap", iata=dest["iata"],
                                     km=int(dest.get("dist_km", 0))))
     if ctx["live_used"]:
-        # live fares (Duffel) never include baggage in the quoted price - only the client
-        # engine never reaches this branch (it has no live path at all), so this is server-only.
-        notes.append(itinerary.note("notes.liveBaggageCaveat"))
+        # Server-only: the browser engine has no live path. A known count of 1+ needs no note.
+        if 0 in live_bags:
+            notes.append(itinerary.note("notes.liveNoCheckedBag"))
+        if None in live_bags or not live_bags:
+            notes.append(itinerary.note("notes.liveBaggageCaveat"))
     notes.append(itinerary.note("notes.co2eEstimate"))
 
     # destination weather - best-effort, never blocks a plan (weather is at the clicked point)
@@ -1732,6 +1740,45 @@ def selftest():
           "live" in live_leg0["price_basis"].lower())
     check("an itinerary with a live leg is not flagged example_day",
           live_direct["itinerary"]["example_day"] is False)
+    check("a live leg carries the offer's bag count and fare conditions",
+          live_leg0.get("checked_bags_included") == 1 and live_leg0.get("refundable") is False
+          and live_leg0.get("changeable") is True)
+    check("estimate legs carry no fare facts",
+          not any(k in leg for o in ow["result"]["options"] for leg in o["itinerary"]["legs"]
+                  for k in itinerary.FARE_FACTS))
+
+    def _bags_search(n):
+        def _search(session, origin_iata, dest_iata, date, adults, return_date):
+            return {**_fake_live_search(session, origin_iata, dest_iata, date, adults, return_date),
+                    "checked_bags_included": n}
+        return _search
+
+    bag_notes, bag_legs = {}, {}
+    for n in (0, None, 2):
+        with _OFFER_CACHE_LOCK:
+            _OFFER_CACHE.clear()
+        # a fresh bucket: the shared one is drained by the live checks above
+        with _mock.patch.object(flights, "have_keys", return_value=True), \
+             _mock.patch.object(flights, "open_session", return_value={"provider": "duffel"}), \
+             _mock.patch.object(flights, "search_cheapest", side_effect=_bags_search(n)), \
+             _mock.patch.object(_this_module, "_DUFFEL_BUCKET", TokenBucket(0.0, 100.0)):
+            out_bags = plan(39.19, -106.82, origin_iata="JFK", date=_d(70),
+                            fetch_weather=False, allow_live=True, allow_transit=False)
+        bag_notes[n] = {x["key"] for x in out_bags["notes"]}
+        bag_legs[n] = next(o for o in out_bags["result"]["options"]
+                           if o["name"].startswith("Fly direct"))["itinerary"]["legs"][0]
+    with _OFFER_CACHE_LOCK:
+        _OFFER_CACHE.clear()
+    check("0 checked bags: the leg says 0 and the notes say no bag, not the generic caveat",
+          bag_legs[0].get("checked_bags_included") == 0 and "notes.liveNoCheckedBag" in bag_notes[0]
+          and "notes.liveBaggageCaveat" not in bag_notes[0])
+    check("no baggage data: the generic caveat stays",
+          "checked_bags_included" in bag_legs[None]
+          and bag_legs[None]["checked_bags_included"] is None and "notes.liveBaggageCaveat" in bag_notes[None]
+          and "notes.liveNoCheckedBag" not in bag_notes[None])
+    check("2 checked bags: neither bag note",
+          bag_legs[2].get("checked_bags_included") == 2
+          and not {"notes.liveBaggageCaveat", "notes.liveNoCheckedBag"} & bag_notes[2])
 
     # ---- FX provenance: a fare converted via the bundled STATIC table gets its own note and
     # its own price-basis wording, distinct from a fare converted at today's real live rate -

@@ -46,6 +46,13 @@ DEFAULT_DEPART_LOCAL = "08:00"     # sane default start-of-day for an example sc
 # Independent copy of trip.FLIGHT_MODES - this module takes plain leg dicts from its callers
 # and shouldn't need an import-order dependency on trip.py to classify a leg as a flight.
 FLIGHT_MODES = {"fly", "flight", "plane", "air"}
+# Fare facts only a live offer knows. Estimate legs never carry these keys, so the browser
+# engine's estimate rows stay identical to Python's.
+FARE_FACTS = ("checked_bags_included", "refundable", "changeable")
+
+
+def fare_facts(f: dict) -> dict:
+    return {k: f.get(k) for k in FARE_FACTS}
 
 
 # --------------------------------------------------------------------------- structured notes
@@ -432,6 +439,7 @@ def build_timeline(legs: list[dict], *, date: str | None = None,
             any_live = True
             leg_rows, clock_min = _live_segments_to_rows(
                 leg, segments, date, add_checkin=(i == 0), airport_buffer_h=airport_buffer_h)
+            leg_rows[0].update({k: leg[k] for k in FARE_FACTS if k in leg})
             rows.extend(leg_rows)
             continue
 
@@ -468,6 +476,7 @@ def build_timeline(legs: list[dict], *, date: str | None = None,
             # likely_connection) - the leg must say so instead of implying nonstop just
             # because the geometry drawn on the map is a single arc.
             "label": note("notes.legLikelyConnecting") if leg.get("likely_connection") else None,
+            **{k: leg[k] for k in FARE_FACTS if k in leg},
         })
         clock_min = arrive_min
 
@@ -763,7 +772,7 @@ def selftest() -> int:
         "notes.roundtripEstimated2x", "notes.ferryRealCorridor", "notes.transitLiveSchedule",
         "notes.lastMileGap", "notes.co2eEstimate", "notes.originSuspended",
         "notes.airportSuspended", "notes.finalLeg", "notes.legLikelyConnecting",
-        "notes.liveBaggageCaveat",
+        "notes.liveBaggageCaveat", "notes.liveNoCheckedBag",
     ]
     missing = [k for k in emittable_keys if k[len("notes."):] not in _en_notes()]
     check(f"every note key this module can emit resolves in en.json (missing: {missing})",

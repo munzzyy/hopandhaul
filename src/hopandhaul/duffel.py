@@ -480,12 +480,15 @@ def _flight_leg_spec_cli(origin_a, dest_a, f, date, return_date=None):
         } for s in f["segments"]]
     price_basis = (itinerary.flight_provenance_live(f) if is_live
                    else itinerary.flight_provenance_estimate(f.get("estimate_detail"), date))
-    return {
+    spec = {
         "mode": "fly", "cost": f["price"], "hours": f["hours"], "from": origin_a, "to": dest_a,
         "price_basis": price_basis,
         "verify_url": itinerary.verify_link("fly", origin_a, dest_a, date, return_date),
         "is_live": is_live, "segments": segments,
     }
+    if is_live:
+        spec.update(itinerary.fare_facts(f))
+    return spec
 
 
 def _ground_leg_spec_cli(gw_iata_a, dest_a, mode, cost, hours):
@@ -623,6 +626,14 @@ def _convert_price_basis(text: str, money_fmt) -> str:
     return _PRICE_BASIS_DOLLAR_RE.sub(repl, text)
 
 
+def _bags_line(n) -> str:
+    if n is None:
+        return "checked bags: not in the fare data, check before you pay"
+    if n == 0:
+        return "no checked bag included, the airline's bag fee is extra"
+    return f"{n} checked bag{'' if n == 1 else 's'} included"
+
+
 def _format_itinerary_block(option: dict, money_fmt=None) -> str:
     """Human-readable leg-by-leg schedule for one priced option - real airports, an example
     (or, when live, a real) clock schedule, per-leg price provenance, and a verify link. This is
@@ -649,6 +660,8 @@ def _format_itinerary_block(option: dict, money_fmt=None) -> str:
         if leg.get("checkin_by"):
             checkin = leg["checkin_by"]
             lines.append(f"         be at the airport by {checkin['day']} {checkin['clock']}")
+        if "checked_bags_included" in leg:
+            lines.append(f"         {_bags_line(leg['checked_bags_included'])}")
         lines.append(f"         {money(leg['cost'])} · {_convert_price_basis(leg['price_basis'], money_fmt)}")
         lines.append(f"         verify: {leg['verify_url']}")
     return "\n".join(lines)
@@ -990,6 +1003,16 @@ def selftest():
           itin_text.count(" -> ") >= 2 * len(res_cli["options"]))
     check("format_itineraries includes the verify links as plain URLs (CLI text output)",
           "verify: https://" in itin_text)
+    check("a live CLI flight leg carries the offer's bag count and fare conditions",
+          cli_fly_leg.get("checked_bags_included") == 1 and cli_fly_leg.get("refundable") is False
+          and cli_fly_leg.get("changeable") is True)
+    check("an estimate CLI flight leg carries no fare facts",
+          not any(k in ege_opt["itinerary"]["legs"][0] for k in itinerary.FARE_FACTS))
+    check("format_itineraries prints the bag count on live legs only",
+          itin_text.count("1 checked bag included") == len(res_cli["options"]) - 1)
+    check("bag lines for none, zero and several",
+          "not in the fare data" in _bags_line(None) and "fee is extra" in _bags_line(0)
+          and _bags_line(2) == "2 checked bags included")
 
     # --currency: format_itineraries/trip.format_report take money_fmt and render every cost
     # in that currency instead of the default $ - this is what go.py/duffel.py's --currency
