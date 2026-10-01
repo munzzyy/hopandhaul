@@ -46,6 +46,7 @@ def _usage() -> str:
     lines = [f"  {name.ljust(width)}  {desc}" for name, desc in _DESCRIPTIONS]
     return "\n".join([
         "usage: hopandhaul <subcommand> [args...]",
+        "       hopandhaul --version",
         "",
         "Flies you into the cheap airport, then tells you honestly whether the ground leg",
         "is worth it. No API key needed for anything but `duffel`.",
@@ -66,6 +67,11 @@ def main(argv=None) -> int:
     if not argv or argv[0] in ("-h", "--help"):
         print(_usage())
         return 0 if argv else 2
+
+    if argv[0] == "--version":
+        from . import __version__
+        print(f"hopandhaul {__version__}")
+        return 0
 
     cmd, rest = argv[0], argv[1:]
     module_name = _SUBCOMMANDS.get(cmd)

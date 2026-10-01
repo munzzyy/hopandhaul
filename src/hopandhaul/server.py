@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import datetime
+import errno
 import importlib.resources
 import json
 import os
@@ -1398,9 +1399,31 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(200, out)
 
 
-def serve(port=DEFAULT_PORT):
+class _Server(ThreadingHTTPServer):
+    # On Windows SO_REUSEADDR lets a second server bind a port another one is listening on.
+    allow_reuse_address = os.name != "nt"
+
+
+_ADDR_IN_USE = {errno.EADDRINUSE, 10048}  # 10048 is WSAEADDRINUSE
+
+
+def _open_server(port):
+    """(server, None), or (None, message) when the port is taken."""
+    try:
+        return _Server(("127.0.0.1", port), Handler), None
+    except OSError as e:
+        if e.errno in _ADDR_IN_USE or getattr(e, "winerror", None) in _ADDR_IN_USE:
+            return None, (f"error: port {port} on 127.0.0.1 is already in use, maybe by another "
+                          "hopandhaul serve. Stop that one or pick a free port with --port.")
+        raise
+
+
+def serve(port=DEFAULT_PORT) -> int:
     trip._force_utf8()
-    httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    httpd, problem = _open_server(port)
+    if httpd is None:
+        print(problem, file=sys.stderr)
+        return 2
     fp = flights.provider_name() if flights else None
     live = f"LIVE flights ({fp})" if fp else "ESTIMATE flights (set DUFFEL_API_KEY for live)"
     geoc = f"geocode ON ({places.provider()})" if places else "geocode off"
@@ -1413,6 +1436,9 @@ def serve(port=DEFAULT_PORT):
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nbye")
+    finally:
+        httpd.server_close()
+    return 0
 
 
 # --------------------------------------------------------------------------- self-test
@@ -2157,8 +2183,45 @@ def selftest():
     check("rate limiter: has_tokens(n) respects the amount asked for",
           TokenBucket(rate_per_s=0.0, capacity=2.0).has_tokens(3.0) is False)
 
+    import contextlib
+    import io
+    import socket
+    with socket.socket() as squatter:
+        squatter.bind(("127.0.0.1", 0))
+        squatter.listen()
+        taken = squatter.getsockname()[1]
+        httpd, problem = _open_server(taken)
+        if httpd is not None:
+            httpd.server_close()
+        check("busy port: no server, and a message naming the port and --port",
+              httpd is None and str(taken) in (problem or "") and "--port" in (problem or ""))
+        if httpd is None:
+            buf = io.StringIO()
+            with contextlib.redirect_stderr(buf):
+                rc = serve(taken)
+            check("busy port: serve() exits 2 with one line on stderr",
+                  rc == 2 and buf.getvalue().count("\n") == 1 and "Traceback" not in buf.getvalue())
+    for bad in ("0", "70000", "http"):
+        try:
+            _port_arg(bad)
+            ok = False
+        except argparse.ArgumentTypeError:
+            ok = True
+        check(f"--port {bad} is refused", ok)
+    check("--port 8770 is accepted", _port_arg("8770") == 8770)
+
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (server checks)")
     return 1 if fails else 0
+
+
+def _port_arg(s: str) -> int:
+    try:
+        n = int(s)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid port {s!r}") from None
+    if not 1 <= n <= 65535:
+        raise argparse.ArgumentTypeError(f"port must be between 1 and 65535, not {n}")
+    return n
 
 
 def main(argv=None, prog: str = "hopandhaul serve") -> int:
@@ -2166,14 +2229,14 @@ def main(argv=None, prog: str = "hopandhaul serve") -> int:
     ap = argparse.ArgumentParser(
         prog=prog,
         description="Serve the click-the-map UI on 127.0.0.1. No keys needed.")
-    ap.add_argument("--port", type=int, default=DEFAULT_PORT,
+    ap.add_argument("--port", type=_port_arg, default=DEFAULT_PORT,
                     help=f"port to bind on localhost (default {DEFAULT_PORT})")
+    ap.add_argument("--version", action="version", version=f"hopandhaul {__version__}")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
-    serve(args.port)
-    return 0
+    return serve(args.port)
 
 
 if __name__ == "__main__":

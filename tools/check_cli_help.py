@@ -23,6 +23,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "src"))
 
+from hopandhaul import __version__  # noqa: E402
 from hopandhaul.__main__ import _SUBCOMMANDS  # noqa: E402
 
 
@@ -54,12 +55,19 @@ def main() -> int:
             fails.append(f"`hopandhaul {name} --help` prints {first!r}, expected it to start "
                          f"with {want!r} so the line can be copied and run")
 
+    for args in (["--version"], ["serve", "--version"]):
+        code, out = run(args)
+        if code != 0 or out.strip() != f"hopandhaul {__version__}":
+            fails.append(f"`hopandhaul {' '.join(args)}` exited {code} and printed {out.strip()!r}, "
+                         f"expected 'hopandhaul {__version__}'")
+
     for f in fails:
         print(f"FAIL  {f}", file=sys.stderr)
     if fails:
         print(f"\n{len(fails)} CLI help problems", file=sys.stderr)
         return 1
-    print(f"CLI help OK: {len(_SUBCOMMANDS)} subcommands, every usage line is copy-runnable")
+    print(f"CLI help OK: {len(_SUBCOMMANDS)} subcommands, every usage line is copy-runnable, "
+          "--version answers")
     return 0
 
 
