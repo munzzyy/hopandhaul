@@ -15,14 +15,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         # trip.py's _force_utf8() exists because Windows consoles default to cp1252 and
         # choke on the arrows and check marks the CLI prints. That guard was never once
         # executed in CI. One Windows job on the newest supported Python proves it, and
         # covers server.py's realpath traversal check against backslash paths too.
         include:
           - os: windows-latest
-            python-version: "3.12"
+            python-version: "3.14"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -96,7 +96,7 @@ jobs:
           python-version: "3.11"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "20"
+          node-version: "24"
       - name: Install the package (no runtime dependencies)
         run: pip install -e .
       - run: python tests/web_parity/gen_fixtures.py

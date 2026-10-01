@@ -41,6 +41,8 @@ jobs:
           /tmp/v/bin/python -m pip install dist/*.whl
           /tmp/v/bin/python -c "import hopandhaul, hopandhaul.server"
           /tmp/v/bin/hopandhaul --help >/dev/null
+          /tmp/v/bin/hopandhaul go JFK ASE --offline >/dev/null
+          /tmp/v/bin/python -m hopandhaul.server --selftest
           unzip -l dist/*.whl | grep -q "hopandhaul/ui/"
           unzip -l dist/*.whl | grep -q "hopandhaul/data/"
 
