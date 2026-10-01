@@ -42,11 +42,14 @@ That's a distinct, opt-in deployment mode this project doesn't build by default.
 
 ## Static file serving
 
-The UI and its vendored assets (`ui/index.html`, `ui/vendor/leaflet.js`,
-`ui/vendor/leaflet.css`) are served from an exact-path allowlist dict, never from
-`os.path.join(root, request_path)`. There is no code path that turns a URL into a
-filesystem path outside that fixed set: a `..` in the request path just doesn't match
-anything in the dict and 404s.
+`_resolve_ui_asset()` in `server.py` serves files from the packaged `ui/` directory and
+nowhere else. Two checks stand between a URL and a file. First the extension has to be on a
+short allowlist with a fixed content type for each (`.html`, `.js`, `.css`, `.json`, images,
+fonts and a few more). A `.py` or `.env` file never comes back. Then the joined path goes
+through `os.path.realpath()` and has to still sit inside `ui/`. A `..` segment or a symlink
+that leads out of `ui/` gets a 404 even when the file it reaches has an allowed extension.
+The server selftest covers both. `/../data/airports.json` is a real `.json` file one level
+up, and it is refused.
 
 ## No secrets reach the browser
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-trip.py - deterministic cheapest-route reasoning engine for the travel-scout agent.
+trip.py - the deterministic cheapest-route engine every hopandhaul command runs on.
 
 Core question it answers: given several ways to get from A to B, which is cheapest,
 and - Cole's rule - is it worth flying into a cheaper nearby airport and taking a
@@ -12,8 +12,8 @@ Below that, the extra transfer/hassle isn't worth it. Two honest exceptions the 
 also handles: a split that is *both* cheaper AND faster (dominant - take it regardless),
 and a value-of-time overlay so you can compare cash against extra hours fairly.
 
-Pure Python stdlib. It does no networking - it reasons over prices/durations you (or the
-agent, via search/APIs) supply. Garbage prices in -> garbage answer out; gather real ones.
+Pure Python stdlib. It does no networking - it reasons over prices/durations you (or
+duffel.py and geo.py) supply. Garbage prices in -> garbage answer out; gather real ones.
 
 Option grammar (canonical):
     "NAME | mode cost hours ; mode cost hours ; ..."

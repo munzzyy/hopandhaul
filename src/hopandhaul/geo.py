@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-geo.py - spatial + price-estimation layer for the travel-scout map UI.
+geo.py - spatial + price-estimation layer for the map UI and the CLI.
 
 Turns a lat/lng map click into: the nearest airport, a set of candidate "cheaper gateway
 airport + ground leg" splits (curated from gateways.json *and* auto-discovered from the airport

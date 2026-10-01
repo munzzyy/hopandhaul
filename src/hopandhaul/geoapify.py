@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-geoapify.py - geocoding for travel-scout via the Geoapify Geocoding API.
+geoapify.py - geocoding via the Geoapify Geocoding API.
 
 Turns a typed place ("Aspen, CO", "38 Upper Montagu Street, London", "Chamonix") into
-coordinates so the map/agent can plan to a name instead of only a click. Also reverse-geocodes
-a lat/lng back to a human label for nicer output.
+coordinates so the map and the CLI can plan to a name instead of only a click. Also
+reverse-geocodes a lat/lng back to a human label for nicer output.
 
 Key: GEOAPIFY_API_KEY (env or secrets.local.json). Stdlib urllib only.
 
@@ -42,7 +42,7 @@ def _http_json(url: str, timeout: int = 8) -> dict:
 
 
 def _clean(r: dict) -> dict:
-    """Normalize a Geoapify result row to the fields the UI/agent use."""
+    """Normalize a Geoapify result row to the fields the UI and CLI use."""
     return {
         "lat": r.get("lat"),
         "lng": r.get("lon"),
@@ -109,7 +109,7 @@ def main(argv=None):
     with contextlib.suppress(AttributeError, ValueError):
         sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(prog="python -m hopandhaul.geoapify",
-                                description="Geoapify geocoding for travel-scout.")
+                                description="Geoapify geocoding, forward and reverse.")
     p.add_argument("query", nargs="*", help="place/address to geocode")
     p.add_argument("--reverse", nargs=2, metavar=("LAT", "LNG"), help="reverse geocode a point")
     p.add_argument("--limit", type=int, default=5)

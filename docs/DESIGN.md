@@ -280,10 +280,10 @@ that would muddy this product's "honest, transparent, deterministic-math" identi
 
 ---
 
-## 4. Code-quality + de-AI plan, by file
+## 4. Code-quality plan, by file
 
-This is what "less AI, more optimized" means concretely, file by file. Every item below was
-confirmed by running the code, not just reading it.
+This is the cleanup plan, file by file. Every item below was confirmed by running the code,
+not just reading it.
 
 **`trip.py`**
 - Delete `GROUND_MODES` and `CONNECTION_BUFFER_H` (both genuinely dead), or better: actually
@@ -534,9 +534,7 @@ The completeness-critic grades against this list. Every item must be true, not "
 
 **Voice**
 - [ ] Every user-facing string (README, UI copy, error messages, CLI help text) reads like a
-      person wrote it -- no AI-slop tells (buzzword bullet spam, the not-just-X-but-Y frame, filler
-      hedges, flat uniform rhythm). Run external-facing text through the humanizer pass before
-      it ships.
+      person wrote it, without buzzword bullet spam, filler hedges or a flat uniform rhythm.
 
 The honest test: could a skeptical, technically sharp stranger read this repo end to end -- code, README, security posture -- and come away thinking "this person actually knows what they're
 doing and isn't hiding anything"? If any checklist item above is unresolved, the answer is no,

@@ -373,11 +373,7 @@ function updateFxNote() {
   if (src === "live") {
     note.textContent = t("fx.live", { date: liveRatesDate() || "" });
   } else if (src === "cached") {
-    // A live rate landed earlier this session but the app is effectively offline right now -
-    // fx.cached does not exist in any catalog yet (see report), so this falls back to the
-    // honest-enough fx.static line until that key ships.
-    const cached = t("fx.cached", { date: liveRatesDate() || "" });
-    note.textContent = cached !== "fx.cached" ? cached : t("fx.static", { date: FX_AS_OF });
+    note.textContent = t("fx.cached", { date: liveRatesDate() || "" });
   } else if (src === "static") {
     note.textContent = t("fx.static", { date: FX_AS_OF });
   } else {
@@ -390,20 +386,12 @@ function updateFxNote() {
 // them silently lies about what unit they take. Spelling out "USD" instead of converting is the
 // honest fix: converting would mean re-deriving the visitor's typed number every time the
 // currency picker changes, for a value that was never meant to move.
-// form.votUsd/form.thresholdUsd don't exist in any catalog yet (see report) - t() returning the
-// key itself is this function's own signal to fall back to the plain (non-USD-suffixed) label.
 function updateUsdLabels() {
   const usdMode = currentCurrency() !== "USD";
   const votLabel = $("#vot-label");
   const thresholdLabel = $("#threshold-label");
-  if (votLabel) {
-    const usdText = t("form.votUsd");
-    votLabel.textContent = usdMode && usdText !== "form.votUsd" ? usdText : t("form.vot");
-  }
-  if (thresholdLabel) {
-    const usdText = t("form.thresholdUsd");
-    thresholdLabel.textContent = usdMode && usdText !== "form.thresholdUsd" ? usdText : t("form.threshold");
-  }
+  if (votLabel) votLabel.textContent = t(usdMode ? "form.votUsd" : "form.vot");
+  if (thresholdLabel) thresholdLabel.textContent = t(usdMode ? "form.thresholdUsd" : "form.threshold");
 }
 
 function applyCurrency(code) {

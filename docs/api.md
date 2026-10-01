@@ -44,8 +44,9 @@ normal, expected outcome for a planning request, not an HTTP-level error.
   `403 {"ok": false, "error": "forbidden host", "code": "forbidden_host"}`.
 - No endpoint ever returns an API key, token, or secret. `/api/config` reports only booleans
   and provider *names*.
-- Static assets are served from a fixed whitelist dict, not a path built from the request, so
-  there is no path-traversal surface.
+- Static assets come from the packaged `ui/` directory only: the extension has to be on an
+  allowlist, and the resolved real path has to stay inside `ui/`, so `..` and symlinks that
+  lead out of it get a 404.
 
 ---
 

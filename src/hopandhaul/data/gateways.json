@@ -1,5 +1,5 @@
 {
-  "_README": "Curated 'expensive/small destination -> cheaper nearby gateway airport + ground link' pairs. These are STARTING HYPOTHESES for the fly-cheaper-then-train play, not live quotes. ground_time_h and ground_cost_usd are rough typical estimates — the agent MUST verify current flight AND ground prices before recommending. Distances/times are one-way, door-ish. Add entries as new patterns are found.",
+  "_README": "Curated 'expensive/small destination -> cheaper nearby gateway airport + ground link' pairs. These are STARTING HYPOTHESES for the fly-cheaper-then-train play, not live quotes. ground_time_h and ground_cost_usd are rough typical estimates. Check current flight AND ground prices before booking. Distances/times are one-way, door-ish. Add entries as new patterns are found.",
   "_schema": {
     "dest": "final destination (city/label)",
     "dest_airport": "the destination's own (usually pricey/small) airport code",

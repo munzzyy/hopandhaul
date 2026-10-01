@@ -29,9 +29,8 @@ docs/_design/
 tests/web_parity/fixtures/
 
 # Pages artifact staging: the data JSON gets copied here for local preview / the Pages
-# workflow, straight from src/hopandhaul/data/ — never a second committed copy.
+# workflow, straight from src/hopandhaul/data/, never a second committed copy.
 src/hopandhaul/ui/data/
 
 # Node, for the web-parity check script only (no runtime/browser dependency)
 node_modules/
-.claude/

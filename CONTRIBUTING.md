@@ -41,11 +41,13 @@ them stops being run by whoever reads that file. If you touch a module, run its 
 locally before pushing, and add a case to it if you fixed a bug or added behavior. A fix with
 no test attached to it is a fix that can silently regress.
 
-Two repo-level checks round it out, both also in CI:
+Four repo-level checks round it out, all also in CI:
 
 ```
-python tools/check_i18n.py       # every catalog parses, matches en.json's keys, keeps placeholders
-python tools/check_cli_help.py   # every `hopandhaul <sub> --help` usage line is copy-runnable
+python tools/check_i18n.py             # every catalog parses, matches en.json's keys, keeps placeholders
+python tools/check_example_dates.py    # README and help example dates are still in the future
+python tools/check_cli_help.py         # every `hopandhaul <sub> --help` usage line is copy-runnable
+python tools/check_selftest_lists.py   # the self-test lists in ci.yml, README.md and here match
 ```
 
 Lint with `ruff check .`. CI runs it too, against the rule set in `pyproject.toml`.
@@ -86,6 +88,7 @@ what is there rather than on a count. And both engines must see the same `today`
 ```
 python tests/web_parity/gen_fixtures.py
 node tests/web_parity/check.mjs
+node tests/ui/weather.test.mjs   # ui/weather.js against a stubbed fetch, no network
 ```
 
 If a case fails, the JS is wrong. Fix it to match Python, never loosen the check. The classic
@@ -117,8 +120,9 @@ source of truth.
 - Every endpoint returns `{"ok": bool, ...}` and never a raw exception string or traceback to
   the client. Log the real error server-side, return a generic message. See `docs/api.md`.
 - Keep the server's security invariants intact: 127.0.0.1-only bind, the Host-header
-  allowlist (DNS-rebinding guard), and the static-file whitelist (no path built from request
-  input). If your change touches `server.py`, re-read that part before you submit.
+  allowlist (DNS-rebinding guard), and the static-file checks in `_resolve_ui_asset()`
+  (extension allowlist, then a realpath that has to stay inside `ui/`). If your change
+  touches `server.py`, re-read that part before you submit.
 
 ## Voice
 

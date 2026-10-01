@@ -180,19 +180,10 @@ function recommendationCard(R, rec, isDirect) {
       + " " + esc(t("rec.cleanWin"));
   } else {
     heroValue = fmtMoney(rec.savings_vs_baseline);
-    // card.votReason does not exist in any catalog yet (see report) - t() falls back to
-    // returning the key itself when a catalog has no entry for it, same convention
-    // applyStatic() relies on, so this degrades to the literal key string rather than throwing
-    // until that key ships. A vot_qualifies winner earned its recommendation by beating the
-    // baseline once the visitor's own value-of-time is priced in, not by clearing the flat
-    // $threshold rule - the $600-rule sentence below was previously shown for every non-dominant
-    // winner regardless of which rule actually fired, which misattributed the reason.
-    if (rec.status === "vot_qualifies") {
-      const votReason = t("card.votReason");
-      heroLabel = votReason !== "card.votReason" ? votReason : t("rec.savedVs", { money: fmtMoney(R.threshold) });
-    } else {
-      heroLabel = t("rec.savedVs", { money: fmtMoney(R.threshold) });
-    }
+    // A vot_qualifies winner beat the baseline on value of time, not on the threshold rule.
+    heroLabel = rec.status === "vot_qualifies"
+      ? t("card.votReason")
+      : t("rec.savedVs", { money: fmtMoney(R.threshold) });
     subline = flyIntoLine(hubFromOption(rec), modeLabel(rec.legs[1]?.mode));
     if (rec.extra_hours_vs_baseline > 0 && rec.breakeven_vot != null) {
       breakeven = esc(t("rec.adds", { hours: fmtH(rec.extra_hours_vs_baseline), money: fmtMoney(rec.breakeven_vot) }));

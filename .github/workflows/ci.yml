@@ -57,6 +57,9 @@ jobs:
       - name: CLI help (every usage line is copy-runnable)
         run: python tools/check_cli_help.py
 
+      - name: Self-test lists in ci.yml, README and CONTRIBUTING match
+        run: python tools/check_selftest_lists.py
+
       # shell: bash on purpose. The Windows default is pwsh, which only reports the exit
       # code of the LAST line of a multi-line run block, so a module failing anywhere above
       # `integrations.net` would go green. bash runs with -e and stops at the first failure.

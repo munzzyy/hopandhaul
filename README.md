@@ -186,7 +186,7 @@ More of this tool is real data than you'd guess for something with zero keys:
   on those legs are still estimates, because schedules are open data and ticket prices mostly aren't.
 - **US fares are anchored to what passengers actually paid.** The bundled
   [BTS Consumer Airfare Report](https://data.transportation.gov/d/yj5y-b2ir) extract (public
-  domain, currently 2025Q2-2026Q1) carries real average fares for ~4,100 US city-pair markets;
+  domain, currently 2025Q2-2026Q1) carries real average fares for ~4,300 US city-pair markets;
   the model is clamped into each route's real band, and the itinerary shows the real market
   numbers next to the estimate.
 - **The base map is self-drawn, not fetched.** Land, lakes, and borders are rasterized from
@@ -327,7 +327,7 @@ black box. See `docs/api.md` for the exact HTTP contract.
 
 ## Self-tests
 
-Every module ships an offline self-test. No keys, no network, a few seconds for all 13:
+Every module ships an offline self-test. No keys, no network, under 20 seconds for all 14:
 
 ```
 python -m hopandhaul.trip --selftest
@@ -343,6 +343,7 @@ python -m hopandhaul.weather --selftest
 python -m hopandhaul.go --selftest
 python -m hopandhaul.multicity --selftest
 python -m hopandhaul.dates --selftest
+python -m hopandhaul.integrations.net
 ```
 
 ## Configuration (all optional)

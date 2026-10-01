@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-dates.py - "which date is actually cheapest" sweep for travel-scout.
+dates.py - the "which date is actually cheapest" sweep.
 
 Every other hopandhaul command takes one --date and prices that single day. This sweeps
 a bounded window of candidate dates around it and calls duffel.build_and_evaluate() - the

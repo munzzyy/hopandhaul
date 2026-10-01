@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-duffel.py - live flight-price fetcher for travel-scout via the Duffel Flights API.
+duffel.py - live flight prices from the Duffel Flights API.
 
 Cole's flight data source. Creates an offer request for each candidate O->D->date, reads the
 cheapest offer, normalizes it to USD, and (in CLI mode) attaches a ground leg per gateway and

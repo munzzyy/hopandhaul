@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-server.py - tiny localhost server for the travel-scout click-the-map UI.
+server.py - tiny localhost server for the click-the-map UI.
 
 Serves ui/index.html and a JSON API. On a map click the browser calls /api/plan with the
 clicked lat/lng; the server finds the nearest airport, discovers cheaper-hub + ground gateways
@@ -1468,6 +1468,9 @@ def selftest():
     check("refuses path traversal", _resolve_ui_asset("/../server.py") is None
           and _resolve_ui_asset("/../../etc/passwd") is None)
     check("refuses unknown extension", _resolve_ui_asset("/secrets.env") is None)
+    check("refuses an allowed extension outside ui/",
+          os.path.isfile(os.path.join(_UI_ROOT, "..", "data", "airports.json"))
+          and _resolve_ui_asset("/../data/airports.json") is None)
 
     # end-to-end plan for a click on Aspen, origin JFK - estimate mode, no network.
     # (allow_live+allow_transit False -> no provider or Transitous calls; fetch_weather=False -> offline)
