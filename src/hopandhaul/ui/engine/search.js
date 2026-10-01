@@ -8,15 +8,41 @@
 // map-click flow (geo.nearestAirport) is still the primary, most precise way to set a point.
 import { airports } from "./data.js";
 
+// NFKD leaves these letters whole. Mirrors go.py fold(); change both together.
+const FOLD_LETTERS = {
+  "ł": "l", "ø": "o", "đ": "d", "ß": "ss", "æ": "ae", "œ": "oe", "\u0131": "i", "ð": "d", "þ": "th",
+};
+const FOLD_RE = new RegExp(`[${Object.keys(FOLD_LETTERS).join("")}]`, "g");
+
+/** "São Paulo", "ZÜRICH", "Łódź" -> "sao paulo", "zurich", "lodz". */
+export function foldText(s) {
+  return String(s || "")
+    .normalize("NFKD")
+    .replace(/\p{Mn}/gu, "")
+    .toLowerCase()
+    .replace(FOLD_RE, (c) => FOLD_LETTERS[c]);
+}
+
+let foldedFor = null;
+let folded = [];
+
+function foldedAirports() {
+  const list = airports();
+  if (foldedFor !== list) {
+    folded = list.map((a) => ({
+      a, iata: a.iata.toLowerCase(), city: foldText(a.city), name: foldText(a.name),
+    }));
+    foldedFor = list;
+  }
+  return folded;
+}
+
 export function searchAirports(query, limit = 6) {
-  const q = String(query || "").trim().toLowerCase();
+  const q = foldText(String(query || "").trim());
   if (!q) return [];
 
   const scored = [];
-  for (const a of airports()) {
-    const iata = a.iata.toLowerCase();
-    const city = (a.city || "").toLowerCase();
-    const name = (a.name || "").toLowerCase();
+  for (const { a, iata, city, name } of foldedAirports()) {
     let rank;
     if (iata === q) rank = 0;
     else if (city === q) rank = 1;

@@ -31,6 +31,7 @@ const trip = await import(engineUrl("trip.js"));
 const { sweepDates, candidateDates, basisOfLegs } = await import(engineUrl("dates.js"));
 const { loadData } = await import(engineUrl("data.js"));
 const { parsePlanParams, ValidationError } = await import(engineUrl("validate.js"));
+const { searchAirports, foldText } = await import(engineUrl("search.js"));
 
 // Node has no browser fetch()-a-local-file story worth relying on here - read the same two
 // JSON files geo.py reads, straight off disk. Same bytes, same array order, so nearest_airport/
@@ -177,6 +178,31 @@ function diff(a, b, at = "$") {
   return a === b ? null : `${at}: ${JSON.stringify(a)} != ${JSON.stringify(b)}`;
 }
 
+// go.py's selftest pins the same fold pairs, so the two engines can't fold differently.
+const FOLD_PAIRS = [
+  ["São Paulo", "sao paulo"], ["ZÜRICH", "zurich"], ["Łódź", "lodz"], ["Straße", "strasse"],
+  ["Tromsø", "tromso"], ["Þórshöfn", "thorshofn"], ["Đà Nẵng", "da nang"], ["Œuvre", "oeuvre"],
+  ["Æsir", "aesir"], ["Diyarbak\u0131r", "diyarbakir"], ["İstanbul", "istanbul"],
+];
+
+function searchChecks() {
+  const first = (q) => searchAirports(q, 6)[0]?.iata;
+  const checks = [
+    ["searchAirports('Montréal')[0] is YUL", first("Montréal") === "YUL"],
+    ["searchAirports('zürich')[0] is ZRH", first("zürich") === "ZRH"],
+    ["searchAirports('São Paulo')[0] is GRU", first("São Paulo") === "GRU"],
+    ["searchAirports('sao luis') includes SLZ", searchAirports("sao luis", 6).some((r) => r.iata === "SLZ")],
+    ["searchAirports('Lodz')[0] is LCJ", first("Lodz") === "LCJ"],
+    ["labels keep the DB spelling", searchAirports("lodz", 1)[0]?.label.startsWith("Łódź")],
+    ...FOLD_PAIRS.map(([raw, want]) => [`foldText(${JSON.stringify(raw)}) is ${JSON.stringify(want)}`,
+      foldText(raw) === want]),
+  ];
+  const failed = checks.filter(([, ok]) => !ok);
+  for (const [name] of failed) console.log(`FAIL  search: ${name}`);
+  console.log(`search: ${checks.length - failed.length} passed, ${failed.length} failed`);
+  return failed.length;
+}
+
 async function main() {
   if (!existsSync(FIXTURES_DIR)) {
     console.error(`no fixtures at ${FIXTURES_DIR}. Run: python tests/web_parity/gen_fixtures.py`);
@@ -230,6 +256,7 @@ async function main() {
     console.log("py:", JSON.stringify(f.py, null, 2));
     process.exit(1);
   }
+  if (searchChecks()) process.exit(1);
 }
 
 main();

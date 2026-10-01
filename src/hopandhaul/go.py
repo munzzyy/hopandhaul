@@ -24,6 +24,7 @@ import functools
 import io
 import json
 import sys
+import unicodedata
 
 from . import duffel, geo, itinerary, server, trip
 
@@ -97,14 +98,33 @@ def resolve_airport(query: str) -> tuple[dict | None, list[dict]]:
     return best, others
 
 
+# NFKD leaves these letters whole. Mirrored in ui/engine/search.js foldText(); change both together.
+_FOLD_LETTERS = str.maketrans({
+    "ł": "l", "ø": "o", "đ": "d", "ß": "ss", "æ": "ae", "œ": "oe", "\u0131": "i", "ð": "d", "þ": "th",
+})
+_FOLDED_AIRPORTS = None
+
+
+def fold(s: str | None) -> str:
+    """'São Paulo', 'ZÜRICH', 'Łódź' -> 'sao paulo', 'zurich', 'lodz'. Queries and the airport DB
+    are compared in this form, so a city typed in its own spelling matches the DB's ASCII one."""
+    d = unicodedata.normalize("NFKD", s or "")
+    return "".join(c for c in d if unicodedata.category(c) != "Mn").lower().translate(_FOLD_LETTERS)
+
+
+def _folded_airports() -> list[tuple[str, str, dict]]:
+    global _FOLDED_AIRPORTS
+    if _FOLDED_AIRPORTS is None:
+        _FOLDED_AIRPORTS = [(fold(a.get("city")), fold(a.get("name")), a) for a in geo.airports()]
+    return _FOLDED_AIRPORTS
+
+
 def _search_airports(q: str, country: str | None = None) -> tuple[dict | None, list[dict]]:
-    ql = q.lower()
+    ql = fold(q)
     scored = []
-    for a in geo.airports():
+    for city, name, a in _folded_airports():
         if country and a.get("country") != country:
             continue
-        city = (a.get("city") or "").lower()
-        name = (a.get("name") or "").lower()
         if ql == city:
             score = 0
         elif city.startswith(ql):
@@ -134,15 +154,14 @@ def _suggest_airports(q: str, limit: int = 3) -> list[dict]:
     share a city name ('Paris' -> CDG/ORY/BVA); pick the best-connected one (lowest hub tier)
     for that match instead of whichever happened to be inserted first."""
     names = {}
-    for a in geo.airports():
-        for key in (a.get("city"), a.get("name")):
-            if not key:
+    for city, name, a in _folded_airports():
+        for kl in (city, name):
+            if not kl:
                 continue
-            kl = key.lower()
             cur = names.get(kl)
             if cur is None or a["hub"] < cur["hub"]:
                 names[kl] = a
-    matches = difflib.get_close_matches((q or "").lower(), list(names.keys()), n=limit, cutoff=0.6)
+    matches = difflib.get_close_matches(fold(q), list(names.keys()), n=limit, cutoff=0.6)
     seen, out = set(), []
     for m in matches:
         a = names[m]
@@ -321,6 +340,27 @@ def selftest() -> int:
     a7, _ = resolve_airport("Victoria TX")
     check("'Victoria TX' still resolves to the US Victoria (region filter isn't one-directional)",
           a7 is not None and a7["country"] == "US")
+
+    # tests/web_parity/check.mjs pins the same pairs against foldText()
+    fold_pairs = [
+        ("São Paulo", "sao paulo"), ("ZÜRICH", "zurich"), ("Łódź", "lodz"), ("Straße", "strasse"),
+        ("Tromsø", "tromso"), ("Þórshöfn", "thorshofn"), ("Đà Nẵng", "da nang"), ("Œuvre", "oeuvre"),
+        ("Æsir", "aesir"), ("Diyarbak\u0131r", "diyarbakir"), ("İstanbul", "istanbul"),
+    ]
+    bad_folds = [raw for raw, want in fold_pairs if fold(raw) != want]
+    check("fold() strips accents and maps the letters NFKD keeps"
+          + (f", wrong: {bad_folds}" if bad_folds else ""), not bad_folds)
+    accented = {
+        "São Paulo": "GRU", "Sao Paulo": "GRU", "Zürich": "ZRH", "Málaga": "AGP", "Malaga": "AGP",
+        "Belem": "BEL", "Belém": "BEL", "Sao Luis": "SLZ", "Montréal": "YUL", "Lodz": "LCJ",
+        "Wrocław": "WRO", "Tromsø": "TOS", "Kraków": "KRK", "Düsseldorf": "DUS",
+    }
+    wrong = {q: (resolve_airport(q)[0] or {}).get("iata") for q in accented}
+    wrong = {q: got for q, got in wrong.items() if got != accented[q]}
+    check("accented and plain spellings resolve to the same airport"
+          + (f", wrong: {wrong}" if wrong else ""), not wrong)
+    check("a typo in an accented name still gets a suggestion ('Zürch' -> ZRH)",
+          any(a["iata"] == "ZRH" for a in _suggest_airports("Zürch")))
 
     # end-to-end offline: the exact pipeline `hopandhaul go` runs, no network
     out = server.plan(a3["lat"], a3["lng"], origin_iata="LHR", fetch_weather=False,
