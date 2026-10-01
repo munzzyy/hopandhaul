@@ -124,6 +124,7 @@
   "greenest.note": "{name}, buradaki en düşük karbonlu seçenek ({co2} tah., yukarıdaki önerinin {co2rec} değerine karşılık) — bu ödünleşmenin değip değmeyeceğine siz karar verin.",
   "itin.summary": "Güzergâh ve doğrulama bağlantıları",
   "itin.example": "Örnek program, gerçek rezervasyon değildir — saatler tahminidir. Satın almadan önce doğrulayın.",
+  "itin.clockBasis": "Örnek saatler kalkış yerinin saatine göre ilerler ve saat dilimlerini hesaba katmaz, bu yüzden yerel varış saati birkaç saat sapabilir.",
   "itin.live": "Gerçek canlı ücrete dayanmaktadır — program ve fiyat gerçektir, örnek değildir.",
   "itin.checkinBy": "{day} {clock} itibarıyla havalimanında olun",
   "itin.verify": "Bu fiyatı doğrula",

@@ -124,6 +124,7 @@
   "greenest.note": "{name} là phương án phát thải carbon thấp nhất ở đây (ước tính {co2}, so với {co2rec} của gợi ý phía trên) — bạn tự cân nhắc xem có đáng đánh đổi không.",
   "itin.summary": "Lịch trình & liên kết xác minh",
   "itin.example": "Lịch trình ví dụ, không phải đặt chỗ thật — thời gian chỉ mang tính minh họa. Hãy kiểm tra trước khi mua.",
+  "itin.clockBasis": "Giờ mẫu chạy theo đồng hồ nơi khởi hành và không điều chỉnh theo múi giờ, nên giờ đến theo giờ địa phương có thể lệch vài tiếng.",
   "itin.live": "Được xây dựng từ giá thực tế theo thời gian thực — lịch trình và giá đều có thật, không phải ví dụ.",
   "itin.checkinBy": "Có mặt ở sân bay trước {day} {clock}",
   "itin.verify": "Kiểm tra giá này",

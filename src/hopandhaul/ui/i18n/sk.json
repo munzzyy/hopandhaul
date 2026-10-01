@@ -124,6 +124,7 @@
   "greenest.note": "{name} má tu najnižšiu uhlíkovú stopu (odhad {co2} oproti {co2rec} pri odporúčanej voľbe vyššie) — či sa to oplatí, je na vás.",
   "itin.summary": "Itinerár a overovacie odkazy",
   "itin.example": "Orientačný harmonogram, nie skutočná rezervácia — časy sú orientačné. Overte pred nákupom.",
+  "itin.clockBasis": "Ukážkové časy idú podľa hodín v mieste odletu a nezohľadňujú časové pásma, takže miestny čas príletu sa môže líšiť o niekoľko hodín.",
   "itin.live": "Zostavené zo skutočnej aktuálnej ceny — harmonogram aj cena sú reálne, nie príklad.",
   "itin.checkinBy": "Buďte na letisku do {day} {clock}",
   "itin.verify": "Overiť túto cenu",

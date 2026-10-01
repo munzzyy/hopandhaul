@@ -124,6 +124,7 @@
   "greenest.note": "{name} ima tu najnižji ogljični odtis (ocena {co2} v primerjavi s {co2rec} za zgornje priporočilo) — ti presodiš, ali se ta kompromis splača.",
   "itin.summary": "Potek poti in povezave za preverjanje",
   "itin.example": "Primer urnika, ne prava rezervacija — časi so okvirni. Preverite pred nakupom.",
+  "itin.clockBasis": "Okvirni časi tečejo po uri kraja odhoda in ne upoštevajo časovnih pasov, zato se lahko lokalni čas prihoda razlikuje za nekaj ur.",
   "itin.live": "Ustvarjeno na podlagi resnične cene v živo — urnik in cena sta resnična, ne primer.",
   "itin.checkinBy": "Bodite na letališču do {day} {clock}",
   "itin.verify": "Preveri to ceno",

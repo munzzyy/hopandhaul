@@ -124,6 +124,7 @@
   "greenest.note": "{name} šeit ir iespēja ar mazāko oglekļa pēdu ({co2} aprēķināts, salīdzinot ar {co2rec} augstāk redzamajai izvēlei) — jūs izlemjat, vai kompromiss ir vērts.",
   "itin.summary": "Maršruts un pārbaudes saites",
   "itin.example": "Piemēra grafiks, nevis reāla rezervācija — laiki ir orientējoši. Pārbaudiet pirms pirkšanas.",
+  "itin.clockBasis": "Piemēra laiki rit pēc izlidošanas vietas pulksteņa un neņem vērā laika joslas, tāpēc vietējais ierašanās laiks var atšķirties par vairākām stundām.",
   "itin.live": "Izveidots no reālas aktuālās cenas — grafiks un cena ir īsti, nevis piemērs.",
   "itin.checkinBy": "Esiet lidostā līdz {day} {clock}",
   "itin.verify": "Pārbaudīt šo cenu",

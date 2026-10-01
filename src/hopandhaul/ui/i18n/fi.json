@@ -124,6 +124,7 @@
   "greenest.note": "{name} on tässä vähäpäästöisin vaihtoehto ({co2}, kun yllä olevalle valinnalle {co2rec}) — sinä päätät, kannattaako kompromissi.",
   "itin.summary": "Matkasuunnitelma ja tarkistuslinkit",
   "itin.example": "Esimerkkiaikataulu, ei todellinen varaus — ajat ovat suuntaa-antavia. Tarkista ennen ostoa.",
+  "itin.clockBasis": "Esimerkkiajat kulkevat lähtöpaikan kellon mukaan eivätkä huomioi aikavyöhykkeitä, joten paikallinen saapumisaika voi poiketa tunteja.",
   "itin.live": "Perustuu todelliseen reaaliaikaiseen hintaan — aikataulu ja hinta ovat todellisia, ei esimerkki.",
   "itin.checkinBy": "Ole lentokentällä viimeistään {day} {clock}",
   "itin.verify": "Tarkista tämä hinta",

@@ -124,6 +124,7 @@
   "greenest.note": "{name}是這裡碳排放最低的方案（約 {co2}，上方建議方案約為 {co2rec}）— 是否值得這個取捨，由你決定。",
   "itin.summary": "行程與核實連結",
   "itin.example": "示例時間表，並非真實預訂 — 時間僅供參考。購買前請核實。",
+  "itin.clockBasis": "示例時間按出發地的時鐘推算，未考慮時區，當地抵達時間可能相差數小時。",
   "itin.live": "基於真實的即時票價 — 時間和價格都是真實的，並非示例。",
   "itin.checkinBy": "請在{day} {clock}前抵達機場",
   "itin.verify": "核實此價格",

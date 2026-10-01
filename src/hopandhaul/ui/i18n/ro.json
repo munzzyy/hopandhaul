@@ -124,6 +124,7 @@
   "greenest.note": "{name} e opțiunea cu cea mai mică amprentă de carbon de aici ({co2} est., față de {co2rec} pentru recomandarea de mai sus) — tu decizi dacă merită compromisul.",
   "itin.summary": "Itinerar și linkuri de verificare",
   "itin.example": "Program exemplu, nu o rezervare reală — orele sunt orientative. Verifică înainte de a cumpăra.",
+  "itin.clockBasis": "Orele de exemplu merg după ceasul locului de plecare și nu țin cont de fusurile orare, așa că ora locală de sosire poate diferi cu câteva ore.",
   "itin.live": "Construit pe baza unei tarife live reale — programul și prețul sunt reale, nu un exemplu.",
   "itin.checkinBy": "Fii la aeroport până la {day} {clock}",
   "itin.verify": "Verifică acest preț",

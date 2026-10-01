@@ -124,6 +124,7 @@
   "greenest.note": "Ang {name} ang may pinakamababang carbon footprint dito (tantiyang {co2}, kumpara sa {co2rec} ng rekomendasyon sa itaas) — desisyon mo na kung sulit ang trade-off na iyon.",
   "itin.summary": "Itinerary at mga link ng pagpapatunay",
   "itin.example": "Halimbawang iskedyul, hindi totoong booking — tinatayang oras lamang. I-verify bago bumili.",
+  "itin.clockBasis": "Sumusunod ang mga halimbawang oras sa orasan ng pinanggalingan at hindi nag-a-adjust sa time zone, kaya puwedeng ilang oras ang pagitan ng lokal na oras ng pagdating.",
   "itin.live": "Base sa tunay na live na presyo — totoo ang iskedyul at presyo, hindi halimbawa.",
   "itin.checkinBy": "Nasa paliparan ka na sa {day} {clock}",
   "itin.verify": "I-verify ang presyong ito",

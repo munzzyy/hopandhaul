@@ -124,6 +124,7 @@
   "greenest.note": "Itt a(z) {name} a legalacsonyabb szén-dioxid-kibocsátású lehetőség ({co2} becsült érték a fenti ajánlás {co2rec} értékéhez képest) — te döntöd el, megéri-e a kompromisszum.",
   "itin.summary": "Útiterv és ellenőrző linkek",
   "itin.example": "Példa menetrend, nem valódi foglalás — az idők tájékoztató jellegűek. Vásárlás előtt ellenőrizd.",
+  "itin.clockBasis": "A példaidőpontok az indulási hely órája szerint haladnak, és nem veszik figyelembe az időzónákat, így a helyi érkezési idő órákkal eltérhet.",
   "itin.live": "Valódi élő ár alapján — a menetrend és az ár valós, nem példa.",
   "itin.checkinBy": "Legyél a repülőtéren eddig: {day} {clock}",
   "itin.verify": "Ár ellenőrzése",

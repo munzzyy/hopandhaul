@@ -124,6 +124,7 @@
   "greenest.note": "{name} é a opção com menor emissão de carbono aqui ({co2} est., contra {co2rec} da recomendação acima) — você decide se vale a troca.",
   "itin.summary": "Itinerário e links de verificação",
   "itin.example": "Horário de exemplo, não é uma reserva real — os horários são ilustrativos. Confira antes de comprar.",
+  "itin.clockBasis": "Os horários de exemplo seguem o relógio da partida e não consideram fusos horários, então a hora local de chegada pode variar algumas horas.",
   "itin.live": "Baseado em uma tarifa real ao vivo — o horário e o preço são reais, não um exemplo.",
   "itin.checkinBy": "Esteja no aeroporto até {day} {clock}",
   "itin.verify": "Conferir este preço",

@@ -124,6 +124,7 @@
   "greenest.note": "{name} er alternativet med lavest utslipp her ({co2} estimert, mot {co2rec} for valget ovenfor) — du avgjør om det er verdt avveiningen.",
   "itin.summary": "Reiseplan og verifiseringslenker",
   "itin.example": "Eksempel på tidsplan, ikke en ekte bestilling — tidene er veiledende. Sjekk før du kjøper.",
+  "itin.clockBasis": "Eksempeltidene følger klokken der du reiser fra og tar ikke hensyn til tidssoner, så lokal ankomsttid kan bomme med flere timer.",
   "itin.live": "Basert på en ekte live-pris — tidsplan og pris er reelle, ikke et eksempel.",
   "itin.checkinBy": "Vær på flyplassen innen {day} {clock}",
   "itin.verify": "Sjekk denne prisen",

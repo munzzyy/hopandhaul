@@ -79,6 +79,11 @@ def _en_catalog() -> dict:
     return _EN_CATALOG
 
 
+def en_text(key: str) -> str:
+    """One en.json string by its full key, for CLI text that has no params."""
+    return _en_catalog().get(key, key)
+
+
 def _en_notes() -> dict:
     """The 'notes.*' subset of the catalog, keyed without the 'notes.' prefix."""
     global _EN_NOTES

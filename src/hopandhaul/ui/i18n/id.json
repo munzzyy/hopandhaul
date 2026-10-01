@@ -124,6 +124,7 @@
   "greenest.note": "{name} adalah opsi dengan emisi karbon terendah di sini (estimasi {co2}, dibanding {co2rec} untuk pilihan di atas) — Anda yang menentukan apakah trade-off ini sepadan.",
   "itin.summary": "Itinerary & tautan verifikasi",
   "itin.example": "Jadwal contoh, bukan pemesanan nyata — waktu bersifat perkiraan. Periksa sebelum membeli.",
+  "itin.clockBasis": "Waktu contoh mengikuti jam keberangkatan dan tidak disesuaikan dengan zona waktu, jadi waktu tiba setempat bisa meleset beberapa jam.",
   "itin.live": "Dibuat dari tarif real-time yang sebenarnya — jadwal dan harga nyata, bukan contoh.",
   "itin.checkinBy": "Berada di bandara paling lambat {day} {clock}",
   "itin.verify": "Periksa harga ini",

@@ -647,6 +647,7 @@ def _format_itinerary_block(option: dict, money_fmt=None) -> str:
     lines = [f"    {option['name']}:"]
     if itin.get("example_day"):
         lines.append("      (example schedule, not a real booking; see 'verify' links below)")
+        lines.append(f"      {itinerary.en_text('itin.clockBasis')}")
     for i, leg in enumerate(legs, 1):
         frm, to = leg["from"], leg["to"]
         tag = "LIVE" if leg["is_live"] else "est."
@@ -1010,6 +1011,13 @@ def selftest():
           not any(k in ege_opt["itinerary"]["legs"][0] for k in itinerary.FARE_FACTS))
     check("format_itineraries prints the bag count on live legs only",
           itin_text.count("1 checked bag included") == len(res_cli["options"]) - 1)
+    clock_basis = itinerary.en_text("itin.clockBasis")
+    direct_opt = next(o for o in res_cli["options"] if o["name"].startswith("Fly direct"))
+    check("an estimate itinerary says its clock ignores time zones",
+          "time zones" in clock_basis and clock_basis in _format_itinerary_block(ege_opt))
+    check("an all-live itinerary does not",
+          direct_opt["itinerary"]["example_day"] is False
+          and clock_basis not in _format_itinerary_block(direct_opt))
     check("bag lines for none, zero and several",
           "not in the fare data" in _bags_line(None) and "fee is extra" in _bags_line(0)
           and _bags_line(2) == "2 checked bags included")

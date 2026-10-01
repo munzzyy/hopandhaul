@@ -124,6 +124,7 @@
   "greenest.note": "{name} is hier de optie met de laagste CO2-uitstoot ({co2} gesch., tegenover {co2rec} voor de keuze hierboven) — jij bepaalt of die afweging het waard is.",
   "itin.summary": "Reisschema & verificatielinks",
   "itin.example": "Voorbeeldschema, geen echte boeking — tijden zijn indicatief. Controleer voordat je koopt.",
+  "itin.clockBasis": "De voorbeeldtijden lopen op de klok van je vertrekplaats en houden geen rekening met tijdzones, dus de lokale aankomsttijd kan uren afwijken.",
   "itin.live": "Gebaseerd op een echte live prijs — schema en prijs zijn echt, geen voorbeeld.",
   "itin.checkinBy": "Wees uiterlijk {day} {clock} op de luchthaven",
   "itin.verify": "Controleer deze prijs",

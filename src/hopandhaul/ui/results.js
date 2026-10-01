@@ -281,7 +281,8 @@ function itineraryBlock(o) {
   return "\n"
     + "      <details class=\"itin\">\n"
     + "        <summary>" + esc(t("itin.summary")) + "</summary>\n"
-    + "        <p class=\"itin-note\">" + esc(t(noteKey)) + "</p>\n"
+    + "        <p class=\"itin-note\">" + esc(t(noteKey))
+    + (itin.example_day ? " " + esc(t("itin.clockBasis")) : "") + "</p>\n"
     + "        <ol class=\"itin-legs\">" + itin.legs.map(itineraryLegRow).join("") + "</ol>\n"
     + "      </details>";
 }

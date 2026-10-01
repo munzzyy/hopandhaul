@@ -127,6 +127,7 @@
   "greenest.note": "{name} is the lowest-carbon option here ({co2} est., vs {co2rec} for the pick above) — your call whether that's worth the trade-off.",
   "itin.summary": "Itinerary & verify links",
   "itin.example": "Example schedule, not a real booking — times are illustrative. Verify before you buy.",
+  "itin.clockBasis": "Example times run on your departure clock and don't adjust for time zones, so a local arrival can be hours off.",
   "itin.live": "Built from a real live fare — the schedule and price are real, not an example.",
   "itin.checkinBy": "Be at the airport by {day} {clock}",
   "itin.verify": "Check this price",

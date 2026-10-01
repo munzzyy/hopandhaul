@@ -124,6 +124,7 @@
   "greenest.note": "{name} er kosturinn með minnstu kolefnislosunina hér ({co2} áætlað, á móti {co2rec} fyrir valið hér að ofan) — þú ræður hvort það sé þess virði.",
   "itin.summary": "Ferðaáætlun og staðfestingartenglar",
   "itin.example": "Dæmi um tímaáætlun, ekki raunveruleg bókun — tímar eru til viðmiðunar. Staðfestu áður en þú kaupir.",
+  "itin.clockBasis": "Dæmatímar fylgja klukkunni á brottfararstað og taka ekki tillit til tímabelta, svo staðartími við komu getur munað nokkrum klukkustundum.",
   "itin.live": "Byggt á raunverulegu rauntímaverði — tímaáætlun og verð eru raunveruleg, ekki dæmi.",
   "itin.checkinBy": "Vertu kominn á flugvöllinn fyrir {day} {clock}",
   "itin.verify": "Athuga þetta verð",

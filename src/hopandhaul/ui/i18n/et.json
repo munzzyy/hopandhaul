@@ -124,6 +124,7 @@
   "greenest.note": "{name} on siin kõige väiksema süsihappegaasiheitega valik ({co2} hinnanguliselt, võrdluseks {co2rec} ülalpool oleva valiku puhul) — sina otsustad, kas kompromiss on seda väärt.",
   "itin.summary": "Marsruut ja kontroll-lingid",
   "itin.example": "Näidisajakava, mitte tegelik broneering — ajad on illustratiivsed. Kontrolli enne ostmist.",
+  "itin.clockBasis": "Näidisajad käivad väljumiskoha kella järgi ega arvesta ajavööndeid, nii et kohalik saabumisaeg võib erineda mitme tunni võrra.",
   "itin.live": "Koostatud tegeliku reaalajas hinna põhjal — ajakava ja hind on tegelikud, mitte näide.",
   "itin.checkinBy": "Ole lennujaamas hiljemalt {day} {clock}",
   "itin.verify": "Kontrolli seda hinda",
