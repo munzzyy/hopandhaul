@@ -1220,6 +1220,15 @@ def _gw(g):
 
 
 # --------------------------------------------------------------------------- http
+
+def _json_default(value):
+    """Live Duffel segments carry datetime objects straight from the parser; the
+    estimate path never does. json.dumps would drop the connection on the first
+    keyed plan instead of serving it."""
+    if isinstance(value, (datetime.datetime, datetime.date)):
+        return value.isoformat()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "hopandhaul/1.0"
     timeout = 15
@@ -1234,7 +1243,7 @@ class Handler(BaseHTTPRequestHandler):
         return host in ALLOWED_HOSTS
 
     def _send(self, code, body, ctype="application/json"):
-        data = body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
+        data = body if isinstance(body, bytes) else json.dumps(body, default=_json_default).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
@@ -1451,6 +1460,16 @@ def serve(port=DEFAULT_PORT) -> int:
 
 # --------------------------------------------------------------------------- self-test
 def selftest():
+    # Live Duffel segments carry datetimes; the JSON writer has to take them.
+    _live_shape = {"depart_at": datetime.datetime(2026, 3, 4, 5, 6), "d": datetime.date(2026, 3, 4)}
+    _live_json = json.loads(json.dumps(_live_shape, default=_json_default))
+    assert _live_json == {"depart_at": "2026-03-04T05:06:00", "d": "2026-03-04"}
+    try:
+        json.dumps({"x": object()}, default=_json_default)
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("_json_default must still refuse what it does not know")
     trip._force_utf8()
     fails = []
 

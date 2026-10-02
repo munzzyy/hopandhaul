@@ -401,6 +401,10 @@ decision.
 - A decision on an explore mode: rank where you could go by total trip cost after the $200
   rule, instead of pricing one trip you already picked. Most of the engine is there, but it
   changes what the tool is for, so whether to build it is still open.
+- A decision on weather for the static site. The local server already fetches it from
+  Open-Meteo for you. Showing it on hopandhaul.munzzyy.dev would mean your own browser calls
+  Open-Meteo with the place you clicked, one more third party seeing where you are headed,
+  so it stays off until that trade is worth making.
 
 ## Contributing / License / Security
 
