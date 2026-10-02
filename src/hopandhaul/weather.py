@@ -24,7 +24,6 @@ import contextlib
 import json
 import sys
 import urllib.parse
-from pathlib import Path
 
 from . import __version__
 from .integrations import net
@@ -104,7 +103,6 @@ def current(lat: float, lng: float, units: str = "imperial", timeout: int = 12) 
                   if cur.get("apparent_temperature") is not None else None),
         "humidity": cur.get("relative_humidity_2m"),
         "desc": desc,
-        "code": cur.get("weather_code"),
         "emoji": emoji,
         "wind_mph": (round(cur["wind_speed_10m"])
                      if units == "imperial" and cur.get("wind_speed_10m") is not None else None),
@@ -148,8 +146,7 @@ def _forecast_for_date(lat: float, lng: float, date: str, units: str = "imperial
         return None
     hi = (daily.get("temperature_2m_max") or [None])[0]
     lo = (daily.get("temperature_2m_min") or [None])[0]
-    code = (daily.get("weather_code") or [None])[0]
-    desc, emoji = _wmo(code)
+    desc, emoji = _wmo((daily.get("weather_code") or [None])[0])
     precip = (daily.get("precipitation_probability_max") or [None])[0]
     if precip is not None:
         desc = f"{desc}, {precip}% precip" if desc else f"{precip}% precip"
@@ -158,8 +155,6 @@ def _forecast_for_date(lat: float, lng: float, date: str, units: str = "imperial
         "temp": round(hi) if hi is not None else None,
         "temp_lo": round(lo) if lo is not None else None,
         "desc": desc,
-        "code": code,
-        "precip": precip,
         "emoji": emoji,
         "units": _units_symbol(units),
         "at": f"{times[0]} daily",
@@ -187,7 +182,6 @@ def for_point(lat: float, lng: float, date: str | None = None, units: str = "imp
         if fc is None:
             out["forecast_note"] = (f"Beyond the {FORECAST_DAYS}-day forecast: "
                                     "showing current conditions.")
-            out["forecast_days"] = FORECAST_DAYS
     return out
 
 
@@ -247,42 +241,6 @@ def selftest():
           _wmo(42)[1] == "🌡️" and _wmo(None)[1] == "🌡️" and _wmo("x")[1] == "🌡️")
     check("units symbol", _units_symbol("imperial") == "°F" and _units_symbol("metric") == "°C")
     check("UA identifies the project", "hopandhaul" in UA)
-
-    import unittest.mock as _mock
-    this = sys.modules[__name__]
-    def _fake_http(url, timeout=8):
-        if "current=" in url:
-            return {"current": {"temperature_2m": 70.4, "apparent_temperature": 68.6,
-                                "relative_humidity_2m": 40, "weather_code": 61,
-                                "wind_speed_10m": 5.2}}
-        return {"daily": {"time": ["2030-06-15"], "weather_code": [95],
-                          "temperature_2m_max": [80.1], "temperature_2m_min": [60.2],
-                          "precipitation_probability_max": [40]}}
-
-    with _mock.patch.object(this, "_http_json", side_effect=_fake_http), \
-         _mock.patch.object(this, "_WEATHER_CACHE", net.TTLCache(60)):
-        wx = for_point(10.0, 20.0, "2030-06-15")
-    check("current conditions carry the WMO code", wx is not None and wx["code"] == 61)
-    fc = (wx or {}).get("forecast") or {}
-    check("the forecast row carries its WMO code and precip chance",
-          fc.get("code") == 95 and fc.get("precip") == 40 and fc.get("desc") == "thunderstorm, 40% precip")
-
-    def _beyond(url, timeout=8):
-        if "current=" in url:
-            return _fake_http(url)
-        raise net.FetchError("400", status=400)
-
-    with _mock.patch.object(this, "_http_json", side_effect=_beyond), \
-         _mock.patch.object(this, "_WEATHER_CACHE", net.TTLCache(60)):
-        far = for_point(10.0, 20.0, "2031-06-15")
-    check("a date past the horizon says how many days the forecast covers",
-          far is not None and far["forecast"] is None and far["forecast_days"] == FORECAST_DAYS)
-
-    en = json.loads((Path(__file__).resolve().parent / "ui" / "i18n" / "en.json")
-                    .read_text(encoding="utf-8"))
-    catalog_codes = {int(k.rsplit(".", 1)[1]) for k in en if k.startswith("wx.code.")}
-    check("every WMO code here has a wx.code.<n> string in en.json, and no extras",
-          catalog_codes == set(_WMO))
 
     print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILED'} (offline checks)")
     return 1 if fails else 0

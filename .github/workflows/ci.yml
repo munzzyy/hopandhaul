@@ -101,4 +101,3 @@ jobs:
         run: pip install -e .
       - run: python tests/web_parity/gen_fixtures.py
       - run: node tests/web_parity/check.mjs
-      - run: node tests/ui/weather.test.mjs

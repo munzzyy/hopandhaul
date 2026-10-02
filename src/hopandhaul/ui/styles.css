@@ -732,15 +732,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, [role="option"]
 .date-strip-note--err { color: var(--warn); }
 
 /* weather chip */
-.wx { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: var(--panel-2); border: 1px solid var(--line);
+.wx { display: flex; align-items: center; gap: 10px; background: var(--panel-2); border: 1px solid var(--line);
   border-radius: var(--radius); padding: var(--space-2) 12px; margin: 0 0 var(--space-4); box-shadow: var(--shadow-1); }
 .wx-ico { font-size: 22px; line-height: 1; }
 .wx-temp { font-size: var(--fs-md); font-weight: 700; }
 .wx-feels { font-size: var(--fs-sm); color: var(--dim); font-weight: 400; }
 .wx-desc { font-size: var(--fs-sm); color: var(--dim); text-transform: capitalize; }
 .wx-fc { font-size: var(--fs-xs); color: var(--dim); margin-inline-start: auto; text-align: end; line-height: 1.35; }
-.wx-attr { flex-basis: 100%; font-size: var(--fs-xs); color: var(--dim); }
-.wx-attr a { color: inherit; }
 
 /* option list - one bordered container with hairline separators, not seven sibling boxes */
 .opt-list {

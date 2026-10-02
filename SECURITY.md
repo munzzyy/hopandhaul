@@ -5,17 +5,15 @@ talks to a fixed set of third-party APIs over hardcoded hosts: Duffel and Geoapi
 (optional, keyed) plus four keyless ones, Transitous (`api.transitous.org`, ground
 schedules), Photon (`photon.komoot.io`, place search), Open-Meteo (`api.open-meteo.com`,
 weather), and frankfurter (`api.frankfurter.dev`, FX rates). The browser build's CSP
-lets the page call the four keyless ones directly, because the static GitHub Pages app
-has no server to ask: `api.transitous.org`, `photon.komoot.io`, `api.frankfurter.dev`
-and `api.open-meteo.com`. It also allows map images from `tile.openstreetmap.org`, which
-the page only requests once you turn on the detailed map layer. Duffel and Geoapify stay
+allows exactly two of those (`api.transitous.org`, `photon.komoot.io`) beyond `'self'`,
+because the static GitHub Pages app calls them directly; everything else stays
 server-side. This document says plainly what that means for security, what's already
 handled, and what isn't built yet.
 
 ## No SSRF is possible
 
-Every outbound HTTP call in this codebase targets a hardcoded host literal: the hosts
-named above, nothing else. No code path builds a request URL or hostname from client input,
+Every outbound HTTP call in this codebase targets a hardcoded host literal: the six
+hosts named above, nothing else. No code path builds a request URL or hostname from client input,
 a query parameter, or a map click. `geo.py` (nearest-airport lookup, gateway discovery)
 is pure local JSON/math and never touches the network at all.
 

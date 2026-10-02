@@ -35,7 +35,6 @@ const SHELL_FILES = [
   "./search.js",
   "./format.js",
   "./transit.js",
-  "./weather.js",
   "./theme.js",
   "./theme-boot.js",
   "./i18n.js",

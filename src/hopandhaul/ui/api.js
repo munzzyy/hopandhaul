@@ -18,7 +18,6 @@ import { nearestAirport } from "./engine/geo.js";
 import { searchAirports } from "./engine/search.js";
 import { parsePlanParams, parseDatesParams, parseNearestParams, ValidationError } from "./engine/validate.js";
 import { groundOptions as transitGroundOptions } from "./transit.js";
-import { fetchWeather } from "./weather.js";
 import { isOffline } from "./connectivity.js";
 import { currentLangCode } from "./i18n.js";
 
@@ -122,7 +121,7 @@ export async function fetchConfig() {
     // Backed by the local airport DB (engine/search.js), not a live geocoder - there's no key
     // for one on Pages - but it does work, so this is honestly true, not a degraded "off".
     has_geocode: true,
-    has_weather: true, // Open-Meteo straight from the browser (weather.js), when online
+    has_weather: false,
     default_origin: "JFK",
     default_threshold: 200,
     default_travelers: 1,
@@ -276,8 +275,6 @@ export async function fetchPlan(params) {
     };
     let out = enginePlan(engineParams);
     if (!out.ok) return err(out.code || "plan_failed", out.error || "could not plan that route");
-    // Runs alongside the Transitous batch below; fetchWeather resolves null offline or on failure.
-    const weatherPromise = fetchWeather(parsed.dest_lat, parsed.dest_lng, parsed.date, { offline: isOffline() });
 
     // Live-schedule upgrade (browser twin of the server's Transitous enrichment): fetch real
     // timetables for the transit-able gateway legs the offline plan found, then re-run the
@@ -316,9 +313,7 @@ export async function fetchPlan(params) {
         if (!out.ok) return err(out.code || "plan_failed", out.error || "could not plan that route");
       }
     }
-    const weather = await weatherPromise;
-    if (myToken !== _planToken) throw superseded("plan");
-    return weather ? { ...out, weather } : out;
+    return out;
   } catch (e) {
     if (e?.name === "AbortError") throw e; // superseded by a newer click - propagate
     // Mirrors server.py's _handle_plan: never leak internals to the UI, log for debugging.
