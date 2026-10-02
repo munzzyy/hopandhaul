@@ -387,8 +387,8 @@ The bundled datasets and keyless services this tool leans on, with licenses:
 
 ## Roadmap
 
-What is left needs a person rather than more code: a release, native speakers, and a
-decision.
+What is left needs a person rather than more code: native speakers and two
+decisions.
 
 - Native-speaker review of the 45 translated catalogs. None has had one yet. The four
   right-to-left languages (Arabic, Hebrew, Persian, Urdu) and the screen-reader strings
