@@ -5,13 +5,13 @@ train ride from there is worth it.**
 
 [![CI](https://github.com/munzzyy/hopandhaul/actions/workflows/ci.yml/badge.svg)](https://github.com/munzzyy/hopandhaul/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/hopandhaul)](https://pypi.org/project/hopandhaul/)
-[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](https://github.com/munzzyy/hopandhaul/blob/main/LICENSE)
 ![zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 
 > **Try it live:** [hopandhaul.munzzyy.dev](https://hopandhaul.munzzyy.dev/).
 > No install, no keys, runs entirely in your browser.
 
-![Click a destination and the recommendation card answers with the math: cost, time, CO2 per option, the $200 rule applied, on a self-drawn offline map](docs/media/app-dark.png)
+![Click a destination and the recommendation card answers with the math: cost, time, CO2 per option, the $200 rule applied, on a self-drawn offline map](https://raw.githubusercontent.com/munzzyy/hopandhaul/main/docs/media/app-dark.png)
 
 Click anywhere on the map and a recommendation card slides in: cost, time, and a CO2
 estimate for every option side by side. A copy-link button turns the plan into a URL you
@@ -23,7 +23,7 @@ to reproduce a trip like it.
 **20-second demo: plan a trip, switch the UI to French, then flip the whole layout to
 Arabic:**
 
-![Animated demo: planning a trip, then switching the UI language to French and Arabic with full RTL mirroring](docs/media/demo.gif)
+![Animated demo: planning a trip, then switching the UI language to French and Arabic with full RTL mirroring](https://raw.githubusercontent.com/munzzyy/hopandhaul/main/docs/media/demo.gif)
 
 ## The idea
 
@@ -262,7 +262,7 @@ instead of breaking.
 
 | | |
 |---|---|
-| ![The language picker: filterable list of 46 languages with native names](docs/media/language-modal.png) | ![The app in Arabic: fully mirrored right-to-left layout](docs/media/app-arabic-rtl.png) |
+| ![The language picker: filterable list of 46 languages with native names](https://raw.githubusercontent.com/munzzyy/hopandhaul/main/docs/media/language-modal.png) | ![The app in Arabic: fully mirrored right-to-left layout](https://raw.githubusercontent.com/munzzyy/hopandhaul/main/docs/media/app-arabic-rtl.png) |
 
 Native speaker and you spot something off? A translation fix in
 `src/hopandhaul/ui/i18n/<code>.json` is about the friendliest PR there is.
@@ -408,10 +408,12 @@ decision.
 
 ## Contributing / License / Security
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to run tests and the code-style/voice
-expectations, and [SECURITY.md](SECURITY.md) for the security posture and how to report a vulnerability.
+See [CONTRIBUTING.md](https://github.com/munzzyy/hopandhaul/blob/main/CONTRIBUTING.md) for how
+to run tests and the code-style/voice expectations, and
+[SECURITY.md](https://github.com/munzzyy/hopandhaul/blob/main/SECURITY.md) for the security
+posture and how to report a vulnerability.
 
-Licensed [GPL-3.0-or-later](LICENSE): use, study, change and share it, but a copy or modified
+Licensed [GPL-3.0-or-later](https://github.com/munzzyy/hopandhaul/blob/main/LICENSE): use, study, change and share it, but a copy or modified
 version you distribute has to stay under the GPL and come with its source. Releases up to v0.9.1
 were under the Prosperity Public License 3.0.0.
 

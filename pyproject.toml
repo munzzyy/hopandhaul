@@ -26,7 +26,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/munzzyy/hopandhaul"
+Homepage = "https://hopandhaul.munzzyy.dev"
+Source = "https://github.com/munzzyy/hopandhaul"
+Issues = "https://github.com/munzzyy/hopandhaul/issues"
+Releases = "https://github.com/munzzyy/hopandhaul/releases"
 
 [project.scripts]
 hopandhaul = "hopandhaul.__main__:main"
