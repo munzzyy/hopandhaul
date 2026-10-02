@@ -66,7 +66,7 @@ Liveness check. No params, no keys, no work done. This is the one to point a con
 ```json
 {
   "ok": true,
-  "version": "0.9.1"
+  "version": "0.10.0"
 }
 ```
 

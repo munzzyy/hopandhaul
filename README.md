@@ -390,10 +390,6 @@ The bundled datasets and keyless services this tool leans on, with licenses:
 What is left needs a person rather than more code: a release, native speakers, and a
 decision.
 
-- A new release. `pipx install hopandhaul` still installs 0.9.1, which is under the old
-  Prosperity license and points at the old web address. The GPL relicense, the move to
-  hopandhaul.munzzyy.dev and every fix since then reach PyPI only when the next version is
-  published.
 - Native-speaker review of the 45 translated catalogs. None has had one yet. The four
   right-to-left languages (Arabic, Hebrew, Persian, Urdu) and the screen-reader strings
   matter most, since a wrong word there is the hardest to spot from outside. How to send a
